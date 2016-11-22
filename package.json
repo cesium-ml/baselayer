@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "build": "webpack"
+  },
+  "dependencies": {
+    "webpack": "latest"
+  },
+  "devDependencies": {
+  },
+  "browserify": {
+    "transform": [
+      "glslify",
+      "cwise"
+    ]
+  },
+  "repository": {
+  }
+}

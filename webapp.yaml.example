@@ -1,0 +1,70 @@
+app:
+    secret-key: abc01234  # This secret key can be any random string of
+                          # characters.  Typically ``os.urandom(24)`` is
+                          # good enough.
+
+authentication:
+    # The Stormpath API keys can be downloaded from:
+    # https://api.stormpath.com
+
+    stormpath_api_key_id: 01234
+    stormpath_api_key_secret: 0124
+    stormpath_application: webapp
+
+    ## This section is optional.  If not filled in, Google Authentication
+    ## will be disabled.
+    ##
+    ## These values can be obtained from
+    ##   https://console.developers.google.com/project
+    ##
+    ## When filling in the form for running on localhost:
+    ##
+    ## - Appliation type: Web
+    ## - Authorized JavaScript origins: blank
+    ## - Authorized redirect URIs: http://localhost:7000/google
+    ##                             http://your.hosted.server.com
+    ##
+    ## Always include the localhost:7000 for unit testing purposes.
+
+    google_client_id:
+    google_client_secret:
+
+paths:
+    # Note below that defined variables can be reused in subsequent
+    # definitions.
+
+    data_path:        '~/.local/webapp'
+    err_log_path:     '{data_path}/logs/errors_and_warnings.log'
+    models_folder:    '{data_path}/models'
+    features_folder:  '{data_path}/extracted_features'
+    predictions_folder:  '{data_path}/predictions'
+    ts_data_folder:  '{data_path}/ts_data'
+
+    upload_folder:    '{data_path}/uploads'
+    custom_feature_script_folder: '{data_path}/uploads/custom_feature_scripts'
+    temp: '/tmp/webapp'
+
+database:
+    database: webapp
+    host: 
+    port: 5432
+    user: webapp
+    password: 
+
+docker:
+    enabled: 0
+
+server:
+    url: http://localhost:7000
+
+xr_engine: netcdf4
+##xr_engine: h5netcdf
+
+## testing:
+##    ## Disable authentication
+##    disable_auth: 1
+##
+##    ## Use a separate test database
+##    test_db: 1
+##
+##    debug: 0
