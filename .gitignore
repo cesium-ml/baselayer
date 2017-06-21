@@ -4,7 +4,6 @@ log/
 static/build
 run/
 public/
-ghostdriver.log
 \#*
 *~
 *.swp
@@ -13,6 +12,3 @@ ghostdriver.log
 __pycache__/
 node_modules/
 *.pyc
-_test_config.yaml
-config.yaml
-data
