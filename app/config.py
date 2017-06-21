@@ -2,6 +2,17 @@ import yaml
 import os
 from pathlib import Path
 import glob
+import collections
+
+def recursive_update(d, u):
+    # Based on https://stackoverflow.com/a/3233356/214686
+    for k, v in u.items():
+        if isinstance(v, collections.Mapping):
+            r = recursive_update(d.get(k, {}) or {}, v)
+            d[k] = r
+        else:
+            d[k] = u[k]
+    return d
 
 
 class Config(dict):
@@ -15,7 +26,7 @@ class Config(dict):
         """Update configuration from YAML file"""
         if os.path.isfile(filename):
             more_cfg = yaml.load(open(filename))
-            dict.update(self, more_cfg)
+            recursive_update(self, more_cfg)
             print('[baselayer] Loaded {}'.format(os.path.relpath(filename)))
 
     def __getitem__(self, key):
