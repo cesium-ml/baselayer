@@ -1,6 +1,6 @@
 # `baselayer`: A Web Application Template
 
-Modify something
+Modify something else
 
 Baselayer is a "batteries included" web application template that includes:
 
