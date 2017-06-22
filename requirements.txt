@@ -3,6 +3,7 @@ pyyaml
 tornado
 pyzmq
 pyjwt
+distributed>=1.17.1
 simplejson
 selenium
 pytest
