@@ -14,7 +14,7 @@ hash -d pip  # find upgraded pip
 section_end "install.base.requirements"
 
 section "install.baselayer.requirements"
-git clone git://github.com/cesium-ml/baselayer_template_app
+git clone --recursive git://github.com/cesium-ml/baselayer_template_app
 (cd baselayer_template_app/baselayer && git checkout $TRAVIS_COMMIT)
 cd baselayer_template_app
 npm -g install npm@4.2.0
