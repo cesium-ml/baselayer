@@ -1,7 +1,6 @@
 from datetime import datetime
 import simplejson as json
 import numpy as np
-import pandas as pd
 import six
 from sqlalchemy.orm.base import object_mapper
 from sqlalchemy.orm.exc import UnmappedInstanceError
@@ -38,7 +37,7 @@ class Encoder(json.JSONEncoder):
         elif isinstance(o, np.ndarray):
             return o.tolist()
 
-        elif isinstance(o, pd.DataFrame):
+        elif type(o).__name__ == 'DataFrame':  # avoid pandas import
             o.columns = o.columns.droplevel('channel')  # flatten MultiIndex
             return o.to_dict(orient='index')
 
