@@ -15,7 +15,7 @@ section_end "install.base.requirements"
 
 section "install.baselayer.requirements"
 git clone git://github.com/cesium-ml/baselayer_template_app
-ln -s `pwd` baselayer_template_app/baselayer
+(cd baselayer_template_app/baselayer && git checkout $TRAVIS_COMMIT)
 cd baselayer_template_app
 npm -g install npm@4.2.0
 npm --version
