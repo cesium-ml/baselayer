@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { createCookie, readCookie, eraseCookie } from '../cookies';
 import ReconnectingWebSocket from '../reconnecting-websocket';
@@ -179,9 +180,9 @@ class WebSocket extends React.Component {
 }
 
 WebSocket.propTypes = {
-  url: React.PropTypes.string.isRequired,
-  auth_url: React.PropTypes.string.isRequired,
-  messageHandler: React.PropTypes.instanceOf(MessageHandler)
+  url: PropTypes.string.isRequired,
+  auth_url: PropTypes.string.isRequired,
+  messageHandler: PropTypes.instanceOf(MessageHandler)
 };
 
 module.exports = WebSocket;
