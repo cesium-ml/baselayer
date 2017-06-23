@@ -10,11 +10,14 @@ from .json_util import to_json
 from .custom_exceptions import AccessError
 
 
+DBSession = scoped_session(sessionmaker())
+
+
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
-def init_db(user, database, password='', host='localhost', port=5432):
+def init_db(user, database, password=None, host=None, port=None):
     url = 'postgresql://{}:{}@{}:{}/{}'
-    url = url.format(user, password, host, port, database)
+    url = url.format(user, password or '', host or '', port or '', database)
 
     conn = sa.create_engine(url, client_encoding='utf8')
 
@@ -22,9 +25,6 @@ def init_db(user, database, password='', host='localhost', port=5432):
     Base.metadata.bind = conn
 
     return conn
-
-
-DBSession = scoped_session(sessionmaker())
 
 
 class BaseMixin(object):
