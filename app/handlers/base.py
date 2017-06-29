@@ -75,13 +75,14 @@ class BaseHandler(PSABaseHandler):
         DBSession.remove()
         return super(BaseHandler, self).on_finish()
 
-    def error(self, message):
+    def error(self, message, data={}):
         print('! App Error:', message)
 
         self.set_status(200)
         self.write({
             "status": "error",
-            "message": message
+            "message": message,
+            "data": data
             })
 
     def action(self, action, payload={}):
