@@ -15,14 +15,15 @@ parser.add_argument('--config', action='append')
 parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
 
+for config in args.config:
+    cfg.update_from(config)
+
 app_factory = cfg['app:factory']
 
 module, app_factory = app_factory.rsplit('.', 1)
 app_factory = getattr(importlib.import_module(module), app_factory)
 
-
-app = app_factory(args.config, debug=args.debug)
-app._baselayer_cfg = cfg
+app = app_factory(cfg, debug=args.debug)
 app.cfg = cfg
 
 app.listen(cfg['app:port'])

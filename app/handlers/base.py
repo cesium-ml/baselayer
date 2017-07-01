@@ -19,7 +19,6 @@ import time
 
 class BaseHandler(PSABaseHandler):
     def prepare(self):
-        self._baselayer_cfg = self.application._baselayer_cfg
         self.cfg = self.application.cfg
         self.flow = Flow()
 
@@ -49,7 +48,7 @@ class BaseHandler(PSABaseHandler):
         return super(BaseHandler, self).prepare()
 
     def get_current_user(self):
-        if not self._baselayer_cfg['server:multi_user']:
+        if not self.cfg['server:multi_user']:
             username = 'testuser@gmail.com'
             try:
                 return User.query.filter(User.username == username).one()

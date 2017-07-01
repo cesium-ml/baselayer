@@ -24,10 +24,13 @@ class Config(dict):
 
     def update_from(self, filename):
         """Update configuration from YAML file"""
+        relpath = os.path.relpath(filename)
         if os.path.isfile(filename):
             more_cfg = yaml.load(open(filename))
             recursive_update(self, more_cfg)
-            print('[baselayer] Loaded {}'.format(os.path.relpath(filename)))
+            print(f'[baselayer] Loaded {relpath}')
+        else:
+            print(f'[baselayer] Failed to load {relpath}')
 
     def __getitem__(self, key):
         keys = key.split(':')
@@ -68,12 +71,9 @@ def load_config(config_files=None):
     # with values in user configuration files
     config_files = [Path(basedir/'config.yaml.example'),
                     Path(basedir/'../config.yaml.example')] + config_files
-
     config_files = [os.path.abspath(Path(c).absolute()) for c in config_files]
 
-    cfg = Config(config_files)
-
-    return cfg
+    return Config(config_files)
 
 
 if __name__ == "__main__":
