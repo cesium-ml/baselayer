@@ -16,8 +16,9 @@ parser.add_argument('--config', action='append')
 parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
 
-for config in args.config:
-    cfg.update_from(config)
+if args.config:
+    for config in args.config:
+        cfg.update_from(config)
 
 app_factory = cfg['app:factory']
 baselayer_settings['cookie_secret'] = cfg['app:secret-key']
@@ -25,10 +26,6 @@ baselayer_settings['autoreload'] = args.debug
 
 module, app_factory = app_factory.rsplit('.', 1)
 app_factory = getattr(importlib.import_module(module), app_factory)
-
-if args.config:
-    for cf in args.config:
-        cfg.update_from(cf)
 
 app = app_factory(cfg, baselayer_handlers, baselayer_settings)
 app.cfg = cfg
