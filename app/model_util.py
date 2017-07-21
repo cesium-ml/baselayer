@@ -3,6 +3,10 @@ from contextlib import contextmanager
 
 from baselayer.app import models
 
+# Do not remove this "unused" import; it is required for
+# psa to initialize the Tornado models
+from . import psa
+
 
 @contextmanager
 def status(message):
@@ -44,6 +48,7 @@ def create_tables(retry=5):
                 raise e
             else:
                 print('Could not connect to database...sleeping 3')
+                print(f'  > {e}')
                 time.sleep(3)
 
 
