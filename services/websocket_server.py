@@ -7,7 +7,9 @@ import jwt
 
 import collections
 
-from baselayer.app import cfg
+from baselayer.app.config import load_config
+
+cfg = load_config()
 secret = cfg['app:secret-key']
 
 if secret is None:

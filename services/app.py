@@ -3,7 +3,7 @@ import argparse
 
 from zmq.eventloop import ioloop
 
-from baselayer.app import cfg
+from baselayer.app.config import load_config
 from baselayer.app.app_server import (handlers as baselayer_handlers,
                                       settings as baselayer_settings)
 
@@ -16,6 +16,7 @@ parser.add_argument('--config', action='append')
 parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
 
+cfg = load_config()
 if args.config:
     for config in args.config:
         cfg.update_from(config)

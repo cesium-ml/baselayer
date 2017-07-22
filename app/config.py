@@ -29,8 +29,6 @@ class Config(dict):
             more_cfg = yaml.load(open(filename))
             recursive_update(self, more_cfg)
             print(f'[baselayer] Loaded {relpath}')
-        else:
-            print(f'[baselayer] Failed to load {relpath}')
 
     def __getitem__(self, key):
         keys = key.split(':')
@@ -74,7 +72,3 @@ def load_config(config_files=None):
     config_files = [os.path.abspath(Path(c).absolute()) for c in config_files]
 
     return Config(config_files)
-
-
-if __name__ == "__main__":
-    show()
