@@ -30,7 +30,7 @@ def init_db(user, database, password=None, host=None, port=None):
 class BaseMixin(object):
     query = DBSession.query_property()
     id = sa.Column(sa.Integer, primary_key=True)
-    created = sa.Column(sa.DateTime, nullable=False, default=datetime.now)
+    created_at = sa.Column(sa.DateTime, nullable=False, default=datetime.now)
 
     @declared_attr
     def __tablename__(cls):
