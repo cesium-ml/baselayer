@@ -24,6 +24,10 @@ if args.config:
 app_factory = cfg['app:factory']
 baselayer_settings['cookie_secret'] = cfg['app:secret-key']
 baselayer_settings['autoreload'] = args.debug
+if args.debug:
+    import logging
+    logging.basicConfig()
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 if cfg['server:auth:debug_login']:
     baselayer_settings['SOCIAL_AUTH_AUTHENTICATION_BACKENDS'] = (
