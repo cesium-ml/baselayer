@@ -53,7 +53,7 @@ class BaseHandler(PSABaseHandler):
             try:
                 return User.query.filter(User.username == username).one()
             except NoResultFound:
-                u = User(username=username, email=username)
+                u = User(username=username)
                 DBSession.add(u)
                 DBSession().commit()
                 return u

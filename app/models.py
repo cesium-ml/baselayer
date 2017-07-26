@@ -71,7 +71,6 @@ Base = declarative_base(cls=BaseMixin)
 
 class User(Base):
     username = sa.Column(sa.String(), nullable=False, unique=True)
-    email = sa.Column(sa.String(), nullable=False, unique=True)
 
     @classmethod
     def user_model(cls):
