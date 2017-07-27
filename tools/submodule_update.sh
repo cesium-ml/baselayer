@@ -5,10 +5,12 @@
 #
 
 echo "--- Updating submodules"
-git submodule update --remote
-git submodule foreach -q --recursive \
-      'echo "* $name";\
-       git branch -d master;\
-       git checkout \
-         $(git config -f $toplevel/.gitmodules submodule.$name.branch || echo master)'
+git submodule foreach --quiet \
+'
+  BRANCH=$(git config -f $toplevel/.gitmodules submodule.$name.branch \
+           || echo master)
+  echo "* $name -> origin/$BRANCH"
+  git pull --quiet origin $BRANCH
+  git checkout --quiet $BRANCH
+'
 echo "--- End submodule update"
