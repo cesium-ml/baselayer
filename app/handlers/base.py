@@ -47,25 +47,62 @@ class BaseHandler(PSABaseHandler):
 
         return super(BaseHandler, self).prepare()
 
-    def get_current_user(self):
+    def get_current_user(self, id_only=False):
+        """Get currently logged in user.
+
+        The currently logged in user_id is stored in a secure cookie
+        by Python Social Auth, iff the server is in multi_user mode.
+        Otherwise, we always return the test user.
+
+        Parameters
+        ----------
+        id_only : bool
+            Whether the full user or only the user_id should be returned.
+
+        Returns
+        -------
+        user or user_id : str or int
+            Username or id, depending on `id_only`.
+
+        """
         if not self.cfg['server:multi_user']:
             username = 'testuser@gmail.com'
             try:
-                return User.query.filter(User.username == username).one()
+                user = User.query.filter(User.username == username).one()
             except NoResultFound:
-                u = User(username=username)
-                DBSession.add(u)
+                user = User(username=username)
+                DBSession.add(user)
                 DBSession().commit()
-                return u
+
+            if id_only:
+                return int(user.id)
+            else:
+                return user
         else:
+            # This cookie is set by Python Social Auth's
+            # BaseHandler:
+            # https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
             user_id = self.get_secure_cookie('user_id')
             if user_id is None:
                 return None
             else:
-                return User.query.get(int(user_id))
+                # We duplicate the `id_only` check here,
+                # because we do not want to make a query into the database
+                # unnecessarily each time the current user_id is requested.
+                #
+                # E.g., this happens frequently whenever websocket messages
+                # need to be passed around.
+                if id_only:
+                    return int(user_id)
+                else:
+                    return User.query.get(int(user_id))
 
     def push(self, action, payload={}):
-        self.flow.push(self.current_user.username, action, payload)
+        user_id = str(self.get_current_user(id_only=True))
+        if not user_id:
+            raise RuntimeError("Cannot push messages unless user is logged in")
+        else:
+            self.flow.push(user_id, action, payload)
 
     def get_json(self):
         return tornado.escape.json_decode(self.request.body)

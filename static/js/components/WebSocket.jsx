@@ -94,7 +94,7 @@ class WebSocket extends React.Component {
         "No WebSocket connection: limited functionality may be available",
         tag
       );
-    }
+    };
 
     ws.onmessage = (event) => {
       const message = event.data;
