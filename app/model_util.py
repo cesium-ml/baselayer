@@ -18,6 +18,8 @@ def status(message):
         raise
     else:
         print(f'\r[✓] {message}')
+    finally:
+        models.DBSession().commit()
 
 
 def drop_tables():
