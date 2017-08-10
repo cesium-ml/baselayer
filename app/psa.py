@@ -23,8 +23,8 @@ class FakeGoogleOAuth2(GoogleOAuth2):
 
     def user_data(self, access_token, *args, **kwargs):
         return {
-            'id': 'testuser@gmail.com',
-            'emails': [{'value': 'testuser@gmail.com', 'type': 'home'}]
+            'id': 'testuser@cesium-ml.org',
+            'emails': [{'value': 'testuser@cesium-ml.org', 'type': 'home'}]
         }
 
 

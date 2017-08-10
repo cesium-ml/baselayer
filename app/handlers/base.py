@@ -66,7 +66,7 @@ class BaseHandler(PSABaseHandler):
 
         """
         if not self.cfg['server:multi_user']:
-            username = 'testuser@gmail.com'
+            username = 'testuser@cesium-ml.org'
             try:
                 # TODO join ACLs since those will be needed almost every time?
                 user = User.query.filter(User.username == username).one()
