@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import sqlalchemy as sa
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
@@ -136,13 +137,11 @@ class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
     roles = relationship('Role', secondary='user_roles', back_populates='users',
                          cascade='all')
-
-    @hybrid_property
-    def permissions(self):
-        acls = (ACL.query.join(Role, ACL.roles)
-                .join(User, Role.users)
-                .filter(User.id == self.id))
-        return [a.id for a in acls]
+    acls = relationship(ACL, secondary='join(roles, user_roles).'
+                                       'join(role_acls)',
+                        primaryjoin='user_roles.c.user_id == users.c.id',
+                        lazy='joined')
+    permissions = association_proxy('acls', 'id')
 
     @classmethod
     def user_model(cls):
