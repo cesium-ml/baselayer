@@ -47,9 +47,10 @@ class BaseMixin(object):
                      for c in self.__table__.columns]
         return f"<{type(self).__name__}({', '.join(attr_list)})>"
 
-    def to_dict(self):
-        return {c.name: getattr(self, c.name)
-                for c in type(self).__table__.columns}
+    def to_dict(self, other_fields=[]):
+        return {**{c.name: getattr(self, c.name)
+                   for c in type(self).__table__.columns},
+                **{f: getattr(self, f) for f in other_fields}}
 
     @classmethod
     def get_if_owned_by(cls, ident, user):
