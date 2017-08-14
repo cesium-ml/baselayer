@@ -140,8 +140,7 @@ class User(Base):
                          cascade='all')
     acls = relationship(ACL, secondary='join(roles, user_roles).'
                                        'join(role_acls)',
-                        primaryjoin='user_roles.c.user_id == users.c.id',
-                        lazy='joined')
+                        primaryjoin='user_roles.c.user_id == users.c.id')
     permissions = association_proxy('acls', 'id')
 
     @classmethod

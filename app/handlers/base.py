@@ -1,5 +1,6 @@
 import tornado.escape
 import tornado.ioloop
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
 # The Python Social Auth base handler gives us:
@@ -69,7 +70,8 @@ class BaseHandler(PSABaseHandler):
             username = 'testuser@cesium-ml.org'
             try:
                 # TODO join ACLs since those will be needed almost every time?
-                user = User.query.filter(User.username == username).one()
+                user = (User.query.filter(User.username == username)
+                        .options(joinedload('acls')).one())
             except NoResultFound:
                 user = User(username=username)
                 DBSession.add(user)
@@ -96,7 +98,7 @@ class BaseHandler(PSABaseHandler):
                 if id_only:
                     return int(user_id)
                 else:
-                    return User.query.get(int(user_id))
+                    return User.query.options(joinedload('acls')).get(int(user_id))
 
     def push(self, action, payload={}):
         user_id = str(self.get_current_user(id_only=True))
