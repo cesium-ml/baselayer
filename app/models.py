@@ -3,7 +3,6 @@ from datetime import datetime
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -47,15 +46,13 @@ class BaseMixin(object):
                      for c in self.__table__.columns]
         return f"<{type(self).__name__}({', '.join(attr_list)})>"
 
-    def to_dict(self, other_fields=[]):
-        return {**{c.name: getattr(self, c.name)
-                   for c in type(self).__table__.columns},
-                **{f: getattr(self, f) for f in other_fields}}
+    def to_dict(self):
+        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
 
     @classmethod
-    def get_if_owned_by(cls, ident, user):
+    def get_if_owned_by(cls, ident, user, options=[]):
         try:
-            obj = cls.query.get(ident)
+            obj = cls.query.options(options).get(ident)
         except NoResultFound:
             raise AccessError(f'No such {cls.__name__}')
 
