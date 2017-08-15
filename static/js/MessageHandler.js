@@ -12,7 +12,7 @@ class MessageHandler {
         default:
           handler(message);
       }
-    }
+    };
   }
 }
 

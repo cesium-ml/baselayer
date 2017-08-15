@@ -4,6 +4,7 @@ from tornado import websocket, web
 import json
 import zmq
 import jwt
+import sys
 
 import collections
 
@@ -19,6 +20,35 @@ ctx = zmq.Context()
 
 
 class WebSocket(websocket.WebSocketHandler):
+    """This is a single Tornado websocket server.  It can handle multiple
+    websocket connections for multiple users.
+
+    A websocket server has one ZeroMQ stream, which listens to the
+    message bus (see `message_proxy.py`), onto which messages are
+    posted by the web application.
+
+    The ZeroMQ stream subscribes to the channel '*' by default:
+    messages intended for all users.
+
+    Additionally, whenever a user makes a new websocket connection to
+    this server, the stream subscribes to that user's id, so that
+    it will receive their messages from the bus.
+
+    +----------------------+         +------------+ +---------+
+    |                      |<--------| user1      | | user2   |
+    |    Tornado           |   API   +------^-----+ +---^-----+
+    |    Web Server        |                |           |
+    |                      |         +------+-----------+-----+
+    +-----+----------------+         |    WebSocket server    |
+          | PUSH                     +------------------------+
+          |                                 ^ SUB
+          |                                 |
+          v PULL                            | PUB
+    +---------------------------------------+-----------------+
+    |                   ZMQ Message Proxy                     |
+    +---------------------------------------------------------+
+
+    """
     sockets = collections.defaultdict(set)
     _zmq_stream = None
 
@@ -36,6 +66,7 @@ class WebSocket(websocket.WebSocketHandler):
 
     @classmethod
     def install_stream(cls, stream):
+        stream.socket.setsockopt(zmq.SUBSCRIBE, '*'.encode('utf-8'))
         cls._zmq_stream = stream
 
     @classmethod
@@ -45,7 +76,7 @@ class WebSocket(websocket.WebSocketHandler):
 
     @classmethod
     def unsubscribe(cls, username):
-        cls._zmq_stream.socket.setsockopt(zmq.UNSUBSCRIBE,
+        cls._zmq_stream.socket.setsockopt(zmq.SUBSCRIBE,
                                           username.encode('utf-8'))
 
     def check_origin(self, origin):
@@ -113,9 +144,22 @@ class WebSocket(websocket.WebSocketHandler):
     def broadcast(cls, data):
         username, payload = [d.decode('utf-8') for d in data]
 
-        for socket in cls.sockets[username]:
-            print('[WebSocket] Forwarding message to', username)
-            socket.write_message(payload)
+        if username == '*':
+            print('[WebSocket] Forwarding message to all users')
+
+            all_sockets = [socket
+                           for socket_list in cls.sockets.values()
+                           for socket in socket_list]
+
+            for socket in all_sockets:
+                socket.write_message(payload)
+
+        else:
+
+            for socket in cls.sockets[username]:
+                print(f'[WebSocket] Forwarding message to {username}')
+
+                socket.write_message(payload)
 
 
 if __name__ == "__main__":
