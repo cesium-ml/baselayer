@@ -13,14 +13,14 @@ import jwt
 class SocketAuthTokenHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
-        user_id = self.get_current_user(id_only=True)
-        if user_id is None:
+        user = self.current_user
+        if user is None:
             raise RuntimeError('No current user while authenticating socket. '
                                'This should NEVER happen.')
 
         secret = self.cfg['app:secret-key']
         token = jwt.encode({
             'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=15),
-            'username': str(user_id),
+            'username': user.username,
             }, secret)
         self.success({'token': token})

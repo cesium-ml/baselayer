@@ -48,23 +48,12 @@ class BaseHandler(PSABaseHandler):
 
         return super(BaseHandler, self).prepare()
 
-    def get_current_user(self, id_only=False):
+    def get_current_user(self):
         """Get currently logged in user.
 
         The currently logged in user_id is stored in a secure cookie
         by Python Social Auth, iff the server is in multi_user mode.
         Otherwise, we always return the test user.
-
-        Parameters
-        ----------
-        id_only : bool
-            Whether the full user or only the user_id should be returned.
-
-        Returns
-        -------
-        user or user_id : str or int
-            Username or id, depending on `id_only`.
-
         """
         if not self.cfg['server:multi_user']:
             username = 'testuser@cesium-ml.org'
@@ -77,10 +66,7 @@ class BaseHandler(PSABaseHandler):
                 DBSession.add(user)
                 DBSession().commit()
 
-            if id_only:
-                return int(user.id)
-            else:
-                return user
+            return user
         else:
             # This cookie is set by Python Social Auth's
             # BaseHandler:
@@ -89,23 +75,28 @@ class BaseHandler(PSABaseHandler):
             if user_id is None:
                 return None
             else:
-                # We duplicate the `id_only` check here,
-                # because we do not want to make a query into the database
-                # unnecessarily each time the current user_id is requested.
-                #
-                # E.g., this happens frequently whenever websocket messages
-                # need to be passed around.
-                if id_only:
-                    return int(user_id)
-                else:
-                    return User.query.options(joinedload('acls')).get(int(user_id))
+                return User.query\
+                           .options(joinedload('acls'))\
+                           .get(int(user_id))
 
     def push(self, action, payload={}):
-        user_id = str(self.get_current_user(id_only=True))
-        if not user_id:
-            raise RuntimeError("Cannot push messages unless user is logged in")
-        else:
-            self.flow.push(user_id, action, payload)
+        self.flow.push(self.current_user.username, action, payload)
+
+    def push_all(self, action, payload={}):
+        """Broadcast a message to all frontend users.
+
+        Use this functionality with care for two reasons:
+
+        - It emits many messages, and if those messages trigger a response from
+          frontends, it can result in many incoming API requests
+        - Any information included in the message will be seen by everyone; and
+          everyone will know it was sent.  Do not, e.g., send around a message
+          saying "secret object XYZ was updated; fetch the latest version".
+          Even though the user won't be able to fetch the object, they'll
+          know that it exists, and that it was modified.
+
+        """
+        self.flow.push('*', action, payload=payload)
 
     def get_json(self):
         return tornado.escape.json_decode(self.request.body)
