@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+
+import sys
+import os
+from os.path import join as pjoin
+import subprocess
+
+filename = sys.argv[-1]
+cwd = os.getcwd() + os.sep
+
+path = cwd
+for p in path.split(os.sep)[::-1]:
+    path = pjoin(path, '..')
+    if os.path.exists(pjoin(path, 'package.json')):
+        break
+
+eslint_cmd = [pjoin(path, './node_modules/.bin/eslint')] + sys.argv[1:]
+
+p = subprocess.Popen(eslint_cmd, stdout=subprocess.PIPE)
+for line in p.stdout:
+    line = line.decode('utf-8')
+    line = line.replace(cwd, '')
+    print(line)
+
+sys.exit(p.returncode)
