@@ -76,7 +76,7 @@ class WebSocket(websocket.WebSocketHandler):
 
     @classmethod
     def unsubscribe(cls, username):
-        cls._zmq_stream.socket.setsockopt(zmq.SUBSCRIBE,
+        cls._zmq_stream.socket.setsockopt(zmq.UNSUBSCRIBE,
                                           username.encode('utf-8'))
 
     def check_origin(self, origin):
