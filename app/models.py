@@ -47,16 +47,15 @@ class BaseMixin(object):
         return f"<{type(self).__name__}({', '.join(attr_list)})>"
 
     def to_dict(self):
+        if sa.inspection.inspect(self).expired:
+            DBSession().refresh(self)
         return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
 
     @classmethod
     def get_if_owned_by(cls, ident, user, options=[]):
-        try:
-            obj = cls.query.options(options).get(ident)
-        except NoResultFound:
-            raise AccessError(f'No such {cls.__name__}')
+        obj = cls.query.options(options).get(ident)
 
-        if not obj.is_owned_by(user):
+        if obj is None or not obj.is_owned_by(user):
             raise AccessError(f'No such {cls.__name__}')
 
         return obj
