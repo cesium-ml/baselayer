@@ -63,14 +63,12 @@ def colorize(s, fg=None, bg=None, bold=False, underline=False, reverse=False):
     return style_start + s + style_end
 
 
-
 @contextlib.contextmanager
 def nostdout():
     save_stdout = sys.stdout
     sys.stdout = io.StringIO()
     yield
     sys.stdout = save_stdout
-
 
 
 def logs_from_config(supervisor_conf):
@@ -87,9 +85,7 @@ def logs_from_config(supervisor_conf):
 
 basedir = pjoin(os.path.dirname(__file__), '..')
 logdir = '../log'
-watched = logs_from_config(pjoin(basedir, 'conf/supervisor/common.conf'))
-watched.extend(logs_from_config(pjoin(basedir, 'conf/supervisor/app.conf')))
-
+watched = logs_from_config(pjoin(basedir, 'conf/supervisor/supervisor.conf'))
 
 sys.path.insert(0, basedir)
 
@@ -109,7 +105,7 @@ def tail_f(filename, interval=1.0):
         except IOError:
             time.sleep(1)
 
-    #Find the size of the file and move to the end
+    # Find the size of the file and move to the end
     st_results = os.stat(filename)
     st_size = st_results[6]
     f.seek(st_size)
@@ -135,8 +131,10 @@ def print_log(filename, color):
 
 
 colors = ['default', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'red']
-threads = [threading.Thread(target=print_log, args=(logfile, colors[n % len(colors)])) for
-           (n, logfile) in enumerate(watched)]
+threads = [
+    threading.Thread(target=print_log, args=(logfile, colors[n % len(colors)]))
+    for (n, logfile) in enumerate(watched)
+]
 
 for t in threads:
     t.start()
