@@ -52,32 +52,18 @@ class BaseHandler(PSABaseHandler):
         """Get currently logged in user.
 
         The currently logged in user_id is stored in a secure cookie
-        by Python Social Auth, iff the server is in multi_user mode.
-        Otherwise, we always return the test user.
+        by Python Social Auth.
         """
-        if not self.cfg['server:multi_user']:
-            username = 'testuser@cesium-ml.org'
-            try:
-                # TODO join ACLs since those will be needed almost every time?
-                user = (User.query.filter(User.username == username)
-                        .options(joinedload('acls')).one())
-            except NoResultFound:
-                user = User(username=username)
-                DBSession.add(user)
-                DBSession().commit()
-
-            return user
+        # This cookie is set by Python Social Auth's
+        # BaseHandler:
+        # https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
+        user_id = self.get_secure_cookie('user_id')
+        if user_id is None:
+            return None
         else:
-            # This cookie is set by Python Social Auth's
-            # BaseHandler:
-            # https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
-            user_id = self.get_secure_cookie('user_id')
-            if user_id is None:
-                return None
-            else:
-                return User.query\
-                           .options(joinedload('acls'))\
-                           .get(int(user_id))
+            return User.query\
+                       .options(joinedload('acls'))\
+                       .get(int(user_id))
 
     def push(self, action, payload={}):
         self.flow.push(self.current_user.username, action, payload)
