@@ -7,20 +7,23 @@ from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import TimeoutException
 from seleniumrequests.request import RequestMixin
 from baselayer.app import models
-from baselayer.app.config import Config
 
 
-def load_test_config(config_paths):
-    print('Loading test configuration from _test_config.yaml')
-    cfg = Config(config_paths)
-    print('Setting test database to:', cfg['database'])
-    models.init_db(**cfg['database'])
-    MyCustomWebDriver.server_url = cfg['server:url']
-    return cfg
+def set_server_url(server_url):
+    """Set web driver server URL using value loaded from test config file."""
+    MyCustomWebDriver.server_url = server_url
 
 
 class MyCustomWebDriver(RequestMixin, webdriver.Chrome):
-    server_url = None
+    @property
+    def server_url(self):
+        if not hasattr(self, '_server_url'):
+            raise NotImplementedError("Please first set the web driver URL"
+                                      " using `set_server_url`")
+        return self._server_url
+    @server_url.setter
+    def server_url(self, value):
+        self._server_url = value
 
     def get(self, uri):
         return webdriver.Chrome.get(self, self.server_url + uri)
