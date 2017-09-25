@@ -6,7 +6,9 @@
   <br>
 </h1>
 
-## A Scientific Web Application Template
+<h2 align="center">
+A Scientific Web Application Template
+</h2>
 
 Baselayer is a "batteries included" web application template that includes:
 
