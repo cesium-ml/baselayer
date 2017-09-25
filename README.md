@@ -1,4 +1,12 @@
-# `baselayer`: A Web Application Template
+<h1 align="center">
+  <br>
+  <img src="https://raw.githubusercontent.com/cesium-ml/baselayer/master/static/img/logo.png" alt="Baselayer">
+  <br>
+  Baselayer
+  <br>
+</h1>
+
+## A Scientific Web Application Template
 
 Baselayer is a "batteries included" web application template that includes:
 
@@ -14,21 +22,21 @@ Please clone and try our example application at
 
 https://github.com/cesium-ml/baselayer_template_app
 
-## Setup
+### Setup
 
 To be completed.
 
-## Dependencies
+### Dependencies
 
 To be completed.
 
-### MacOS
+#### MacOS
 
 Using [Homebrew](http://brew.sh/):
 
 `brew install supervisor nginx node`
 
-### Linux
+#### Linux
 
 On Debian or Ubuntu:
 ```
@@ -38,14 +46,12 @@ sudo apt-get install nginx supervisor npm nodejs-legacy
 2. Install Python and npm dependencies: `make dependencies`
 3. Run `make` to start the server, and navigate to `localhost:5000`.
 
-## Dev Tips
+### Dev Tips
 
 To be completed.
 
 Debugging:
 
-
 - Run `make log` to watch log output
 - Run `make debug` to start webserver in debug mode
 - Run `make attach` to attach to output of webserver, e.g. for use with `pdb.set_trace()`
-
