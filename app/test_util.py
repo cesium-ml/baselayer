@@ -66,7 +66,7 @@ def driver(request):
     driver.get('/')
     for i in range(5):
         try:
-            driver.wait_for_xpath('//div[contains(text(), "testuser@cesium-ml.org")]')
+            driver.wait_for_xpath('//*[contains(text(), "testuser@cesium-ml.org")]')
             break
         except TimeoutException:
             element = WebDriverWait(driver, 5).until(
