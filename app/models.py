@@ -142,6 +142,7 @@ class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
     roles = relationship('Role', secondary='user_roles', back_populates='users',
                          cascade='all')
+    role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
     acls = relationship(ACL, secondary='join(roles, user_roles).'
                                        'join(role_acls)',
                         primaryjoin='user_roles.c.user_id == users.c.id')
