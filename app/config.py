@@ -1,8 +1,8 @@
 import yaml
 import os
 from pathlib import Path
-import glob
 import collections
+
 
 def recursive_update(d, u):
     # Based on https://stackoverflow.com/a/3233356/214686
@@ -25,6 +25,12 @@ class Config(dict):
     def update_from(self, filename):
         """Update configuration from YAML file"""
         relpath = os.path.relpath(filename)
+
+        # If config file lives outside this directory, print it as
+        # an absolute path.
+        if relpath.startswith('..'):
+            relpath = os.path.abspath(relpath)
+
         if os.path.isfile(filename):
             more_cfg = yaml.load(open(filename))
             recursive_update(self, more_cfg)
@@ -60,15 +66,19 @@ class Config(dict):
 
 def load_config(config_files=None):
     basedir = Path(os.path.dirname(__file__))/'..'
-
     if config_files is None:
-        config_files = [Path(basedir/'config.yaml'),
-                        Path(basedir/'../config.yaml')]
+        config_files = []
 
     # Always load the default configuration values first, and override
     # with values in user configuration files
-    config_files = [Path(basedir/'config.yaml.example'),
-                    Path(basedir/'../config.yaml.example')] + config_files
-    config_files = [os.path.abspath(Path(c).absolute()) for c in config_files]
+    all_configs = [Path(basedir/'config.yaml.example'),
+                   Path(basedir/'../config.yaml.example')] + config_files
+    all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
 
-    return Config(config_files)
+    cfg = Config(all_configs)
+
+    missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
+    for m in missing:
+        print(f'[baselayer] Specified config file {m} missing')
+
+    return cfg
