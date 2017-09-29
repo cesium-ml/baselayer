@@ -91,9 +91,16 @@ with status(f'Creating user {user}'):
     run(f'{sudo} createuser {user}')
 
 if args.force:
-    with status('Removing existing databases'):
-        for current_db in all_dbs:
-            run(f'{sudo} dropdb {current_db}')
+    try:
+        with status('Removing existing databases'):
+            for current_db in all_dbs:
+                p = run(f'{sudo} dropdb {current_db}')
+                if p.returncode != 0:
+                    raise RuntimeError()
+    except:
+        print('Could not delete database: \n\n'
+              f'{textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  ")}\n')
+        sys.exit(1)
 
 with status(f'Creating databases'):
     for current_db in all_dbs:
