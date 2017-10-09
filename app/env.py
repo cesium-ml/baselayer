@@ -25,6 +25,6 @@ def load_env():
     parser.add_argument('--debug', action='store_true')
 
     env, unknown = parser.parse_known_args()
-    cfg = load_config(config_files=env.config)
+    cfg = load_config(config_files=env.config or [])
 
     return env, cfg

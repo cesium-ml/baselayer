@@ -64,21 +64,19 @@ class Config(dict):
         print("=" * 78)
 
 
-def load_config(config_files=None):
+def load_config(config_files=[]):
     basedir = Path(os.path.dirname(__file__))/'..'
-    if config_files is None:
-        config_files = []
+    missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
+    if missing:
+        raise RuntimeError(f"[Baselayer] Missing config files: {missing}")
 
     # Always load the default configuration values first, and override
     # with values in user configuration files
     all_configs = [Path(basedir/'config.yaml.example'),
                    Path(basedir/'../config.yaml.example')] + config_files
+    all_configs = [cfg for cfg in all_configs if os.path.isfile(cfg)]
     all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
 
     cfg = Config(all_configs)
-
-    missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
-    for m in missing:
-        print(f'[baselayer] Specified config file {m} missing')
 
     return cfg
