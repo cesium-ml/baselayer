@@ -10,8 +10,8 @@ from .handlers import (
     LogoutHandler
 )
 
-from .config import load_config
-cfg = load_config()
+from .env import load_env
+env, cfg = load_env()
 
 
 # Tornado settings
@@ -39,6 +39,11 @@ settings = {
     'SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET': \
         cfg['server:auth:google_oauth2_secret'],
 }
+
+if cfg['server:auth:debug_login']:
+    settings['SOCIAL_AUTH_AUTHENTICATION_BACKENDS'] = (
+        'baselayer.app.psa.FakeGoogleOAuth2',
+    )
 
 handlers = SOCIAL_AUTH_ROUTES + [
     (r'/socket_auth_token', SocketAuthTokenHandler),

@@ -2,22 +2,21 @@
 
 import subprocess
 import sys
-import glob
-import os
 import argparse
 import textwrap
-from baselayer.app.config import load_config
+from baselayer.app.env import load_env
 
 from status import status
 
 
-parser = argparse.ArgumentParser(description='Create or re-create the database.')
+parser = argparse.ArgumentParser(
+    description='Create or re-create the database.'
+)
 parser.add_argument('-f', '--force', action='store_true',
                     help='recreate the db, even if it already exists')
-args = parser.parse_args()
+args, unknown = parser.parse_known_args()
 
-
-cfg = load_config()
+env, cfg = load_env()
 
 db = cfg['database:database']
 all_dbs = (db, db + '_test')
@@ -40,6 +39,7 @@ def run(cmd):
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
                           shell=True)
+
 
 def test_db(database):
     test_cmd = f"psql {flags} -c 'SELECT 0;' {database}"
