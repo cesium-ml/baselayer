@@ -7,12 +7,16 @@ https://github.com/python-social-auth
 from social_tornado.models import init_social
 from social_core.backends.google import GoogleOAuth2
 
+from .env import load_env
 from .models import Base, DBSession
 
 
 class FakeGoogleOAuth2(GoogleOAuth2):
-    AUTHORIZATION_URL = 'http://localhost:63000/fakeoauth2/auth'
-    ACCESS_TOKEN_URL = 'http://localhost:63000/fakeoauth2/token'
+    env, cfg = load_env()
+    base_url = cfg['server:url'].rstrip(':0123456789')  # strip :<port>
+    print('base_url:', base_url)
+    AUTHORIZATION_URL = f'{base_url}:63000/fakeoauth2/auth'
+    ACCESS_TOKEN_URL = f'{base_url}:63000/fakeoauth2/token'
 
     def user_data(self, access_token, *args, **kwargs):
         return {
