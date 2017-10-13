@@ -2,6 +2,7 @@ import tornado.escape
 import tornado.ioloop
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
+import json.decoder
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -85,7 +86,11 @@ class BaseHandler(PSABaseHandler):
         self.flow.push('*', action, payload=payload)
 
     def get_json(self):
-        return tornado.escape.json_decode(self.request.body)
+        try:
+            data = tornado.escape.json_decode(self.request.body)
+        except json.decoder.JSONDecodeError:
+            data = {}
+        return data
 
     def on_finish(self):
         DBSession.remove()
