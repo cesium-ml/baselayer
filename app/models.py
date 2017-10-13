@@ -159,4 +159,14 @@ class User(Base):
         return True
 
 
+class Token(Base):
+    id = sa.Column(sa.String, nullable=False, primary_key=True)
+    user_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
+                                     nullable=False)
+    user = relationship('User', foreign_keys=[user_id])
+    created_by_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
+                              nullable=True)
+    created_by =  relationship('User', foreign_keys=[created_by_id])
+
+
 UserRole = join_model('user_roles', User, Role)
