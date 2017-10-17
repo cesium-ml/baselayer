@@ -11,8 +11,13 @@ from .models import Base, DBSession
 
 
 class FakeGoogleOAuth2(GoogleOAuth2):
-    AUTHORIZATION_URL = 'http://localhost:63000/fakeoauth2/auth'
-    ACCESS_TOKEN_URL = 'http://localhost:63000/fakeoauth2/token'
+    @property
+    def AUTHORIZATION_URL(self):
+        return self.strategy.absolute_uri('/fakeoauth2/auth')
+
+    @property
+    def ACCESS_TOKEN_URL(self):
+        return self.strategy.absolute_uri('/fakeoauth2/token')
 
     def user_data(self, access_token, *args, **kwargs):
         return {
