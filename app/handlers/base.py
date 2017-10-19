@@ -130,8 +130,7 @@ class BaseHandler(PSABaseHandler):
 
     async def _get_client(self):
         IP = '127.0.0.1'
-        PORT = 63000
-        PORT_SCHEDULER = 63500
+        PORT_SCHEDULER = self.cfg['ports:dask_port']
 
         from distributed import Client
         client = await Client('{}:{}'.format(IP, PORT_SCHEDULER),

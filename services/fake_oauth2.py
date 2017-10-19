@@ -4,6 +4,8 @@ from tornado.httputil import url_concat
 import tornado.ioloop
 import uuid
 
+from baselayer.app.config import load_config
+
 
 class FakeGoogleOAuth2AuthHandler(RequestHandler):
     def get(self):
@@ -25,11 +27,13 @@ class FakeGoogleOAuth2TokenHandler(RequestHandler):
         })
 
 
+cfg = load_config()
+
 handlers = [
     ('/fakeoauth2/auth', FakeGoogleOAuth2AuthHandler),
     ('/fakeoauth2/token', FakeGoogleOAuth2TokenHandler)
 ]
 app = tornado.web.Application(handlers)
-app.listen(63000)
+app.listen(cfg['ports:fake_oauth_port'])
 
 tornado.ioloop.IOLoop.current().start()
