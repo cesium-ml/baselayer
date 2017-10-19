@@ -2,8 +2,12 @@
 
 import zmq
 
-IN = 'ipc:///tmp/message_flow_in'
-OUT = 'ipc:///tmp/message_flow_out'
+from baselayer.app.env import load_env
+
+env, cfg = load_env()
+
+IN = cfg['ports:websocket_path_in']
+OUT = cfg['ports:websocket_path_out']
 
 context = zmq.Context()
 

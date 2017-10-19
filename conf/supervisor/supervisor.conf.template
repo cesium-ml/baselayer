@@ -55,13 +55,13 @@ stdout_logfile=log/websocket_server.log
 redirect_stderr=true
 
 [program:dask_scheduler]
-command=dask-scheduler --host 127.0.0.1 --port=$$dask_port --no-bokeh
+command=dask-scheduler --host 127.0.0.1 --port=$${dask} --no-bokeh
 environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
 stdout_logfile=log/dask_scheduler.log
 redirect_stderr=true
 
 [program:dask_worker]
-command=dask-worker --nthreads=1 --nprocs=4 127.0.0.1:$$dask_port
+command=dask-worker --nthreads=1 --nprocs=4 127.0.0.1:$${dask}
 environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
 stdout_logfile=log/dask_workers.log
 redirect_stderr=true
