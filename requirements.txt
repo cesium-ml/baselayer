@@ -5,6 +5,7 @@ pyzmq
 pyjwt
 distributed>=1.17.1
 simplejson
+requests
 selenium
 pytest
 sqlalchemy
