@@ -32,9 +32,11 @@ server:
         google_oauth2_secret:
 
 ports:
-    websocket_port: 64000
-    fake_oauth_port: 63000
-    exposed_app_port: 5000
-    aws_proxy_port: 5001
-    internal_app_port: 65000
-    dask_port: 63500
+    websocket: 64000
+    fake_oauth: 63000
+    app: 5000
+    app_http_proxy: 5001
+    app_internal: 65000
+    dask: 63500
+    websocket_path_in: 'ipc:///tmp/message_flow_in'
+    websocket_path_out: 'ipc:///tmp/message_flow_out'
