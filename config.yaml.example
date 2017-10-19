@@ -6,15 +6,15 @@ app:
                           # using:
                           #
                           # base64.b64encode(os.urandom(50)).decode('ascii')
-    factory: 
+    factory:
     port: 65000  # This is not the exposed port, rather the internal
                  # port on which the app is served
 
 database:
-    database: 
+    database:
     host: localhost
     port: 5432
-    user: 
+    user:
     password:
 
 server:
@@ -30,3 +30,11 @@ server:
         debug_login: False
         google_oauth2_key:
         google_oauth2_secret:
+
+ports:
+    websocket_port: 64000
+    fake_oauth_port: 63000
+    exposed_app_port: 5000
+    aws_proxy_port: 5001
+    internal_app_port: 65000
+    dask_port: 63500
