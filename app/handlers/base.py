@@ -89,6 +89,8 @@ class BaseHandler(PSABaseHandler):
         try:
             return tornado.escape.json_decode(self.request.body)
         except JSONDecodeError:
+            print(' ** get_json failed on request with JSONDecodeError - '
+                  'returning {} ** ')
             return {}
 
     def on_finish(self):
