@@ -1,6 +1,7 @@
 import time
 from contextlib import contextmanager
 
+import sqlalchemy as sa
 from baselayer.app import models
 
 # Do not remove this "unused" import; it is required for
@@ -25,7 +26,9 @@ def status(message):
 def drop_tables():
     conn = models.DBSession.session_factory.kw['bind']
     print(f'Dropping tables on database {conn.url.database}')
-    models.Base.metadata.drop_all()
+    meta = sa.MetaData()
+    meta.reflect(bind=conn)
+    meta.drop_all(bind=conn)
 
 
 def create_tables(retry=5):
