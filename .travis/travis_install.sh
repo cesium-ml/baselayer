@@ -21,17 +21,12 @@ cd baselayer_template_app
 npm -g install npm@4.2.0
 npm --version
 node --version
-make dependencies
-make check-js-updates
 
 pip list --format=columns
 section_end "install.baselayer.requirements"
 
-
 section "init.baselayer"
-make paths
 make db_init
-make bundle
 section_end "init.baselayer"
 
 

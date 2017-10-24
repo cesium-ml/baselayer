@@ -7,21 +7,21 @@ ESLINT=../node_modules/.bin/eslint
 .DEFAULT_GOAL := run
 
 bundle = ../static/build/bundle.js
-webpack = ../node_modules/.bin/webpack
+webpack = node_modules/.bin/webpack
 
-dependencies: README.md fill_conf_values
+dependencies: README.md
 	@./tools/silent_monitor.py pip install -r requirements.txt
 	@./tools/silent_monitor.py pip install -r ../requirements.txt
-	@./tools/silent_monitor.py ./tools/check_js_deps.sh
+	@cd .. && baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
-db_init:
-	@PYTHONPATH=.. ./tools/silent_monitor.py ./tools/db_init.py
+db_init: dependencies
+	@cd .. && PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py
 
-db_clear:
-	PYTHONPATH=.. ./tools/db_init.py -f
+db_clear: dependencies
+	@cd .. && PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f
 
-$(bundle): webpack.config.js package.json
-	$(webpack)
+$(bundle): ../webpack.config.js ../package.json
+	cd .. && $(webpack)
 
 bundle: $(bundle)
 
@@ -33,13 +33,13 @@ paths:
 	@mkdir -p ../log/sv_child
 	@mkdir -p ~/.local/cesium/logs
 
-fill_conf_values:
+fill_conf_values: dependencies
 	find . -name "*.template" | PYTHONPATH=.. xargs ./tools/fill_conf_values.py
 
-log: paths
+log: paths fill_conf_values
 	cd .. && baselayer/tools/watch_logs.py
 
-run: paths dependencies
+run: paths dependencies fill_conf_values
 	@echo "Supervisor will now fire up various micro-services."
 	@echo
 	@echo " - Run \`make log\` in another terminal to view logs"
@@ -56,13 +56,13 @@ run: paths dependencies
 	echo && \
 	$(SUPERVISORD)
 
-run_production:
+run_production: paths dependencies fill_conf_values bundle
 	export FLAGS="--config config.yaml" && \
 	cd .. && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-run_testing: paths dependencies
+run_testing: paths dependencies fill_conf_values bundle
 	export FLAGS="--config test_config.yaml" && \
 	cd .. && \
 	$(ENV_SUMMARY) && \
@@ -86,6 +86,12 @@ stop:
 status:
 	PYTHONPATH='..' ./tools/supervisor_status.py
 
+test_headless: paths dependencies fill_conf_values
+	cd .. && PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
+
+test: paths dependencies fill_conf_values
+	cd .. && PYTHONPATH='.' baselayer/tools/test_frontend.py
+
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
-	./tools/check_js_updates.sh
+	cd .. && baselayer/tools/check_js_updates.sh
