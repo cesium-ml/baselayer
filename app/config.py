@@ -72,8 +72,8 @@ def load_config(config_files=[]):
 
     # Always load the default configuration values first, and override
     # with values in user configuration files
-    all_configs = [Path(basedir/'config.yaml.example'),
-                   Path(basedir/'../config.yaml.example')] + config_files
+    all_configs = [Path(basedir/'config.yaml.defaults'),
+                   Path(basedir/'../config.yaml.defaults')] + config_files
     all_configs = [cfg for cfg in all_configs if os.path.isfile(cfg)]
     all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
 

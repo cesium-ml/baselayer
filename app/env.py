@@ -13,8 +13,8 @@ def load_env():
     Environment variables supported:
 
     --config  Additional configuration files to load, over and above the
-              default  `baselayer/config.yaml.example`
-              and `./config.yaml.example`).  Can be specified multiple times.
+              default  `baselayer/config.yaml.defaults`
+              and `./config.yaml.defaults`).  Can be specified multiple times.
 
     --debug   In Debug mode:
               a) Tornado reloads files automatically that change from disk.

@@ -6,9 +6,7 @@ import os
 from baselayer.app.env import load_env
 
 
-def fill_config_file_values(
-        template_paths=['baselayer/conf/nginx.conf.template',
-                        'baselayer/conf/supervisor/supervisor.conf.template']):
+def fill_config_file_values(template_paths):
     env, cfg = load_env()
     for template_path in template_paths:
         with open(template_path) as f:
@@ -20,4 +18,8 @@ def fill_config_file_values(
 
 
 if __name__ == '__main__':
-    fill_config_file_values()
+    from argparse import ArgumentParser
+    parser = ArgumentParser(description='Fill config file templates')
+    parser.add_argument('template_paths', nargs='+')
+    args = parser.parse_args()
+    fill_config_file_values(args.template_paths)
