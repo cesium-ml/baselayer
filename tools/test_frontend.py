@@ -4,12 +4,13 @@ import os
 from os.path import join as pjoin
 import pathlib
 import sys
-sys.path.insert(0, pjoin(os.path.dirname(__file__), '../..'))
-
 import signal
 import socket
 import subprocess
 import time
+
+sys.path.insert(0, pjoin(os.path.dirname(__file__), '../..'))  # noqa
+
 from baselayer.tools.supervisor_status import supervisor_status
 try:
     import http.client as http
@@ -19,7 +20,7 @@ except ImportError:
 from baselayer.app.model_util import clear_tables
 
 try:
-    import pytest_randomly
+    import pytest_randomly  # noqa
     RAND_ARGS = '--randomly-seed=1'
 except ImportError:
     RAND_ARGS = ''
@@ -35,7 +36,6 @@ if __name__ == '__main__':
     cfg = load_config([basedir/'config.yaml.example', basedir/TEST_CONFIG])
     init_db(**cfg['database'])
 
-
     if len(sys.argv) > 1:
         test_spec = sys.argv[1]
     else:
@@ -47,17 +47,21 @@ if __name__ == '__main__':
     web_client = subprocess.Popen(['make', '-C', 'baselayer', 'run_testing'],
                                   cwd=basedir, preexec_fn=os.setsid)
 
-    print('[test_frontend] Waiting for supervisord to launch all server processes...')
+    print('[test_frontend] Waiting for supervisord to launch all server '
+          'processes...')
+
+    def all_services_running():
+        return all([b'RUNNING' in line for line in supervisor_status()])
 
     try:
         timeout = 0
-        while ((timeout < 30) and
-               (not all([b'RUNNING' in line for line in supervisor_status()]))):
+        while (timeout < 30) and not all_services_running():
             time.sleep(1)
             timeout += 1
 
         if timeout == 10:
-            print('[test_frontend] Could not launch server processes; terminating')
+            print('[test_frontend] Could not launch server processes; '
+                  'terminating')
             sys.exit(-1)
 
         for timeout in range(10):
