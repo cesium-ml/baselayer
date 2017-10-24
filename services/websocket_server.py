@@ -8,9 +8,9 @@ import sys
 
 import collections
 
-from baselayer.app.config import load_config
+from baselayer.app.env import load_env
 
-cfg = load_config()
+env, cfg = load_env()
 secret = cfg['app:secret-key']
 
 if secret is None:
@@ -163,8 +163,8 @@ class WebSocket(websocket.WebSocketHandler):
 
 
 if __name__ == "__main__":
-    PORT = 64000
-    LOCAL_OUTPUT = 'ipc:///tmp/message_flow_out'
+    PORT = cfg['ports:websocket']
+    LOCAL_OUTPUT = cfg['ports:websocket_path_out']
 
     import zmq
 

@@ -86,12 +86,14 @@ class BaseHandler(PSABaseHandler):
         self.flow.push('*', action, payload=payload)
 
     def get_json(self):
+        if len(self.request.body) == 0:
+            return {}
         try:
             return tornado.escape.json_decode(self.request.body)
         except JSONDecodeError:
-            print(' ** get_json failed on request with JSONDecodeError - '
-                  'returning {} ** ')
-            return {}
+            raise JSONDecodeError(
+                f'JSON decode of request body failed on {self.request.uri}.'
+                ' Please ensure all requests are of type application/json.')
 
     def on_finish(self):
         DBSession.remove()
@@ -130,8 +132,7 @@ class BaseHandler(PSABaseHandler):
 
     async def _get_client(self):
         IP = '127.0.0.1'
-        PORT = 63000
-        PORT_SCHEDULER = 63500
+        PORT_SCHEDULER = self.cfg['ports:dask']
 
         from distributed import Client
         client = await Client('{}:{}'.format(IP, PORT_SCHEDULER),
