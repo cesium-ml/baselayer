@@ -161,8 +161,8 @@ class User(Base):
 
 
 class Token(Base):
-    id = sa.Column(sa.String, default=str(uuid.uuid4()), nullable=False,
-                   primary_key=True)
+    id = sa.Column(sa.String, nullable=False, primary_key=True,
+                   default=lambda: str(uuid.uuid4()))
     user_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
                                      nullable=False)
     user = relationship('User', foreign_keys=[user_id])
