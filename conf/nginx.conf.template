@@ -50,7 +50,7 @@ http {
     }
 
     location /fakeoauth2 {
-        proxy_pass http://fakeoauth_server;
+        proxy_pass http://fakeoauth_server/fakeoauth2;
     }
 
     error_log log/nginx-error.log warn;

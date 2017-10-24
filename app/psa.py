@@ -9,6 +9,9 @@ from social_core.backends.google import GoogleOAuth2
 
 from .models import Base, DBSession
 
+from .env import load_env
+env, cfg = load_env()
+
 
 class FakeGoogleOAuth2(GoogleOAuth2):
     @property
@@ -17,7 +20,24 @@ class FakeGoogleOAuth2(GoogleOAuth2):
 
     @property
     def ACCESS_TOKEN_URL(self):
-        return self.strategy.absolute_uri('/fakeoauth2/token')
+        # The web app connects to the OAuth provider using this URI.
+        # The remote service verifies information provided to the user
+        # when they connected to AUTHORIZATION_URL.
+        #
+        # - Why is this not set to an absolute URI, as done above for
+        #   AUTHORIZATION_URI?
+        #
+        #   This call is made from the webserver itself, sometimes
+        #   running inside a Docker container.  A server may be
+        #   visible to the outside world on port 9000 (due to Docker
+        #   port mapping), but from the perspective of (inside) the
+        #   running container, the fakeoauth server only responds to
+        #   `localhost:5000`.  If we try to connect to
+        #   `localhost:9000/fakeoauth2`, we won't get through.
+        #
+        # Instead, we always connect to localhost:63000.
+
+        return f'http://localhost:{cfg["ports:fake_oauth"]}/fakeoauth2/token'
 
     def user_data(self, access_token, *args, **kwargs):
         return {
