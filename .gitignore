@@ -12,3 +12,5 @@ public/
 __pycache__/
 node_modules/
 *.pyc
+conf/nginx.conf
+conf/supervisor/supervisor.conf

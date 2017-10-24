@@ -2,7 +2,8 @@
 
 set -e
 
-CHECKER='./node_modules/.bin/check-dependencies'
+BASEDIR=$(dirname "$0")
+CHECKER="$BASEDIR/../../node_modules/.bin/check-dependencies"
 
 if [[ ! -x ${CHECKER} ]]; then
     npm install check-dependencies
