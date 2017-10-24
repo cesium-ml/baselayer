@@ -33,7 +33,7 @@ if __name__ == '__main__':
     from baselayer.app.models import init_db
     from baselayer.app.config import load_config
     basedir = pathlib.Path(os.path.dirname(__file__))/'..'/'..'
-    cfg = load_config([basedir/'config.yaml.example', basedir/TEST_CONFIG])
+    cfg = load_config([basedir/'config.yaml.defaults', basedir/TEST_CONFIG])
     init_db(**cfg['database'])
 
     if len(sys.argv) > 1:
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             sys.exit(-1)
 
         for timeout in range(10):
-            conn = http.HTTPConnection("localhost", 5000)
+            conn = http.HTTPConnection("localhost", cfg['ports:app'])
             try:
                 conn.request('HEAD', '/')
                 status = conn.getresponse().status
@@ -75,7 +75,8 @@ if __name__ == '__main__':
                 pass
             time.sleep(1)
         else:
-            raise socket.error("Could not connect to localhost:5000.")
+            raise socket.error("Could not connect to "
+                               f"localhost:{cfg['ports:app']}.")
 
         if status != 200:
             print('[test_frontend] Server status is {} instead of 200'.format(
