@@ -1,16 +1,12 @@
 import zmq
 from .json_util import to_json
-from .env import load_env
-
-
-env, cfg = load_env()
 
 
 class Flow(object):
     """Send messages through websocket to frontend
 
     """
-    def __init__(self, socket_path=cfg['ports:websocket_path_in']):
+    def __init__(self, socket_path='ipc:///tmp/message_flow_in'):
         self._socket_path = socket_path
         self._ctx = zmq.Context.instance()
         self._bus = self._ctx.socket(zmq.PUSH)

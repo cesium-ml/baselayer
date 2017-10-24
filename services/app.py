@@ -3,6 +3,7 @@ import argparse
 
 from zmq.eventloop import ioloop
 
+from baselayer.app.config import load_config
 from baselayer.app.app_server import (handlers as baselayer_handlers,
                                       settings as baselayer_settings)
 from baselayer.app.env import load_env
