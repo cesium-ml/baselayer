@@ -60,7 +60,7 @@ if __name__ == '__main__':
     from baselayer.app.models import init_db
     from baselayer.app.config import load_config
     basedir = pathlib.Path(os.path.dirname(__file__))/'..'/'..'
-    cfg = load_config([basedir/'config.yaml.defaults', basedir/TEST_CONFIG])
+    cfg = load_config([basedir/TEST_CONFIG])
     init_db(**cfg['database'])
 
     if len(sys.argv) > 1:
