@@ -78,7 +78,7 @@ attach:
 	cd .. && $(SUPERVISORCTL) fg app
 
 clean:
-	rm $(bundle)
+	rm -f $(bundle)
 
 stop:
 	$(SUPERVISORCTL) stop all
