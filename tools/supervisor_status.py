@@ -14,8 +14,8 @@ def supervisor_status():
         shell=True, cwd=base_dir, check=True,
         stdout=subprocess.PIPE
     )
-    return result.stdout.split(b'\n')[:-1]
+    return result.stdout.decode().split('\n')[:-1]
 
 
 if __name__ == '__main__':
-    sys.stdout.buffer.write(b'\n'.join(supervisor_status()) + b'\n')
+    sys.stdout.buffer.write('\n'.join(supervisor_status()) + '\n')
