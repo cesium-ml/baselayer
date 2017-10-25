@@ -27,7 +27,7 @@ TEST_CONFIG = 'test_config.yaml'
 
 def all_services_running():
     """Check that all webservices were started successfully.
-    
+
     All webservices controlled by `supervisor` must be currently running
     (RUNNING) or have finished successfully (EXITED). Returns `False` if any
     other statuses (STARTING, STOPPED, etc.) are present.
@@ -45,7 +45,7 @@ def verify_server_availability(url, timeout=15):
             assert all_services_running(), ("Webservice(s) failed to launch:\n"
                                             + '\n'.join(supervisor_status()))
             response = requests.get(url)
-            assert response.status_code == 200, ("Expected status 200, got" 
+            assert response.status_code == 200, ("Expected status 200, got"
                                                  f" {response.status_code}"
                                                  f" for URL {url}.")
             return  # all checks passed
@@ -83,9 +83,10 @@ if __name__ == '__main__':
         print('[test_frontend] Launching pytest on {}...'.format(test_spec))
         status = subprocess.run(f'python -m pytest -v {test_spec} {RAND_ARGS}',
                                 shell=True, check=True)
-    except:
+    except Exception as e:
         print('[test_frontend] Could not launch server processes; '
               'terminating')
+        print(e)
         raise
     finally:
         print('[test_frontend] Terminating supervisord...')
