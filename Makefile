@@ -33,11 +33,12 @@ paths:
 	@mkdir -p ../log/sv_child
 	@mkdir -p ~/.local/cesium/logs
 
-fill_conf_values: dependencies
+fill_conf_values:
+	pip install -q pyyaml
 	find . -name "*.template" | PYTHONPATH=.. xargs ./tools/fill_conf_values.py
 
 log: paths fill_conf_values
-	cd .. && baselayer/tools/watch_logs.py
+	cd .. && PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
 
 run: paths dependencies fill_conf_values
 	@echo "Supervisor will now fire up various micro-services."
