@@ -3,6 +3,7 @@
 import os
 from os.path import join as pjoin
 import pathlib
+import requests
 import sys
 import signal
 import socket
@@ -12,10 +13,6 @@ import time
 sys.path.insert(0, pjoin(os.path.dirname(__file__), '../..'))  # noqa
 
 from baselayer.tools.supervisor_status import supervisor_status
-try:
-    import http.client as http
-except ImportError:
-    import httplib as http
 
 from baselayer.app.model_util import clear_tables
 
@@ -26,6 +23,36 @@ except ImportError:
     RAND_ARGS = ''
 
 TEST_CONFIG = 'test_config.yaml'
+
+
+def all_services_running():
+    """Check that all webservices were started successfully.
+    
+    All webservices controlled by `supervisor` must be currently running
+    (RUNNING) or have finished successfully (EXITED). Returns `False` if any
+    other statuses (STARTING, STOPPED, etc.) are present.
+    """
+    return all(['RUNNING' in line or 'EXITED' in line
+                for line in supervisor_status()])
+
+
+def verify_server_availability(url, timeout=15):
+    """Raise exception if webservices fail to launch or connection to `url` is not
+    available.
+    """
+    for i in range(timeout):
+        try:
+            assert all_services_running(), ("Webservice(s) failed to launch:\n"
+                                            + '\n'.join(supervisor_status()))
+            response = requests.get(url)
+            assert response.status_code == 200, ("Expected status 200, got" 
+                                                 f" {response.status_code}"
+                                                 f" for URL {url}.")
+            return  # all checks passed
+        except Exception as e:
+            if i == max(range(timeout)):  # last iteration
+                raise ConnectionError(str(e)) from None
+        time.sleep(1)
 
 
 if __name__ == '__main__':
@@ -50,46 +77,15 @@ if __name__ == '__main__':
     print('[test_frontend] Waiting for supervisord to launch all server '
           'processes...')
 
-    def all_services_running():
-        return all([b'RUNNING' in line for line in supervisor_status()])
-
     try:
-        timeout = 0
-        while (timeout < 30) and not all_services_running():
-            time.sleep(1)
-            timeout += 1
-
-        if timeout == 10:
-            print('[test_frontend] Could not launch server processes; '
-                  'terminating')
-            sys.exit(-1)
-
-        for timeout in range(10):
-            conn = http.HTTPConnection("localhost", cfg['ports:app'])
-            try:
-                conn.request('HEAD', '/')
-                status = conn.getresponse().status
-                if status == 200:
-                    break
-            except socket.error:
-                pass
-            time.sleep(1)
-        else:
-            raise socket.error("Could not connect to "
-                               f"localhost:{cfg['ports:app']}.")
-
-        if status != 200:
-            print('[test_frontend] Server status is {} instead of 200'.format(
-                status))
-            sys.exit(-1)
-        else:
-            print('[test_frontend] Verified server availability')
-
+        verify_server_availability(f"http://localhost:{cfg['ports:app']}")
+        print('[test_frontend] Verified server availability')
         print('[test_frontend] Launching pytest on {}...'.format(test_spec))
-
         status = subprocess.run(f'python -m pytest -v {test_spec} {RAND_ARGS}',
                                 shell=True, check=True)
     except:
+        print('[test_frontend] Could not launch server processes; '
+              'terminating')
         raise
     finally:
         print('[test_frontend] Terminating supervisord...')
