@@ -37,7 +37,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Chrome):
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='session', autouse=True)
 def driver(request):
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
@@ -55,28 +55,35 @@ def driver(request):
     chrome_options.add_experimental_option('prefs', prefs)
 
     driver = MyCustomWebDriver(chrome_options=chrome_options)
-    driver.set_window_size(1920, 1080)
+    driver.set_window_size(1400, 1080)
+    login(driver)
 
-    def close():
-        driver.close()
+    yield driver
 
-    request.addfinalizer(close)
+    driver.close()
 
-    # Authenticate by clicking login button
+
+def login(driver):
     driver.get('/')
-    for i in range(5):
-        try:
-            driver.wait_for_xpath('//*[contains(text(), "testuser@cesium-ml.org")]')
-            break
-        except TimeoutException:
-            element = WebDriverWait(driver, 5).until(
-                expected_conditions.element_to_be_clickable(
-                    (By.XPATH, '//a[@href="/login/google-oauth2"]')))
-            element.click()
-    else:
-        raise TimeoutException("Login failed")
+    try:
+        driver.wait_for_xpath('//*[contains(text(),'
+                              '"testuser@cesium-ml.org")]', 0.25)
+        return  # Already logged in
+    except TimeoutException:
+        pass
 
-    return driver
+    try:
+        element = driver.wait_for_xpath('//a[@href="/login/google-oauth2"]', 5)
+        element.click()
+    except TimeoutException:
+        # Possible that initial wait was too short; check again before raising
+        pass
+
+    try:
+        driver.wait_for_xpath('//*[contains(text(),'
+                              '"testuser@cesium-ml.org")]', 5)
+    except TimeoutException:
+        raise TimeoutException("Login failed:\n" + driver.page_source)
 
 
 @pytest.fixture(scope='function', autouse=True)
