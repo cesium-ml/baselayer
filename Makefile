@@ -57,13 +57,16 @@ run: paths dependencies fill_conf_values
 	echo && \
 	$(SUPERVISORD)
 
-run_production: paths dependencies fill_conf_values bundle
+run_production: paths fill_conf_values
+	@echo
+	@echo "[!] Production run: not automatically installing dependencies."
+	@echo
 	export FLAGS="--config config.yaml" && \
 	cd .. && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-run_testing: paths dependencies fill_conf_values bundle
+run_testing: paths dependencies fill_conf_values
 	export FLAGS="--config test_config.yaml" && \
 	cd .. && \
 	$(ENV_SUMMARY) && \
