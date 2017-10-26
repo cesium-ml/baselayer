@@ -64,6 +64,14 @@ class BaseMixin(object):
     def is_owned_by(self, user):
         raise NotImplementedError("Ownership logic is application-specific")
 
+    @classmethod
+    def create_or_get(cls, id):
+        obj = cls.query.get(id)
+        if obj is not None:
+            return obj
+        else:
+            return cls(id=id)
+
 
 Base = declarative_base(cls=BaseMixin)
 
