@@ -99,3 +99,9 @@ test: paths dependencies fill_conf_values
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
 	cd .. && baselayer/tools/check_js_updates.sh
+
+doc_reqs:
+	pip install -q -r requirements.docs.txt
+
+html: | doc_reqs
+	export SPHINXOPTS=-W; make -C doc html
