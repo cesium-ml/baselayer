@@ -1,4 +1,4 @@
-psycopg2==2.7.1
+psycopg2==2.7.3.2
 pyyaml
 tornado
 pyzmq
