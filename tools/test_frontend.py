@@ -36,7 +36,7 @@ def all_services_running():
                 for line in supervisor_status()])
 
 
-def verify_server_availability(url, timeout=15):
+def verify_server_availability(url, timeout=60):
     """Raise exception if webservices fail to launch or connection to `url` is not
     available.
     """
@@ -48,6 +48,9 @@ def verify_server_availability(url, timeout=15):
             assert response.status_code == 200, ("Expected status 200, got"
                                                  f" {response.status_code}"
                                                  f" for URL {url}.")
+            response = requests.get(url + '/static/build/bundle.js')
+            assert response.status_code == 200, ("Javascript bundle not found,"
+                                                 " did Webpack fail?")
             return  # all checks passed
         except Exception as e:
             if i == max(range(timeout)):  # last iteration
