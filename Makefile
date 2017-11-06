@@ -10,6 +10,7 @@ bundle = ../static/build/bundle.js
 webpack = node_modules/.bin/webpack
 
 dependencies: README.md
+	@./tools/check_app_environment.py
 	@./tools/silent_monitor.py pip install -r requirements.txt
 	@./tools/silent_monitor.py pip install -r ../requirements.txt
 	@cd .. && baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
