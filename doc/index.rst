@@ -7,8 +7,6 @@ Baselayer
    setup
    dev
    usage
-   api/api
-
 
 .. Indices and tables
 .. ==================
