@@ -1,0 +1,25 @@
+#!/bin/bash
+# Based on https://gist.github.com/dahjelle/8ddedf0aebd488208a9a7c829f19b9e8
+
+for file in $(git diff --diff-filter=d --cached --name-only | grep -E '\.(js|jsx)$')
+do
+  git show ":$file" | node_modules/.bin/eslint --stdin --stdin-filename "$file" # we only want to lint the staged changes, not any un-staged changes
+  if [ $? -ne 0 ]; then
+    echo "ESLint failed on staged file '$file'. Please check your code and try again. You can run ESLint manually via make lint."
+    exit 1 # exit with failure status
+  fi
+done
+
+echo "-> Javascript code passed linter"
+
+UNPINNED=$(cat package.json | grep '\^\|~' | sed 's/,*$//g')
+if [[ -n $UNPINNED ]]; then
+    echo "Some Javascript packages are not pinned to a specific version:"
+    echo
+    echo "$UNPINNED"
+    echo
+    echo Please pin their versions by, e.g., removing operators such as ~ and ^.
+    exit 1
+else
+    echo "-> Javascript versions correctly pinned"
+fi

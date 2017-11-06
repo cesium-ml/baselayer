@@ -2,7 +2,7 @@ SHELL = /bin/bash
 SUPERVISORD=PYTHONPATH=. FLAGS=$$FLAGS supervisord -c baselayer/conf/supervisor/supervisor.conf
 SUPERVISORCTL=PYTHONPATH=. FLAGS=$$FLAGS supervisorctl -c baselayer/conf/supervisor/supervisor.conf
 ENV_SUMMARY=PYTHONPATH=. baselayer/tools/env_summary.py $$FLAGS
-ESLINT=../node_modules/.bin/eslint
+ESLINT=./node_modules/.bin/eslint
 
 .DEFAULT_GOAL := run
 
@@ -75,6 +75,7 @@ run_testing: paths dependencies fill_conf_values
 monitor:
 	@echo "Entering supervisor control panel."
 	@echo " - Type \`status\` too see microservice status"
+	cd .. && \
 	$(SUPERVISORCTL) -i status
 
 # Attach to terminal of running webserver; useful to, e.g., use pdb
@@ -100,8 +101,24 @@ test: paths dependencies fill_conf_values
 check-js-updates:
 	cd .. && baselayer/tools/check_js_updates.sh
 
+# Documentation targets
 doc_reqs:
 	pip install -q -r requirements.docs.txt
 
 html: | doc_reqs
 	export SPHINXOPTS=-W; make -C doc html
+
+# Lint targets
+lint-install: lint-githook
+	cd .. && ./baselayer/tools/update_eslint.sh
+
+$(ESLINT): lint-install
+
+lint:
+	cd .. && $(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml static/js
+
+lint-unix:
+	cd .. && $(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml --format=unix static/js
+
+lint-githook:
+	cd .. && cp baselayer/.git-pre-commit .git/hooks/pre-commit
