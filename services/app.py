@@ -27,6 +27,6 @@ app_factory = getattr(importlib.import_module(module), app_factory)
 app = app_factory(cfg, baselayer_handlers, baselayer_settings)
 app.cfg = cfg
 
-app.listen(cfg['app:port'])
+app.listen(cfg['ports:app_internal'])
 
 ioloop.IOLoop.current().start()

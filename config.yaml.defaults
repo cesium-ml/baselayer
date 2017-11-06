@@ -7,8 +7,6 @@ app:
                           #
                           # base64.b64encode(os.urandom(50)).decode('ascii')
     factory:
-    port: 65000  # This is not the exposed port, rather the internal
-                 # port on which the app is served
 
 database:
     database:
@@ -36,7 +34,7 @@ ports:
     fake_oauth: 63000
     app: 5000
     app_http_proxy: 5001
-    app_internal: 65000
+    app_internal: 65000  # nginx forwards this port to ports:app
     dask: 63500
     websocket_path_in: 'ipc:///tmp/message_flow_in'
     websocket_path_out: 'ipc:///tmp/message_flow_out'
