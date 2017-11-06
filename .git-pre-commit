@@ -18,7 +18,7 @@ if [[ -n $UNPINNED ]]; then
     echo
     echo "$UNPINNED"
     echo
-    echo Please pin their versions by, e.g., removing operators such as ~ and ^.
+    echo Please pin their versions by, e.g., removing operators such as \~ and ^.
     exit 1
 else
     echo "-> Javascript versions correctly pinned"
