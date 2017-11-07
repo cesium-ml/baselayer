@@ -51,7 +51,7 @@ run: paths dependencies fill_conf_values
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
 
-	@FLAGS="--debug" && \
+	@export FLAGS="--config config.yaml --debug" && \
 	cd .. && \
 	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
