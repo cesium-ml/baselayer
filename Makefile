@@ -104,7 +104,7 @@ test_headless: paths dependencies fill_conf_values
 
 test: ## Run tests.
 test: paths dependencies fill_conf_values
-	PYTHONPATH='.' baselayer/tools/test_frontend.py
+	PYTHONPATH='.' ./baselayer/tools/test_frontend.py
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:

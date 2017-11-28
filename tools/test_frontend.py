@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     clear_tables()
 
-    web_client = subprocess.Popen(['make', '-C', 'baselayer', 'run_testing'],
+    web_client = subprocess.Popen(['make', 'run_testing'],
                                   cwd=basedir, preexec_fn=os.setsid)
 
     print('[test_frontend] Waiting for supervisord to launch all server '
