@@ -36,5 +36,5 @@ ports:
     app_http_proxy: 5001
     app_internal: 65000  # nginx forwards this port to ports:app
     dask: 63500
-    websocket_path_in: 'ipc:///tmp/message_flow_in'
-    websocket_path_out: 'ipc:///tmp/message_flow_out'
+    websocket_path_in: 'ipc://run/message_flow_in'
+    websocket_path_out: 'ipc://run/message_flow_out'
