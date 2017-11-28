@@ -1,6 +1,5 @@
 from datetime import datetime
 import simplejson as json
-import numpy as np
 import six
 from sqlalchemy.orm.base import object_mapper
 from sqlalchemy.orm.exc import UnmappedInstanceError
@@ -34,7 +33,7 @@ class Encoder(json.JSONEncoder):
         elif o is float:
             return 'float'
 
-        elif isinstance(o, np.ndarray):
+        elif type(o).__name__ == 'ndarray': # avoid numpy import
             return o.tolist()
 
         elif type(o).__name__ == 'DataFrame':  # avoid pandas import
