@@ -6,23 +6,32 @@ ESLINT=./node_modules/.bin/eslint
 
 .DEFAULT_GOAL := run
 
-bundle = ../static/build/bundle.js
+bundle = static/build/bundle.js
 webpack = node_modules/.bin/webpack
 
+# NOTE: These targets are meant to be *included* in the parent app
+#       Makefile.  See end of this file for baselayer specific targets.
+
+.PHONY:
+help:
+	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
+
 dependencies: README.md
-	@./tools/check_app_environment.py
-	@./tools/silent_monitor.py pip install -r requirements.txt
-	@./tools/silent_monitor.py pip install -r ../requirements.txt
-	@cd .. && baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
+	@cd baselayer && ./tools/check_app_environment.py
+	@./baselayer/tools/silent_monitor.py pip install -r baselayer/requirements.txt
+	@./baselayer/tools/silent_monitor.py pip install -r requirements.txt
+	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
+db_init: ## Initialize database and models.
 db_init: dependencies
-	@cd .. && PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py
+	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py
 
+db_clear: ## Delete all data from the database.
 db_clear: dependencies
-	@cd .. && PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f
+	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f
 
-$(bundle): ../webpack.config.js ../package.json
-	cd .. && $(webpack)
+$(bundle): webpack.config.js package.json
+	$(webpack)
 
 bundle: $(bundle)
 
@@ -30,17 +39,17 @@ bundle-watch:
 	$(webpack) -w
 
 paths:
-	@mkdir -p ../log ../run ../tmp
-	@mkdir -p ../log/sv_child
-	@mkdir -p ~/.local/cesium/logs
+	@mkdir -p log run tmp
+	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	pip install -q pyyaml
-	find . -name "*.template" | PYTHONPATH=.. xargs ./tools/fill_conf_values.py
+	find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py
 
+log: ## Monitor log files for all services.
 log: paths fill_conf_values
-	cd .. && PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
+	PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
 
+run: ## Start the web application.
 run: paths dependencies fill_conf_values
 	@echo "Supervisor will now fire up various micro-services."
 	@echo
@@ -52,74 +61,79 @@ run: paths dependencies fill_conf_values
 	@echo
 
 	@export FLAGS="--config config.yaml --debug" && \
-	cd .. && \
 	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
 	$(SUPERVISORD)
 
+run_production: ## Run the web application in production mode (no dependency checking).
 run_production: paths fill_conf_values
 	@echo
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
 	export FLAGS="--config config.yaml" && \
-	cd .. && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
 run_testing: paths dependencies fill_conf_values
 	export FLAGS="--config test_config.yaml" && \
-	cd .. && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-monitor:
+monitor: ## Monitor microservice status.
 	@echo "Entering supervisor control panel."
 	@echo " - Type \`status\` too see microservice status"
-	cd .. && \
 	$(SUPERVISORCTL) -i status
 
 # Attach to terminal of running webserver; useful to, e.g., use pdb
 attach:
-	cd .. && $(SUPERVISORCTL) fg app
+	$(SUPERVISORCTL) fg app
 
 clean:
 	rm -f $(bundle)
 
-stop:
+stop: ## Stop all running services.
 	$(SUPERVISORCTL) stop all
 
 status:
-	PYTHONPATH='..' ./tools/supervisor_status.py
+	PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
 
+test_headless: ## Run tests headlessly with xvfb (Linux only).
 test_headless: paths dependencies fill_conf_values
-	cd .. && PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
+	PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
 
+test: ## Run tests.
 test: paths dependencies fill_conf_values
-	cd .. && PYTHONPATH='.' baselayer/tools/test_frontend.py
+	PYTHONPATH='.' baselayer/tools/test_frontend.py
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
-	cd .. && baselayer/tools/check_js_updates.sh
+	./baselayer/tools/check_js_updates.sh
 
-# Documentation targets
+# Lint targets
+lint-install: ## Install ESLint and a git pre-commit hook.
+lint-install: lint-githook
+	./baselayer/tools/update_eslint.sh
+
+$(ESLINT): lint-install
+
+lint: ## Check JavaScript code style.
+	$(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml static/js
+
+lint-unix:
+	$(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml --format=unix static/js
+
+lint-githook:
+	cp baselayer/.git-pre-commit .git/hooks/pre-commit
+
+
+# baselayer-specific targets
+# All other targets are run from the parent app.  The following are related to
+# baselayer itself, and will be run from the baselayer repo root.
+
+# Documentation targets, run from the `baselayer` directory
 doc_reqs:
 	pip install -q -r requirements.docs.txt
 
 html: | doc_reqs
 	export SPHINXOPTS=-W; make -C doc html
-
-# Lint targets
-lint-install: lint-githook
-	cd .. && ./baselayer/tools/update_eslint.sh
-
-$(ESLINT): lint-install
-
-lint:
-	cd .. && $(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml static/js
-
-lint-unix:
-	cd .. && $(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml --format=unix static/js
-
-lint-githook:
-	cd .. && cp baselayer/.git-pre-commit .git/hooks/pre-commit
