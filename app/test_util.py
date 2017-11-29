@@ -64,10 +64,11 @@ def driver(request):
 
 
 def login(driver):
+    username_xpath = '//*[contains(string(),"testuser@cesium-ml.org")]'
+
     driver.get('/')
     try:
-        driver.wait_for_xpath('//*[contains(text(),'
-                              '"testuser@cesium-ml.org")]', 0.25)
+        driver.wait_for_xpath(username_xpath, 0.25)
         return  # Already logged in
     except TimeoutException:
         pass
@@ -76,12 +77,10 @@ def login(driver):
         element = driver.wait_for_xpath('//a[@href="/login/google-oauth2"]', 5)
         element.click()
     except TimeoutException:
-        # Possible that initial wait was too short; check again before raising
         pass
 
     try:
-        driver.wait_for_xpath('//*[contains(text(),'
-                              '"testuser@cesium-ml.org")]', 5)
+        driver.wait_for_xpath(username_xpath, 5)
     except TimeoutException:
         raise TimeoutException("Login failed:\n" + driver.page_source)
 
