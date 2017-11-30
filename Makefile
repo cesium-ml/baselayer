@@ -12,7 +12,11 @@ webpack = node_modules/.bin/webpack
 # NOTE: These targets are meant to be *included* in the parent app
 #       Makefile.  See end of this file for baselayer specific targets.
 
-.PHONY:
+.PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
+.PHONY: fill_conf_values log run run_production run_testing monitor attach
+.PHONY: stop status test_headless test check-js-updates lint-install
+.PHONY: lint lint-unix lint-githook doc_reqs html
+
 help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
