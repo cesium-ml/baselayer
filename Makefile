@@ -15,7 +15,7 @@ webpack = node_modules/.bin/webpack
 .PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
 .PHONY: stop status test_headless test check-js-updates lint-install
-.PHONY: lint lint-unix lint-githook doc_reqs html
+.PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
 
 help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
@@ -136,8 +136,8 @@ lint-githook:
 # baselayer itself, and will be run from the baselayer repo root.
 
 # Documentation targets, run from the `baselayer` directory
-doc_reqs:
+baselayer_doc_reqs:
 	pip install -q -r requirements.docs.txt
 
-html: | doc_reqs
+baselayer_html: | baselayer_doc_reqs
 	export SPHINXOPTS=-W; make -C doc html

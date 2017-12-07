@@ -11,6 +11,6 @@ section_end "Tests"
 
 section "Build.docs"
 
-make html
+make baselayer_html
 
 section_end "Build.docs"
