@@ -46,9 +46,9 @@ if cfg['server:auth:debug_login']:
     )
 
 handlers = SOCIAL_AUTH_ROUTES + [
-    (r'/socket_auth_token', SocketAuthTokenHandler),
-    (r'/profile', ProfileHandler),
-    (r'/logout', LogoutHandler),
+    (r'/baselayer/socket_auth_token', SocketAuthTokenHandler),
+    (r'/baselayer/profile', ProfileHandler),
+    (r'/baselayer/logout', LogoutHandler),
 
     (r'/()', MainPageHandler),
     (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': 'static/'}),

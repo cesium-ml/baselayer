@@ -3,7 +3,7 @@
 //
 // Each invocation should happen inside of a `dispatch` call, e.g.,
 //
-//  dispatch(API.GET('/profile', FETCH_USER_PROFILE));
+//  dispatch(API.GET('/baselayer/profile', FETCH_USER_PROFILE));
 //
 
 import { showNotification } from './components/Notifications';
