@@ -116,8 +116,11 @@ check-js-updates:
 
 # Lint targets
 lint-install: ## Install ESLint and a git pre-commit hook.
-lint-install: lint-githook
+lint-install: cp-lint-yaml lint-githook
 	./baselayer/tools/update_eslint.sh
+
+cp-lint-yaml: ## Copy eslint config file to parent app if not present
+	if ! [ -e .eslintrc.yaml ]; then cp baselayer/.eslintrc.yaml .eslintrc.yaml; fi
 
 $(ESLINT): lint-install
 
