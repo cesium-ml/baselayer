@@ -122,10 +122,10 @@ lint-install: lint-githook
 $(ESLINT): lint-install
 
 lint: ## Check JavaScript code style.
-	$(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml static/js
+	$(ESLINT) --ext .jsx,.js -c .eslintrc.yaml static/js
 
 lint-unix:
-	$(ESLINT) --ext .jsx,.js -c baselayer/.eslintrc.yaml --format=unix static/js
+	$(ESLINT) --ext .jsx,.js -c .eslintrc.yaml --format=unix static/js
 
 lint-githook:
 	cp baselayer/.git-pre-commit .git/hooks/pre-commit
