@@ -67,6 +67,17 @@ class BaseHandler(PSABaseHandler):
                        .get(int(user_id))
 
     def push(self, action, payload={}):
+        """Broadcast a message to current frontend user.
+
+        Parameters
+        ----------
+        action : str
+            Name of frontend action to perform after API success.  This action
+            is sent to the frontend over WebSocket.
+        payload : dict, optional
+            Action payload.  This data accompanies the action string
+            to the frontend.
+        """
         self.flow.push(self.current_user.username, action, payload)
 
     def push_all(self, action, payload={}):
@@ -82,6 +93,14 @@ class BaseHandler(PSABaseHandler):
           Even though the user won't be able to fetch the object, they'll
           know that it exists, and that it was modified.
 
+        Parameters
+        ----------
+        action : str
+            Name of frontend action to perform after API success.  This action
+            is sent to the frontend over WebSocket.
+        payload : dict, optional
+            Action payload.  This data accompanies the action string
+            to the frontend.
         """
         self.flow.push('*', action, payload=payload)
 
@@ -100,6 +119,15 @@ class BaseHandler(PSABaseHandler):
         return super(BaseHandler, self).on_finish()
 
     def error(self, message, data={}):
+        """Push an error message to the frontend via WebSocket connection.
+
+        Parameters
+        ----------
+        message : str
+            Description of the error.
+        data : dict, optional
+            Any data to be included with error message.
+        """
         print('! App Error:', message)
 
         self.set_status(200)
@@ -110,9 +138,33 @@ class BaseHandler(PSABaseHandler):
             })
 
     def action(self, action, payload={}):
+        """Push an action to the frontend via WebSocket connection.
+
+        Parameters
+        ----------
+        action : str
+            Name of frontend action to perform after API success.  This action
+            is sent to the frontend over WebSocket.
+        payload : dict, optional
+            Action payload.  This data accompanies the action string
+            to the frontend.
+        """
         self.push(action, payload)
 
     def success(self, data={}, action=None, payload={}):
+        """Write data and send actions on API success.
+
+        Parameters
+        ----------
+        data : dict, optional
+            The JSON returned by the API call.
+        action : str, optional
+            Name of frontend action to perform after API success.  This action
+            is sent to the frontend over WebSocket.
+        payload : dict, optional
+            Action payload.  This data accompanies the action string
+            to the frontend.
+        """
         if action is not None:
             self.action(action, payload)
 
