@@ -28,7 +28,8 @@ dependencies: README.md
 
 db_init: ## Initialize database and models.
 db_init: dependencies
-	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py
+	@echo -e "\nInitializing database:"
+	@PYTHONPATH=. baselayer/tools/db_init.py
 
 db_clear: ## Delete all data from the database.
 db_clear: dependencies

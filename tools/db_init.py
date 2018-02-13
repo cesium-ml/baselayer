@@ -25,7 +25,7 @@ user = cfg['database:user'] or db
 host = cfg['database:host']
 port = cfg['database:port']
 
-flags = f'-U {user}'
+flags = f'-U {user} --no-password'
 
 if host:
     flags += f' -h {host}'
@@ -81,11 +81,15 @@ def test_db(database):
 
 plat = run('uname').stdout
 if b'Darwin' in plat:
-    print('Configuring MacOS postgres')
+    print('* Configuring MacOS postgres')
     sudo = ''
 else:
-    print('Configuring Linux postgres')
+    print('* Configuring Linux postgres [may ask for sudo password]')
     sudo = 'sudo -u postgres'
+
+# Ask for sudo password here so that it is printed on its own line
+# (better than inside a `with status` section)
+run(f'{sudo} echo -n')
 
 with status(f'Creating user {user}'):
     run(f'{sudo} createuser {user}')
