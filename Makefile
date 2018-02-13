@@ -48,7 +48,8 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py
+	@echo -e "[-] Compiling configuration templates"
+	@find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py
 
 log: ## Monitor log files for all services.
 log: paths fill_conf_values
