@@ -51,7 +51,9 @@ def driver(request):
     chrome_options.add_argument('--browser.download.folderList=2')
     chrome_options.add_argument(
         '--browser.helperApps.neverAsk.saveToDisk=application/octet-stream')
-    prefs = {'download.default_directory': '/tmp'}
+    prefs = {'download.default_directory': '/tmp',
+             'download.prompt_for_download': False,
+             'download.directory_upgrade': True}
     chrome_options.add_experimental_option('prefs', prefs)
 
     driver = MyCustomWebDriver(chrome_options=chrome_options)
