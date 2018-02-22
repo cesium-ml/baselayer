@@ -7,6 +7,10 @@ from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import TimeoutException
 from seleniumrequests.request import RequestMixin
 from baselayer.app import models
+from baselayer.app.config import load_config
+
+
+cfg = load_config()
 
 
 def set_server_url(server_url):
@@ -51,7 +55,7 @@ def driver(request):
     chrome_options.add_argument('--browser.download.folderList=2')
     chrome_options.add_argument(
         '--browser.helperApps.neverAsk.saveToDisk=application/octet-stream')
-    prefs = {'download.default_directory': '/tmp',
+    prefs = {'download.default_directory': cfg['paths:downloads_folder'],
              'download.prompt_for_download': False,
              'download.directory_upgrade': True}
     chrome_options.add_experimental_option('prefs', prefs)
