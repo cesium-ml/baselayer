@@ -6,6 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import TimeoutException
 from seleniumrequests.request import RequestMixin
+import os
 from baselayer.app import models
 from baselayer.app.config import load_config
 
@@ -18,7 +19,7 @@ def set_server_url(server_url):
     MyCustomWebDriver.server_url = server_url
 
 
-class MyCustomWebDriver(RequestMixin, webdriver.Chrome):
+class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     @property
     def server_url(self):
         if not hasattr(self, '_server_url'):
@@ -30,7 +31,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Chrome):
         self._server_url = value
 
     def get(self, uri):
-        return webdriver.Chrome.get(self, self.server_url + uri)
+        return webdriver.Firefox.get(self, self.server_url + uri)
 
     def wait_for_xpath(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until(
@@ -44,23 +45,16 @@ class MyCustomWebDriver(RequestMixin, webdriver.Chrome):
 @pytest.fixture(scope='session', autouse=True)
 def driver(request):
     from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    chrome_options = Options()
+    profile = webdriver.FirefoxProfile()
 
-    chromium = distutils.spawn.find_executable('chromium-browser')
+    profile.set_preference("browser.download.manager.showWhenStarting", False)
+    profile.set_preference("browser.download.folderList", 2)
+    profile.set_preference("browser.download.dir",
+                           os.path.abspath(cfg['paths:downloads_folder']))
+    profile.set_preference("browser.helperApps.neverAsk.saveToDisk",
+                           "text/csv")
 
-    if chromium:
-        chrome_options.binary_location = chromium
-
-    chrome_options.add_argument('--browser.download.folderList=2')
-    chrome_options.add_argument(
-        '--browser.helperApps.neverAsk.saveToDisk=application/octet-stream')
-    prefs = {'download.default_directory': cfg['paths:downloads_folder'],
-             'download.prompt_for_download': False,
-             'download.directory_upgrade': True}
-    chrome_options.add_experimental_option('prefs', prefs)
-
-    driver = MyCustomWebDriver(chrome_options=chrome_options)
+    driver = MyCustomWebDriver(firefox_profile=profile)
     driver.set_window_size(1400, 1080)
     login(driver)
 
