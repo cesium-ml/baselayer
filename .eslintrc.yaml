@@ -51,3 +51,9 @@ rules:
   vars-on-top: 0
   object-curly-newline: [2, {"consistent": true}]
   function-paren-newline: [2, "consistent"]
+  react/no-array-index-key: 1
+  jsx-a11y/click-events-have-key-events: 0
+  jsx-a11y/no-noninteractive-element-interactions: 1
+  prefer-promise-reject-errors: 1
+  react/jsx-key: 1
+  indent: 1
