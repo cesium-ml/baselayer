@@ -57,3 +57,5 @@ rules:
   prefer-promise-reject-errors: 1
   react/jsx-key: 1
   indent: 1
+  import/extensions: 1
+  import/no-unresolved: 1
