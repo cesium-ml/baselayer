@@ -26,6 +26,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
             raise NotImplementedError("Please first set the web driver URL"
                                       " using `set_server_url`")
         return self._server_url
+
     @server_url.setter
     def server_url(self, value):
         self._server_url = value
