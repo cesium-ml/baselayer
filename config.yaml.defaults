@@ -15,6 +15,9 @@ database:
     user:
     password:
 
+paths:
+    downloads_folder: '/tmp'
+
 server:
     # From https://console.developers.google.com/
     #
