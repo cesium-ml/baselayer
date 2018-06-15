@@ -156,6 +156,7 @@ class User(Base):
                                        'join(role_acls)',
                         primaryjoin='user_roles.c.user_id == users.c.id')
     permissions = association_proxy('acls', 'id')
+    tokens = relationship('Token', secondary='user_tokens', cascade='all')
 
     @classmethod
     def user_model(cls):
@@ -171,12 +172,15 @@ class User(Base):
 class Token(Base):
     id = sa.Column(sa.String, nullable=False, primary_key=True,
                    default=lambda: str(uuid.uuid4()))
-    user_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
-                                     nullable=False)
-    user = relationship('User', foreign_keys=[user_id])
     created_by_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
                               nullable=True)
     created_by =  relationship('User', foreign_keys=[created_by_id])
+    acls = relationship('ACL', secondary='token_acls')
+    acl_ids = association_proxy('acls', 'id',
+                                creator=lambda acl: ACL.query.get(acl))
+    permissions = association_proxy('acls', 'id')
 
 
+TokenACL = join_model('token_acls', Token, ACL)
 UserRole = join_model('user_roles', User, Role)
+UserToken = join_model('user_tokens', User, Token)

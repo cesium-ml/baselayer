@@ -11,7 +11,7 @@ def auth_or_token(method):
         if 'token' in data:
             token = Token.query.get(data['token'])
             if token is not None:
-                self.current_user = token.user
+                self.current_user = token
             else:
                 raise tornado.web.HTTPError(403)
             return method(self, *args, **kwargs)
