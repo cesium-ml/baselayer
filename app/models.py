@@ -173,14 +173,15 @@ class User(Base):
 class Token(Base):
     id = sa.Column(sa.String, nullable=False, primary_key=True,
                    default=lambda: str(uuid.uuid4()))
-    created_by_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
-                              nullable=True)
-    created_by =  relationship('User', foreign_keys=[created_by_id])
+    created_by_id = sa.Column(sa.ForeignKey('users.id'), nullable=True)
     acls = relationship('ACL', secondary='token_acls')
     acl_ids = association_proxy('acls', 'id',
                                 creator=lambda acl: ACL.query.get(acl))
-    permissions = association_proxy('acls', 'id')
+    permissions = acl_ids
     description = sa.Column(sa.String, nullable=True)
+
+    def is_owned_by(self, user_or_token):
+        return (user_or_token.id in [self.created_by_id, self.id])
 
 
 TokenACL = join_model('token_acls', Token, ACL)
