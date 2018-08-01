@@ -59,3 +59,6 @@ rules:
   indent: 1
   import/no-unresolved: 1
   import/extensions: 1
+  react/destructuring-assignment: 1
+  react/forbid-prop-types: 1
+  react/jsx-one-expression-per-line: 1
