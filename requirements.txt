@@ -1,9 +1,9 @@
 psycopg2==2.7.3.2
 pyyaml
-tornado==4.5.2
+tornado==5.1
 pyzmq
 pyjwt
-distributed>=1.17.1
+distributed>=1.21.1
 simplejson
 requests
 selenium>=3.12.0
