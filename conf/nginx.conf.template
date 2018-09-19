@@ -30,7 +30,7 @@ http {
   server {
     listen $${app};
     listen $${app_http_proxy} proxy_protocol; # This is for AWS Elastic Load Balancer
-    client_max_body_size 400M;
+    client_max_body_size 10M;
 
     location / {
       proxy_pass http://127.0.0.1:$${app_internal};
