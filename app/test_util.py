@@ -53,7 +53,8 @@ def driver(request):
     profile.set_preference("browser.download.dir",
                            os.path.abspath(cfg['paths:downloads_folder']))
     profile.set_preference("browser.helperApps.neverAsk.saveToDisk",
-                           "text/csv")
+                           ("text/csv,text/plain,application/octet-stream,"
+                            "text/comma-separated-values,text/html"))
 
     driver = MyCustomWebDriver(firefox_profile=profile)
     driver.set_window_size(1400, 1080)
