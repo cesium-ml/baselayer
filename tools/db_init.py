@@ -24,8 +24,14 @@ all_dbs = (db, db + '_test')
 user = cfg['database:user'] or db
 host = cfg['database:host']
 port = cfg['database:port']
+password = cfg['database:password']
 
-flags = f'-U {user} --no-password'
+psql_cmd = 'psql'
+flags = f'-U {user}'
+
+if password:
+    psql_cmd = f'PGPASSWORD="{password}" {psql_cmd}'
+flags += f' --no-password'
 
 if host:
     flags += f' -h {host}'
@@ -42,7 +48,7 @@ def run(cmd):
 
 
 def test_db(database):
-    test_cmd = f"psql {flags} -c 'SELECT 0;' {database}"
+    test_cmd = f"{psql_cmd} {flags} -c 'SELECT 0;' {database}"
     p = run(test_cmd)
 
     try:
