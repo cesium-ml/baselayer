@@ -21,7 +21,7 @@ def load_env():
               b) SQLAlchemy logs more verbosely to the logs.
     """
     parser = argparse.ArgumentParser(description='Launch web app')
-    parser.add_argument('--config', action='append')
+    parser.add_argument('-C', '--config', action='append')
     parser.add_argument('--debug', action='store_true')
 
     env, unknown = parser.parse_known_args()
