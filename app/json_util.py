@@ -3,6 +3,7 @@ import simplejson as json
 import six
 from sqlalchemy.orm.base import object_mapper
 from sqlalchemy.orm.exc import UnmappedInstanceError
+from arrow.arrow import Arrow
 
 
 data_types = {
@@ -18,7 +19,7 @@ data_types = {
 class Encoder(json.JSONEncoder):
     """Extends json.JSONEncoder with additional capabilities/configurations."""
     def default(self, o):
-        if isinstance(o, datetime):
+        if isinstance(o, (datetime, Arrow)):
             return o.isoformat()
 
         elif isinstance(o, bytes):
