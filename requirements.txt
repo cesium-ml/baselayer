@@ -9,8 +9,8 @@ requests
 selenium>=3.12.0
 pytest
 sqlalchemy
-social-auth-core
-social-auth-app-tornado
-social-auth-storage-sqlalchemy
+social-auth-core>=3.0.0
+social-auth-app-tornado>=1.0.0
+social-auth-storage-sqlalchemy>=1.1.0
 selenium-requests
 arrow==0.13.0
