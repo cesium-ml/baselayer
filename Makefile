@@ -91,8 +91,7 @@ monitor: ## Monitor microservice status.
 	@echo " - Type \`status\` too see microservice status"
 	$(SUPERVISORCTL) -i status
 
-# Attach to terminal of running webserver; useful to, e.g., use pdb
-attach:
+attach: ## Attach to terminal of running webserver; useful to, e.g., use pdb.
 	$(SUPERVISORCTL) fg app
 
 clean:
