@@ -35,8 +35,6 @@
 
 
 language: python
-dist: trusty
-sudo: required
 cache:
   # See http://docs.travis-ci.com/user/caching/#pip-cache
   directories:
