@@ -33,7 +33,7 @@ deps = {
     'psql': (
         ['psql', '--version'],
         lambda v: v.split()[2],
-        '10.5',
+        '9.6',
     ),
     'node (npm)': (
         ['npm', '-v'],
