@@ -18,7 +18,7 @@ cd ..
 git clone git://github.com/cesium-ml/baselayer_template_app
 cp -rf baselayer baselayer_template_app/
 cd baselayer_template_app
-npm -g install npm@4.2.0
+npm -g install npm@next
 npm --version
 node --version
 
