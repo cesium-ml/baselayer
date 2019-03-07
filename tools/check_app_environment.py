@@ -47,10 +47,12 @@ fail = []
 
 for dep, (cmd, get_version, min_version) in deps.items():
     try:
-        with status(f'{dep} >= {min_version}'):
+        query = f'{dep} >= {min_version}'
+        with status(query):
             success, out = output(cmd)
             try:
                 version = get_version(out.decode('utf-8').strip())
+                print(f'[{version.rjust(8)}]'.rjust(40 - len(query)), end='')
             except:
                 raise ValueError('Could not parse version')
 
