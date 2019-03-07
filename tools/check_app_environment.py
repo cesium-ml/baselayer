@@ -55,15 +55,15 @@ for dep, (cmd, get_version, min_version) in deps.items():
                 raise ValueError('Could not parse version')
 
             if not (Version(version) >= Version(min_version)):
-                raise RuntimeError('Incorrect version')
+                raise RuntimeError(f'Required {min_version}, found {version}')
     except ValueError:
         print(f'\n[!] Sorry, but our script could not parse the output of '
               f'`{" ".join(cmd)}`; please file a bug, or see '
               f'`check_app_environment.py`\n'
         )
         raise
-    except:
-        fail.append(dep)
+    except Exception as e:
+        fail.append((dep, e))
 
 if fail:
     print()
@@ -71,13 +71,13 @@ if fail:
     print()
     print('    The failed checks were:')
     print()
-    for pkg in fail:
+    for (pkg, exc) in fail:
         cmd, get_version, min_version = deps[pkg]
-        print(f'    - {pkg}: `{" ".join(cmd)}` should indicate version >= '
-              f'{min_version}')
+        print(f'    - {pkg}: `{" ".join(cmd)}`')
+        print('     ', exc)
     print()
-    print('    Please refer to https://cesium-ml.org/baselayer')
-    print('      for installation instructions.')
+    print('    Please refer to https://cesium-ml.org/baselayer '
+          'for installation instructions.')
     print()
     sys.exit(-1)
 
