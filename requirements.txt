@@ -8,7 +8,7 @@ simplejson
 requests
 selenium>=3.12.0
 pytest
-sqlalchemy
+sqlalchemy==1.2.18
 social-auth-core>=3.0.0
 social-auth-app-tornado>=1.0.0
 social-auth-storage-sqlalchemy>=1.1.0
