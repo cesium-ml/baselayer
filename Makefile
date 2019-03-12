@@ -4,7 +4,7 @@ SUPERVISORCTL=PYTHONPATH=. FLAGS=$$FLAGS supervisorctl -c baselayer/conf/supervi
 ENV_SUMMARY=PYTHONPATH=. baselayer/tools/env_summary.py $$FLAGS
 ESLINT=./node_modules/.bin/eslint
 
-.DEFAULT_GOAL := run
+.DEFAULT_GOAL := help
 
 bundle = static/build/bundle.js
 webpack = node_modules/.bin/webpack
@@ -77,7 +77,7 @@ run_production: paths fill_conf_values
 	@echo
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	export FLAGS="--config config.yaml" && \
+	@export FLAGS="--config config.yaml" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
