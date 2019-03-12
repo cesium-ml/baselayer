@@ -13,6 +13,10 @@ http {
     server localhost:{{ ports.fake_oauth }};
   }
 
+  upstream backend {
+    server 127.0.0.1:{{ ports.app_internal }};
+  }
+
   # See http://nginx.org/en/docs/http/websocket.html
   map $http_upgrade $connection_upgrade {
     default upgrade;
@@ -32,8 +36,15 @@ http {
     listen {{ ports.app_http_proxy }} proxy_protocol; # This is for AWS Elastic Load Balancer
     client_max_body_size 10M;
 
+    root static;  # Relative to the launch path, typically the root of the repo
     location / {
-      proxy_pass http://127.0.0.1:{{ ports.app_internal }};
+      # Try to serve files directly, before hitting Tornado backend
+      # See https://www.nginx.com/resources/wiki/start/topics/tutorials/config_pitfalls/
+      try_files $uri $uri/ @proxy;
+    }
+
+    location @proxy {
+      proxy_pass http://backend;
 
       proxy_set_header        Host $http_host;
       proxy_set_header        X-Real-IP $remote_addr;
