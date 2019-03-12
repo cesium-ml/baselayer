@@ -32,8 +32,8 @@ webpack = npx webpack
 
 .PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
-.PHONY: stop status test_headless test check-js-updates lint-install
-.PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
+.PHONY: stop status test_headless test test-nginx-config check-js-updates
+.PHONY: lint-install lint lint-unix lint-githook baselayer_doc_reqs html
 
 help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
@@ -130,6 +130,11 @@ test: ## Run tests.
 test: paths dependencies fill_conf_values
 	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py
 
+test-nginx-config: ## Check nginx configuration.
+	@PWD=$(shell pwd); \
+	echo $(PWD) ; \
+	nginx -t -p $(PWD) -c baselayer/conf/nginx.conf 2>&1 | grep -v "could not open error log"
+
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
 	./baselayer/tools/check_js_updates.sh
@@ -140,7 +145,7 @@ lint-install: cp-lint-yaml lint-githook
 	@echo "Installing latest version of ESLint and AirBNB style rules"
 	@./baselayer/tools/update_eslint.sh
 
-cp-lint-yaml: ## Copy eslint config file to parent app if not present
+cp-lint-yaml: # Copy eslint config file to parent app if not present
 	@if ! [ -e .eslintrc.yaml ]; then \
 	  echo "No ESLint configuration found; copying baselayer's version of .eslintrc.yaml"; \
 	  cp baselayer/.eslintrc.yaml .eslintrc.yaml; \
