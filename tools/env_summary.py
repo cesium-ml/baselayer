@@ -4,6 +4,7 @@ from baselayer.app.env import load_env
 
 env, cfg = load_env()
 
+print()
 print('=' * 50)
 print(f"Server at: http://localhost:{cfg['ports:app']}")
 print(f"Database at: \
