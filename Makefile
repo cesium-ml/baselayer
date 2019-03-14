@@ -57,8 +57,8 @@ fill_conf_values:
 	@find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 log: ## Monitor log files for all services.
-log: paths fill_conf_values
-	PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
+log: paths
+	@PYTHONPATH=. PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
 
 run: ## Start the web application.
 run: paths dependencies fill_conf_values
