@@ -19,22 +19,20 @@ class Config(dict):
     def __init__(self, config_files=None):
         dict.__init__(self)
         if config_files is not None:
+            cwd = os.getcwd()
+            config_names = [Path(c).relative_to(cwd) for c in config_files]
+            print(f'  Config files: {config_names[0]}')
+            for f in config_names[1:]:
+                print(f'                {f}')
+            self['config_files'] = config_files
             for f in config_files:
                 self.update_from(f)
 
     def update_from(self, filename):
         """Update configuration from YAML file"""
-        relpath = os.path.relpath(filename)
-
-        # If config file lives outside this directory, print it as
-        # an absolute path.
-        if relpath.startswith('..'):
-            relpath = os.path.abspath(relpath)
-
         if os.path.isfile(filename):
             more_cfg = yaml.load(open(filename))
             recursive_update(self, more_cfg)
-            print(f'[baselayer] Loaded {relpath}')
 
     def __getitem__(self, key):
         keys = key.split(':')
@@ -52,7 +50,6 @@ class Config(dict):
         print()
         print("=" * 78)
         print("Configuration")
-
         for key in self:
             print("-" * 78)
             print(key)
