@@ -31,7 +31,7 @@ class Config(dict):
     def update_from(self, filename):
         """Update configuration from YAML file"""
         if os.path.isfile(filename):
-            more_cfg = yaml.load(open(filename))
+            more_cfg = yaml.full_load(open(filename))
             recursive_update(self, more_cfg)
 
     def __getitem__(self, key):
