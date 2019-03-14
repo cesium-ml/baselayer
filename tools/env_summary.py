@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 
 from baselayer.app.env import load_env
+from baselayer.log import colorize
 
-env, cfg = load_env()
 
-print()
+def config_print(field, value):
+    print(colorize(field + ':', bold=True), value)
+
+
+env, cfg = load_env(quiet=True)
+
 print('=' * 50)
-print(f"Server at: http://localhost:{cfg['ports:app']}")
-print(f"Database at: \
-{cfg['database:host']}:{cfg['database:port']} ({cfg['database:database']})")
-print(f"Fake OAuth: \
-{'enabled' if cfg['server:auth:debug_login'] else 'disabled'}")
-print(f"Debug mode: \
-{'enabled' if env.debug else 'disabled'}")
-
+config_print("Server at", f"http://localhost:{cfg['ports:app']}")
+config_print("Database at", f"{cfg['database:host']}:{cfg['database:port']} ({cfg['database:database']})")
+config_print("Fake OAuth", 'enabled' if cfg['server:auth:debug_login'] else 'disabled')
+config_print("Debug mode", 'enabled' if env.debug else 'disabled')
 print('=' * 50)
