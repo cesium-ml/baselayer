@@ -13,8 +13,11 @@ import time
 sys.path.insert(0, pjoin(os.path.dirname(__file__), '../..'))  # noqa
 
 from baselayer.tools.supervisor_status import supervisor_status
-
 from baselayer.app.model_util import clear_tables
+from baselayer.log import make_log
+
+log = make_log('test_frontend')
+
 
 try:
     import pytest_randomly  # noqa
@@ -59,7 +62,15 @@ def verify_server_availability(url, timeout=60):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) == 2 and (sys.argv[1] == '--help' or sys.argv[1] == '-h'):
+        print('Usage: test_frontend.py <pytest-test-spec>')
+        print()
+        print('Example:')
+        print('  test_frontend.py skyportal/tests/api')
+        sys.exit(0)
+
     # Initialize the test database connection
+    log('Initializing test database')
     from baselayer.app.models import init_db
     from baselayer.app.config import load_config
     basedir = pathlib.Path(os.path.dirname(__file__))/'..'/'..'
@@ -77,20 +88,19 @@ if __name__ == '__main__':
     web_client = subprocess.Popen(['make', 'run_testing'],
                                   cwd=basedir, preexec_fn=os.setsid)
 
-    print('[test_frontend] Waiting for supervisord to launch all server '
-          'processes...')
+    server_url = f"http://localhost:{cfg['ports:app']}"
+    print()
+    log(f'Waiting for server to appear at {server_url}...')
 
     try:
-        verify_server_availability(f"http://localhost:{cfg['ports:app']}")
-        print('[test_frontend] Verified server availability')
-        print('[test_frontend] Launching pytest on {}...'.format(test_spec))
+        verify_server_availability(server_url)
+        log(f'Launching pytest on {test_spec}...\n')
         status = subprocess.run(f'python -m pytest -v {test_spec} {RAND_ARGS}',
                                 shell=True, check=True)
     except Exception as e:
-        print('[test_frontend] Could not launch server processes; '
-              'terminating')
+        log('Could not launch server processes; terminating')
         print(e)
         raise
     finally:
-        print('[test_frontend] Terminating supervisord...')
+        log('Terminating supervisord...')
         os.killpg(os.getpgid(web_client.pid), signal.SIGTERM)
