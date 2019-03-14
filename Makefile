@@ -6,6 +6,11 @@ ESLINT=./node_modules/.bin/eslint
 
 .DEFAULT_GOAL := help
 
+# Bold
+B=\033[1m
+# Normal
+N=\033[0m
+
 bundle = static/build/bundle.js
 webpack = node_modules/.bin/webpack
 
@@ -48,8 +53,8 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@echo -e "[-] Compiling configuration templates"
-	@find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py
+	@echo
+	@find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 log: ## Monitor log files for all services.
 log: paths fill_conf_values
@@ -66,7 +71,7 @@ run: paths dependencies fill_conf_values
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
 
-	@export FLAGS="--config config.yaml --debug" && \
+	@export FLAGS="--config=config.yaml --debug" && \
 	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
@@ -77,12 +82,14 @@ run_production: paths fill_conf_values
 	@echo
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	@export FLAGS="--config config.yaml" && \
+	@export FLAGS="--config=config.yaml" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
+run_testing: FLAGS = "--config=test_config.yaml"  # both this and the next FLAGS definition are needed
 run_testing: paths dependencies fill_conf_values
-	export FLAGS="--config test_config.yaml" && \
+	@echo -e "\n$(B)[baselayer] Launch app for testing$(N)"
+	@export FLAGS="--config=test_config.yaml" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
@@ -101,15 +108,15 @@ stop: ## Stop all running services.
 	$(SUPERVISORCTL) stop all
 
 status:
-	PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
+	@PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
 
 test_headless: ## Run tests headlessly with xvfb (Linux only).
 test_headless: paths dependencies fill_conf_values
-	PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
+	@PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
 
 test: ## Run tests.
 test: paths dependencies fill_conf_values
-	PYTHONPATH='.' ./baselayer/tools/test_frontend.py
+	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
