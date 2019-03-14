@@ -8,9 +8,7 @@ from social_tornado.models import init_social
 from social_core.backends.google import GoogleOAuth2
 
 from .models import Base, DBSession
-
 from .env import load_env
-env, cfg = load_env()
 
 
 class FakeGoogleOAuth2(GoogleOAuth2):
@@ -37,6 +35,7 @@ class FakeGoogleOAuth2(GoogleOAuth2):
         #
         # Instead, we always connect to localhost:63000.
 
+        env, cfg = load_env()
         return f'http://localhost:{cfg["ports:fake_oauth"]}/fakeoauth2/token'
 
     def user_data(self, access_token, *args, **kwargs):
