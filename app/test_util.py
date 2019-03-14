@@ -43,7 +43,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def driver(request):
     from selenium import webdriver
     profile = webdriver.FirefoxProfile()
