@@ -5,11 +5,23 @@ from baselayer.app.models import Role, User, Token
 
 
 def auth_or_token(method):
+    """Ensure that a user is signed in.
+
+    This is a decorator for Tornado handler `get`, `put`, etc. methods.
+
+    Signing in happens via the login page, or by using an auth token.
+    To use an auth token, the `Authorization` header has to be
+    provided, and has to be of the form `token 123efghj`.  E.g.:
+
+      $ curl -v -H "Authorization: token 123efghj" http://localhost:5000/api/endpoint
+
+    """
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
-        data = self.get_json()
-        if 'token' in data:
-            token = Token.query.get(data['token'])
+        token_header = self.request.headers.get('Authorization', None)
+        if token_header and token_header.startswith('token '):
+            token_id = token_header.replace('token', '').strip()
+            token = Token.query.get(token_id)
             if token is not None:
                 self.current_user = token
             else:
