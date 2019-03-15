@@ -53,7 +53,6 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@echo
 	@find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 log: ## Monitor log files for all services.
@@ -78,18 +77,18 @@ run: paths dependencies fill_conf_values
 	$(SUPERVISORD)
 
 run_production: ## Run the web application in production mode (no dependency checking).
+run_production: FLAGS = "--config=config.yaml"  # both this and the next FLAGS definition are needed
 run_production: paths fill_conf_values
-	@echo
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	@export FLAGS="--config=config.yaml" && \
+	@export FLAGS=$(FLAGS) && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
 run_testing: FLAGS = "--config=test_config.yaml"  # both this and the next FLAGS definition are needed
 run_testing: paths dependencies fill_conf_values
 	@echo -e "\n$(B)[baselayer] Launch app for testing$(N)"
-	@export FLAGS="--config=test_config.yaml" && \
+	@export FLAGS=$(FLAGS) && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
