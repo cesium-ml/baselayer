@@ -120,7 +120,7 @@ class BaseHandler(PSABaseHandler):
         DBSession.remove()
         return super(BaseHandler, self).on_finish()
 
-    def error(self, message, data={}):
+    def error(self, message, data={}, status=500):
         """Push an error message to the frontend via WebSocket connection.
 
         Parameters
@@ -129,10 +129,14 @@ class BaseHandler(PSABaseHandler):
             Description of the error.
         data : dict, optional
             Any data to be included with error message.
+        status : int, optional
+            HTTP status code.  Defaults to 500.
+            See https://www.restapitutorial.com/httpstatuscodes.html for a full
+            list.
         """
         print('! App Error:', message)
 
-        self.set_status(400)
+        self.set_status(status)
         self.write({
             "status": "error",
             "message": message,
@@ -153,7 +157,7 @@ class BaseHandler(PSABaseHandler):
         """
         self.push(action, payload)
 
-    def success(self, data={}, action=None, payload={}):
+    def success(self, data={}, action=None, payload={}, status=200):
         """Write data and send actions on API success.
 
         Parameters
@@ -166,10 +170,15 @@ class BaseHandler(PSABaseHandler):
         payload : dict, optional
             Action payload.  This data accompanies the action string
             to the frontend.
+        status : int, optional
+            HTTP status code.  Defaults to 200.
+            See https://www.restapitutorial.com/httpstatuscodes.html for a full
+            list.
         """
         if action is not None:
             self.action(action, payload)
 
+        self.set_status(status)
         self.write(to_json(
             {
                 "status": "success",
