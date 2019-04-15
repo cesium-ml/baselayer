@@ -165,16 +165,17 @@
 <div class="section" id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li>A <strong>Python 3.6</strong> or later installation is required.</li>
-<li>Install the following dependencies: Supervisor, NGINX, PostgreSQL, Node.JS</li>
+<li><p>A <strong>Python 3.6</strong> or later installation is required.</p></li>
+<li><p>Install the following dependencies: Supervisor, NGINX, PostgreSQL, Node.JS</p></li>
 </ul>
 <div class="section" id="on-macos">
 <h3>On macOS<a class="headerlink" href="#on-macos" title="Permalink to this headline">¶</a></h3>
 <ul class="simple">
-<li>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">nginx</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></li>
-<li>Start the postgresql server:<ul>
-<li>to start automatically at login: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">services</span> <span class="pre">start</span> <span class="pre">postgresql</span></code></li>
-<li>to start manually: <code class="docutils literal notranslate"><span class="pre">pg_ctl</span> <span class="pre">-D</span> <span class="pre">/usr/local/var/postgres</span> <span class="pre">start</span></code></li>
+<li><p>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">nginx</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></p></li>
+<li><p>Start the postgresql server:</p>
+<ul>
+<li><p>to start automatically at login: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">services</span> <span class="pre">start</span> <span class="pre">postgresql</span></code></p></li>
+<li><p>to start manually: <code class="docutils literal notranslate"><span class="pre">pg_ctl</span> <span class="pre">-D</span> <span class="pre">/usr/local/var/postgres</span> <span class="pre">start</span></code></p></li>
 </ul>
 </li>
 </ul>
@@ -182,10 +183,9 @@
 <div class="section" id="on-linux">
 <h3>On Linux<a class="headerlink" href="#on-linux" title="Permalink to this headline">¶</a></h3>
 <ul>
-<li><p class="first">Using <code class="docutils literal notranslate"><span class="pre">apt-get</span></code>:
-<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">npm</span> <span class="pre">nodejs-legacy</span></code></p>
-</li>
-<li><p class="first">It may be necessary to configure your database permissions: at
+<li><p>Using <code class="docutils literal notranslate"><span class="pre">apt-get</span></code>:
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">npm</span> <span class="pre">nodejs-legacy</span></code></p></li>
+<li><p>It may be necessary to configure your database permissions: at
 the end of your <code class="docutils literal notranslate"><span class="pre">pg_hba.conf</span></code> (typically in <code class="docutils literal notranslate"><span class="pre">/etc/postgresql/9.6/main</span></code>),
 add the following lines and restart PostgreSQL
 (<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">service</span> <span class="pre">postgresql</span> <span class="pre">restart</span></code>):</p>
@@ -195,23 +195,23 @@ add the following lines and restart PostgreSQL
 </pre></div>
 </div>
 </li>
-<li><p class="first">Initialize the database with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">db_init</span></code> (also tests that your
-permissions have been properly configured).</p>
-</li>
-<li><p class="first">Run <code class="docutils literal notranslate"><span class="pre">make</span></code> to start the server and navigate to <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p>
-</li>
+<li><p>Initialize the database with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">db_init</span></code> (also tests that your
+permissions have been properly configured).</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">make</span></code> to start the server and navigate to <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p></li>
 </ul>
 </div>
 </div>
 <div class="section" id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li>Customize <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> (see <code class="docutils literal notranslate"><span class="pre">config.yaml.defaults</span></code> for all options).<ul>
-<li>Always modify <code class="docutils literal notranslate"><span class="pre">secret-key</span></code> before deployment!</li>
+<li><p>Customize <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> (see <code class="docutils literal notranslate"><span class="pre">config.yaml.defaults</span></code> for all options).</p>
+<ul>
+<li><p>Always modify <code class="docutils literal notranslate"><span class="pre">secret-key</span></code> before deployment!</p></li>
 </ul>
 </li>
-<li>If you want other users to be able to log in:<ul>
-<li>Provide Google auth credentials, obtained as described in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.</li>
+<li><p>If you want other users to be able to log in:</p>
+<ul>
+<li><p>Provide Google auth credentials, obtained as described in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.</p></li>
 </ul>
 </li>
 </ul>
