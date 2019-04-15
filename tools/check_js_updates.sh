@@ -2,11 +2,11 @@
 
 set -e
 
-CHECKER=./node_modules/.bin/ncu
+CHECKER="npx ncu"
 
-if [[ ! -x ${CHECKER} ]]; then
-    npm install npm-check-updates > /dev/null 2>&1
+if ( ! $CHECKER --version > /dev/null 2>&1 ); then
+    echo "Update checker not found; installing."
+    npm install npm-check-updates
 fi
 
 ${CHECKER}
-
