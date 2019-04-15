@@ -2,7 +2,7 @@ SHELL = /bin/bash
 SUPERVISORD=PYTHONPATH=. FLAGS=$$FLAGS supervisord -c baselayer/conf/supervisor/supervisor.conf
 SUPERVISORCTL=PYTHONPATH=. FLAGS=$$FLAGS supervisorctl -c baselayer/conf/supervisor/supervisor.conf
 ENV_SUMMARY=PYTHONPATH=. baselayer/tools/env_summary.py $$FLAGS
-ESLINT=./node_modules/.bin/eslint
+ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
 
@@ -12,7 +12,7 @@ B=\033[1m
 N=\033[0m
 
 bundle = static/build/bundle.js
-webpack = node_modules/.bin/webpack
+webpack = npx webpack
 
 # NOTE: These targets are meant to be *included* in the parent app
 #       Makefile.  See end of this file for baselayer specific targets.
@@ -124,10 +124,14 @@ check-js-updates:
 # Lint targets
 lint-install: ## Install ESLint and a git pre-commit hook.
 lint-install: cp-lint-yaml lint-githook
-	./baselayer/tools/update_eslint.sh
+	@echo "Installing latest version of ESLint and AirBNB style rules"
+	@./baselayer/tools/update_eslint.sh
 
 cp-lint-yaml: ## Copy eslint config file to parent app if not present
-	if ! [ -e .eslintrc.yaml ]; then cp baselayer/.eslintrc.yaml .eslintrc.yaml; fi
+	@if ! [ -e .eslintrc.yaml ]; then \
+	  echo "No ESLint configuration found; copying baselayer's version of .eslintrc.yaml"; \
+	  cp baselayer/.eslintrc.yaml .eslintrc.yaml; \
+	fi
 
 $(ESLINT): lint-install
 
@@ -138,8 +142,10 @@ lint-unix:
 	$(ESLINT) --ext .jsx,.js -c .eslintrc.yaml --format=unix static/js
 
 lint-githook:
-	cp baselayer/.git-pre-commit .git/hooks/pre-commit
-
+	@if ! [ -e .git/hooks/pre-commit ]; then \
+	  echo "Installing ESLint pre-commit hook into \`.git/hooks/pre-commit\`"; \
+	  cp baselayer/.git-pre-commit .git/hooks/pre-commit; \
+	fi
 
 # baselayer-specific targets
 # All other targets are run from the parent app.  The following are related to
