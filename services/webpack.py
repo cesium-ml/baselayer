@@ -20,7 +20,7 @@ def run(cmd):
 
 if env.debug:
     print("[service/webpack]: debug mode detected, launching webpack monitor")
-    p = run(['./node_modules/.bin/webpack', '--watch'])
+    p = run(['npx', 'webpack', '--watch'])
     sys.exit(p.returncode)
 
 elif bundle.is_file():
@@ -32,6 +32,6 @@ elif bundle.is_file():
 
 else:
     print("[service/webpack]: bundle.js not found, building")
-    p = run(['./node_modules/.bin/webpack'])
+    p = run(['npx', 'webpack'])
     time.sleep(1)
     sys.exit(p.returncode)
