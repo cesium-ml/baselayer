@@ -9,4 +9,4 @@ if ( ! $CHECKER --version > /dev/null 2>&1 ); then
     npm install npm-check
 fi
 
-${CHECKER} --skip-unused
+${CHECKER} --skip-unused -u
