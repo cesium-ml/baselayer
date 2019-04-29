@@ -78,7 +78,9 @@ class BaseHandler(PSABaseHandler):
             Action payload.  This data accompanies the action string
             to the frontend.
         """
-        self.flow.push(self.current_user.username, action, payload)
+        # Don't push messages if current user is a token
+        if hasattr(self.current_user, 'username'):
+            self.flow.push(self.current_user.username, action, payload)
 
     def push_all(self, action, payload={}):
         """Broadcast a message to all frontend users.
