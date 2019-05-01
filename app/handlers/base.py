@@ -132,7 +132,7 @@ class BaseHandler(PSABaseHandler):
         """
         print('! App Error:', message)
 
-        self.set_status(200)
+        self.set_status(400)
         self.write({
             "status": "error",
             "message": message,
