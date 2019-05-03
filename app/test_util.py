@@ -57,7 +57,7 @@ def driver(request):
                             "text/comma-separated-values,text/html"))
 
     driver = MyCustomWebDriver(firefox_profile=profile)
-    driver.set_window_size(1400, 1080)
+    driver.set_window_size(1920, 1200)
     login(driver)
 
     yield driver
