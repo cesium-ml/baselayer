@@ -178,7 +178,8 @@ class Token(Base):
     acl_ids = association_proxy('acls', 'id',
                                 creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
-    description = sa.Column(sa.String, nullable=True)
+    name = sa.Column(sa.String, nullable=False, unique=True,
+                     default=lambda: str(uuid.uuid4()))
 
     def is_owned_by(self, user_or_token):
         return (user_or_token.id in [self.created_by_id, self.id])
