@@ -10,7 +10,7 @@ from .config import load_config
 _cache = {}
 
 
-def load_env(quiet=False):
+def load_env():
     """Parse environment and load configuration.
 
     The configuration is loaded only once per session.  When invoked a
