@@ -8,7 +8,7 @@ def config_print(field, value):
     print(colorize(field + ':', bold=True), value)
 
 
-env, cfg = load_env(quiet=True)
+env, cfg = load_env()
 
 print('=' * 50)
 config_print("Server at", f"http://localhost:{cfg['ports:app']}")
