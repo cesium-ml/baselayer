@@ -16,10 +16,10 @@ env, cfg = load_env()
 app_factory = cfg['app:factory']
 baselayer_settings['cookie_secret'] = cfg['app:secret-key']
 baselayer_settings['autoreload'] = env.debug
-if env.debug:
-    import logging
-    logging.basicConfig()
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+# if env.debug:
+#     import logging
+#     logging.basicConfig()
+#     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
 module, app_factory = app_factory.rsplit('.', 1)
 app_factory = getattr(importlib.import_module(module), app_factory)
