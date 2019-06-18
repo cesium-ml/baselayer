@@ -4,7 +4,15 @@ import subprocess
 import sys
 import argparse
 import textwrap
+import requests
+import tempfile
+import tarfile
+from pathlib import Path
+import os
+
+from uuid import uuid4
 from baselayer.app.env import load_env
+
 
 from status import status
 
@@ -40,11 +48,11 @@ if port:
     flags += f' -p {port}'
 
 
-def run(cmd):
+def run(cmd, check=False):
     return subprocess.run(cmd,
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
-                          shell=True)
+                          shell=True, check=check)
 
 
 def test_db(database):
@@ -98,7 +106,7 @@ else:
 run(f'{sudo} echo -n')
 
 with status(f'Creating user {user}'):
-    run(f'{sudo} createuser {user}')
+    run(f'{sudo} createuser --superuser {user}')
 
 if args.force:
     try:
@@ -113,11 +121,39 @@ if args.force:
         sys.exit(1)
 
 with status(f'Creating databases'):
+
+
     for current_db in all_dbs:
         run(f'{sudo} createdb -w {current_db}')
         run(f'{sudo} createdb -w {current_db}')
         run(f'psql {flags}\
               -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"\
-              {current_db}')
+              {current_db}', check=True)
+
+        # check if q3c is installed
+        result = run(f'{sudo} psql {flags} -c "\dx"')
+        out = str(result.stdout)
+        q3c_installed = 'q3c' in out
+
+        if not q3c_installed:
+            r = requests.get('https://github.com/segasai/q3c/archive/v1.8.0.tar.gz')
+
+            with tempfile.NamedTemporaryFile() as f:
+                f.write(r.content)
+                f.seek(0)
+                q3cpath = Path(f'/tmp/{uuid4().hex}')
+                q3cpath.mkdir(exist_ok=True, parents=True)
+
+                with tarfile.open(f.name) as tar:
+                    tar.extractall(q3cpath)
+
+                pwd = os.getcwd()
+                os.chdir(q3cpath / 'q3c-1.8.0')
+                run(f'{sudo} make', check=True)
+                run(f'{sudo} make install', check=True)
+                os.chdir(pwd)
+
+                run(f'psql {flags} -c "CREATE EXTENSION Q3C"', check=True)
+
 
 test_db(db)
