@@ -33,6 +33,7 @@ user = cfg['database:user'] or db
 host = cfg['database:host']
 port = cfg['database:port']
 password = cfg['database:password']
+q3c_url = 'https://github.com/segasai/q3c/archive/v1.8.0.tar.gz'
 
 psql_cmd = 'psql'
 flags = f'-U {user}'
@@ -131,12 +132,12 @@ with status(f'Creating databases'):
               {current_db}', check=True)
 
         # check if q3c is installed
-        result = run(f'{sudo} psql {flags} -c "\dx"')
+        result = run(f'{sudo} psql {flags} -c "\\dx"')
         out = str(result.stdout)
         q3c_installed = 'q3c' in out
 
         if not q3c_installed:
-            r = requests.get('https://github.com/segasai/q3c/archive/v1.8.0.tar.gz')
+            r = requests.get(q3c_url)
 
             with tempfile.NamedTemporaryFile() as f:
                 f.write(r.content)
