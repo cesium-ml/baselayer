@@ -6,6 +6,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import func
 
 from .json_util import to_json
 from .custom_exceptions import AccessError
@@ -32,6 +33,7 @@ class BaseMixin(object):
     query = DBSession.query_property()
     id = sa.Column(sa.Integer, primary_key=True)
     created_at = sa.Column(sa.DateTime, nullable=False, default=datetime.now)
+    modified = sa.Column(sa.DateTime, default=func.now(), onupdate=func.current_timestamp())
 
     @declared_attr
     def __tablename__(cls):
