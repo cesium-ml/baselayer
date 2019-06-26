@@ -33,7 +33,8 @@ class BaseMixin(object):
     query = DBSession.query_property()
     id = sa.Column(sa.Integer, primary_key=True)
     created_at = sa.Column(sa.DateTime, nullable=False, default=datetime.now)
-    modified = sa.Column(sa.DateTime, default=func.now(), onupdate=func.current_timestamp())
+    modified = sa.Column(sa.DateTime, default=func.now(),
+                         onupdate=func.current_timestamp())
 
     @declared_attr
     def __tablename__(cls):
