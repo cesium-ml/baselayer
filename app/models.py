@@ -21,7 +21,7 @@ def init_db(user, database, password=None, host=None, port=None):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
-    conn = sa.create_engine(url, client_encoding='utf8')
+    conn = sa.create_engine(url, client_encoding='utf8', use_batch_mode=True)
 
     DBSession.configure(bind=conn)
     Base.metadata.bind = conn
