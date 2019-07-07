@@ -21,7 +21,7 @@ def init_db(user, database, password=None, host=None, port=None):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
-    conn = sa.create_engine(url, client_encoding='utf8', use_batch_mode=True)
+    conn = sa.create_engine(url, client_encoding='utf8')
 
     DBSession.configure(bind=conn)
     Base.metadata.bind = conn
@@ -32,9 +32,9 @@ def init_db(user, database, password=None, host=None, port=None):
 class BaseMixin(object):
     query = DBSession.query_property()
     id = sa.Column(sa.Integer, primary_key=True)
-    created_at = sa.Column(sa.DateTime, nullable=False, default=datetime.now)
+    created_at = sa.Column(sa.DateTime, nullable=False, default=func.now())
     modified = sa.Column(sa.DateTime, default=func.now(),
-                         onupdate=func.current_timestamp(),
+                         onupdate=func.now(),
                          nullable=True)
 
     @declared_attr
