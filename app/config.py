@@ -20,7 +20,7 @@ class Config(dict):
         dict.__init__(self)
         if config_files is not None:
             cwd = os.getcwd()
-            config_names = [Path(c).relative_to(cwd) for c in config_files]
+            config_names = [Path(c) for c in config_files]
             print(f'  Config files: {config_names[0]}')
             for f in config_names[1:]:
                 print(f'                {f}')
