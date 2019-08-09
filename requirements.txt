@@ -1,4 +1,4 @@
-psycopg2-binary==2.7.3.2
+psycopg2-binary
 pyyaml
 tornado==4.5.3
 pyzmq
