@@ -38,7 +38,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         return WebDriverWait(self, timeout).until(
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
 
-    def wait_for_xpath_missing(self, xpath, timeout=5):
+    def wait_for_xpath_to_disappear(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
 
