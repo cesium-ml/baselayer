@@ -95,7 +95,7 @@ if __name__ == '__main__':
     try:
         verify_server_availability(server_url)
         log(f'Launching pytest on {test_spec}...\n')
-        status = subprocess.run(f'python -m pytest -v {test_spec} {RAND_ARGS}',
+        status = subprocess.run(f'python -m pytest -s -v {test_spec} {RAND_ARGS}',
                                 shell=True, check=True)
     except Exception as e:
         log('Could not launch server processes; terminating')
