@@ -15,12 +15,20 @@ def recursive_update(d, u):
     return d
 
 
+def relative_to(path, root):
+    p = Path(path)
+    try:
+        return p.relative_to(root)
+    except ValueError:
+        return p
+
+
 class Config(dict):
     def __init__(self, config_files=None):
         dict.__init__(self)
         if config_files is not None:
             cwd = os.getcwd()
-            config_names = [Path(c).relative_to(cwd) for c in config_files]
+            config_names = [relative_to(c, cwd) for c in config_files]
             print(f'  Config files: {config_names[0]}')
             for f in config_names[1:]:
                 print(f'                {f}')
