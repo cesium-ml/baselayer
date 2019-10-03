@@ -193,3 +193,8 @@ class BaseHandler(PSABaseHandler):
                               asynchronous=True)
 
         return client
+
+    def push_notification(self, note, notification_type='info'):
+        self.push(action='baselayer/SHOW_NOTIFICATION',
+                  payload={'note': note,
+                           'type': notification_type})
