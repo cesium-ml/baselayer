@@ -34,11 +34,11 @@ dependencies: README.md
 db_init: ## Initialize database and models.
 db_init: dependencies
 	@echo -e "\nInitializing database:"
-	@PYTHONPATH=. baselayer/tools/db_init.py
+	@PYTHONPATH=. baselayer/tools/db_init.py $(FLAGS)
 
 db_clear: ## Delete all data from the database.
 db_clear: dependencies
-	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f
+	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
 
 $(bundle): webpack.config.js package.json
 	$(webpack)
