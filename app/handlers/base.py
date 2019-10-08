@@ -112,7 +112,7 @@ class BaseHandler(PSABaseHandler):
         try:
             return tornado.escape.json_decode(self.request.body)
         except JSONDecodeError:
-            raise JSONDecodeError(
+            raise Exception(
                 f'JSON decode of request body failed on {self.request.uri}.'
                 ' Please ensure all requests are of type application/json.')
 
