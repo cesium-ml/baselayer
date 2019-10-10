@@ -24,6 +24,21 @@ def relative_to(path, root):
 
 
 class Config(dict):
+    """To simplify access, the configuration allows fetching nested
+    keys separated by a colon or forward slash.  E.g.:
+
+    >>> cfg['app:db']
+
+    or
+
+    >>> cfg['app/db']
+
+    which is equivalent to
+
+    >>> cfg['app']['db']
+
+    """
+
     def __init__(self, config_files=None):
         dict.__init__(self)
         if config_files is not None:
@@ -44,6 +59,8 @@ class Config(dict):
 
     def __getitem__(self, key):
         keys = key.split(':')
+        if len(keys) == 1:
+            keys = key.split('/')
 
         val = self
         for key in keys:

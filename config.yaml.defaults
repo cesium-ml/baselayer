@@ -32,6 +32,9 @@ server:
         google_oauth2_key:
         google_oauth2_secret:
 
+services:
+    dask: True
+
 ports:
     websocket: 64000
     fake_oauth: 63000
