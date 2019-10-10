@@ -6,7 +6,9 @@ ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
 
-FLAGS += "--config=config.yaml"
+# Use `config.yaml` by default, unless overridden by user
+# through setting FLAGS environment variable
+FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
 
 # Bold
 B=\033[1m
