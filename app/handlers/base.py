@@ -120,7 +120,7 @@ class BaseHandler(PSABaseHandler):
         DBSession.remove()
         return super(BaseHandler, self).on_finish()
 
-    def error(self, message, data={}, status=500):
+    def error(self, message, data={}, status=400):
         """Push an error message to the frontend via WebSocket connection.
 
         Parameters
@@ -130,7 +130,7 @@ class BaseHandler(PSABaseHandler):
         data : dict, optional
             Any data to be included with error message.
         status : int, optional
-            HTTP status code.  Defaults to 500.
+            HTTP status code.  Defaults to 400 (bad request).
             See https://www.restapitutorial.com/httpstatuscodes.html for a full
             list.
         """
@@ -171,7 +171,7 @@ class BaseHandler(PSABaseHandler):
             Action payload.  This data accompanies the action string
             to the frontend.
         status : int, optional
-            HTTP status code.  Defaults to 200.
+            HTTP status code.  Defaults to 200 (OK).
             See https://www.restapitutorial.com/httpstatuscodes.html for a full
             list.
         """
