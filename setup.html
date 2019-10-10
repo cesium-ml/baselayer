@@ -94,6 +94,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#launch">Launch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#deployment-options">Deployment options</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="dev.html">Developer notes</a></li>
@@ -219,6 +220,14 @@ permissions have been properly configured).</p></li>
 <div class="section" id="launch">
 <h2>Launch<a class="headerlink" href="#launch" title="Permalink to this headline">¶</a></h2>
 <p>Launch the app with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code>.</p>
+</div>
+<div class="section" id="deployment-options">
+<h2>Deployment options<a class="headerlink" href="#deployment-options" title="Permalink to this headline">¶</a></h2>
+<p>The default configuration file used can be overridden by setting the
+FLAGS environment variable:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">FLAGS</span><span class="o">=</span><span class="s2">&quot;--config=myconfig.yaml&quot;</span> <span class="n">make</span> <span class="n">run</span>
+</pre></div>
+</div>
 </div>
 </div>
 
