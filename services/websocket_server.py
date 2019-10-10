@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-from tornado import websocket, web
+from tornado import websocket, web, ioloop
 import json
 import zmq
 import jwt
@@ -167,10 +167,9 @@ if __name__ == "__main__":
     LOCAL_OUTPUT = cfg['ports:websocket_path_out']
 
     import zmq
+    from zmq.eventloop import zmqstream
 
-    # https://zeromq.github.io/pyzmq/eventloop.html
-    from zmq.eventloop import ioloop, zmqstream
-    ioloop.install()
+    # https://pyzmq.readthedocs.io/en/latest/eventloop.html
 
     sub = ctx.socket(zmq.SUB)
     sub.connect(LOCAL_OUTPUT)
@@ -184,6 +183,9 @@ if __name__ == "__main__":
         (r'/websocket', WebSocket),
     ])
     server.listen(PORT)
+
+
+    io_loop = ioloop.IOLoop.current()
 
     # We send a heartbeat every 45 seconds to make sure that nginx
     # proxy does not time out and close the connection

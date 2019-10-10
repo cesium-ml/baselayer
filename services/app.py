@@ -8,8 +8,7 @@ from baselayer.app.app_server import (handlers as baselayer_handlers,
 from baselayer.app.env import load_env
 
 import tornado.log
-
-ioloop.install()
+import tornado.ioloop
 
 env, cfg = load_env()
 
@@ -29,4 +28,4 @@ app.cfg = cfg
 
 app.listen(cfg['ports:app_internal'])
 
-ioloop.IOLoop.current().start()
+tornado.ioloop.IOLoop.current().start()
