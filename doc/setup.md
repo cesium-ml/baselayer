@@ -41,3 +41,12 @@
 ## Launch
 
 Launch the app with `make run`.
+
+## Deployment options
+
+The default configuration file used can be overridden by setting the
+FLAGS environment variable:
+
+```
+FLAGS="--config=myconfig.yaml" make run
+```
