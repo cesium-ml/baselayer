@@ -6,6 +6,8 @@ ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
 
+FLAGS += "--config=config.yaml"
+
 # Bold
 B=\033[1m
 # Normal
@@ -77,7 +79,6 @@ run: paths dependencies fill_conf_values
 	$(SUPERVISORD)
 
 run_production: ## Run the web application in production mode (no dependency checking).
-run_production: FLAGS = "--config=config.yaml"  # both this and the next FLAGS definition are needed
 run_production: paths fill_conf_values
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
