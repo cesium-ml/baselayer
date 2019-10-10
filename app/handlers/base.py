@@ -1,7 +1,5 @@
 import tornado.escape
-import tornado.ioloop
 from sqlalchemy.orm import joinedload
-from sqlalchemy.orm.exc import NoResultFound
 from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
@@ -28,7 +26,7 @@ class BaseHandler(PSABaseHandler):
         if self.path_args and self.path_args[0] is not None:
             self.path_args = [arg.lstrip('/') for arg in self.path_args]
             self.path_args = [arg if (arg != '') else None
-                                  for arg in self.path_args]
+                              for arg in self.path_args]
 
         # If there are no arguments, make it explicit, otherwise
         # get / post / put / delete all have to accept an optional kwd argument

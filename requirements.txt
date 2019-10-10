@@ -1,7 +1,7 @@
 psycopg2-binary
 pyyaml
 tornado==4.5.3
-pyzmq
+pyzmq>=0.17
 pyjwt
 distributed>=1.21.1
 simplejson
