@@ -25,15 +25,11 @@ def relative_to(path, root):
 
 class Config(dict):
     """To simplify access, the configuration allows fetching nested
-    keys separated by a colon or forward slash.  E.g.:
+    keys separated by a period `.`, e.g.:
 
-    >>> cfg['app:db']
+    >>> cfg['app.db']
 
-    or
-
-    >>> cfg['app/db']
-
-    which is equivalent to
+    is equivalent to
 
     >>> cfg['app']['db']
 
@@ -58,9 +54,7 @@ class Config(dict):
             recursive_update(self, more_cfg)
 
     def __getitem__(self, key):
-        keys = key.split(':')
-        if len(keys) == 1:
-            keys = key.split('/')
+        keys = key.split('.')
 
         val = self
         for key in keys:

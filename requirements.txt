@@ -14,3 +14,4 @@ social-auth-app-tornado>=1.0.0
 social-auth-storage-sqlalchemy>=1.1.0
 selenium-requests
 arrow==0.13.0
+jinja2

@@ -80,7 +80,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         test_spec = sys.argv[1]
     else:
-        app_name = cfg['app:factory'].split('.')[0]
+        app_name = cfg['app.factory'].split('.')[0]
         test_spec = basedir/app_name/'tests'
 
     clear_tables()
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     web_client = subprocess.Popen(['make', 'run_testing'],
                                   cwd=basedir, preexec_fn=os.setsid)
 
-    server_url = f"http://localhost:{cfg['ports:app']}"
+    server_url = f"http://localhost:{cfg['ports.app']}"
     print()
     log(f'Waiting for server to appear at {server_url}...')
 

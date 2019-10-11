@@ -35,12 +35,12 @@ settings = {
     'SOCIAL_AUTH_SESSION_EXPIRATION': True,
 
     'SOCIAL_AUTH_GOOGLE_OAUTH2_KEY':
-        cfg['server:auth:google_oauth2_key'],
+        cfg['server.auth.google_oauth2_key'],
     'SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET': \
-        cfg['server:auth:google_oauth2_secret'],
+        cfg['server.auth.google_oauth2_secret'],
 }
 
-if cfg['server:auth:debug_login']:
+if cfg['server.auth.debug_login']:
     settings['SOCIAL_AUTH_AUTHENTICATION_BACKENDS'] = (
         'baselayer.app.psa.FakeGoogleOAuth2',
     )
