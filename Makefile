@@ -1,6 +1,4 @@
 SHELL = /bin/bash
-SUPERVISORD=PYTHONPATH=. FLAGS=$$FLAGS supervisord -c baselayer/conf/supervisor/supervisor.conf
-SUPERVISORCTL=PYTHONPATH=. FLAGS=$$FLAGS supervisorctl -c baselayer/conf/supervisor/supervisor.conf
 ENV_SUMMARY=PYTHONPATH=. baselayer/tools/env_summary.py $$FLAGS
 ESLINT=npx eslint
 
@@ -9,6 +7,9 @@ ESLINT=npx eslint
 # Use `config.yaml` by default, unless overridden by user
 # through setting FLAGS environment variable
 FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
+
+SUPERVISORD=PYTHONPATH=. FLAGS=$(FLAGS) supervisord -c baselayer/conf/supervisor/supervisor.conf
+SUPERVISORCTL=PYTHONPATH=. FLAGS=$(FLAGS) supervisorctl -c baselayer/conf/supervisor/supervisor.conf
 
 # Bold
 B=\033[1m
@@ -97,8 +98,10 @@ run_testing: paths dependencies fill_conf_values
 
 monitor: ## Monitor microservice status.
 	@echo "Entering supervisor control panel."
-	@echo " - Type \`status\` too see microservice status"
-	$(SUPERVISORCTL) -i status
+	@echo
+	@echo " - Type \`status\` to see microservice status"
+	@echo
+	@$(SUPERVISORCTL) -i
 
 attach: ## Attach to terminal of running webserver; useful to, e.g., use pdb.
 	$(SUPERVISORCTL) fg app
