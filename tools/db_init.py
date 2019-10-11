@@ -18,13 +18,13 @@ args, unknown = parser.parse_known_args()
 
 env, cfg = load_env()
 
-db = cfg['database:database']
+db = cfg['database.database']
 all_dbs = (db, db + '_test')
 
-user = cfg['database:user'] or db
-host = cfg['database:host']
-port = cfg['database:port']
-password = cfg['database:password']
+user = cfg['database.user'] or db
+host = cfg['database.host']
+port = cfg['database.port']
+password = cfg['database.password']
 
 psql_cmd = 'psql'
 flags = f'-U {user}'

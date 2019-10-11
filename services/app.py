@@ -12,8 +12,8 @@ import tornado.ioloop
 
 env, cfg = load_env()
 
-app_factory = cfg['app:factory']
-baselayer_settings['cookie_secret'] = cfg['app:secret-key']
+app_factory = cfg['app.factory']
+baselayer_settings['cookie_secret'] = cfg['app.secret_key']
 baselayer_settings['autoreload'] = env.debug
 # if env.debug:
 #     import logging
@@ -26,6 +26,6 @@ app_factory = getattr(importlib.import_module(module), app_factory)
 app = app_factory(cfg, baselayer_handlers, baselayer_settings)
 app.cfg = cfg
 
-app.listen(cfg['ports:app_internal'])
+app.listen(cfg['ports.app_internal'])
 
 tornado.ioloop.IOLoop.current().start()

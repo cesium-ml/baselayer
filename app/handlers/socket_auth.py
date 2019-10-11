@@ -18,7 +18,7 @@ class SocketAuthTokenHandler(BaseHandler):
             raise RuntimeError('No current user while authenticating socket. '
                                'This should NEVER happen.')
 
-        secret = self.cfg['app:secret-key']
+        secret = self.cfg['app.secret_key']
         token = jwt.encode({
             'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=15),
             'username': user.username,

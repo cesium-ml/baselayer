@@ -6,8 +6,8 @@ from baselayer.app.env import load_env
 
 env, cfg = load_env()
 
-IN = cfg['ports:websocket_path_in']
-OUT = cfg['ports:websocket_path_out']
+IN = cfg['ports.websocket_path_in']
+OUT = cfg['ports.websocket_path_out']
 
 context = zmq.Context()
 
