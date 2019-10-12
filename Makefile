@@ -32,8 +32,7 @@ help:
 
 dependencies: README.md
 	@cd baselayer && ./tools/check_app_environment.py
-	@./baselayer/tools/silent_monitor.py pip install -r baselayer/requirements.txt
-	@./baselayer/tools/silent_monitor.py pip install -r requirements.txt
+	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
 db_init: ## Initialize database and models.

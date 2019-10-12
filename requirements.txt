@@ -1,6 +1,6 @@
 psycopg2-binary
 pyyaml
-tornado==4.5.3
+tornado==6.0.3
 pyzmq>=0.17
 pyjwt
 distributed>=1.21.1
