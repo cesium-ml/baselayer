@@ -34,7 +34,7 @@
 ## Configuration
 
 - Customize `config.yaml` (see `config.yaml.defaults` for all options).
-  - Always modify `secret-key` before deployment!
+  - Always modify `secret_key` before deployment!
 - If you want other users to be able to log in:
   - Provide Google auth credentials, obtained as described in `config.yaml`.
 
