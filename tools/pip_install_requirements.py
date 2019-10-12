@@ -11,16 +11,13 @@ if len(sys.argv) < 2:
     sys.exit(0)
 
 requirements = []
-for req_file in sys.argv[1:]:
+all_req_files = sys.argv[1:]
+for req_file in all_req_files:
     with open(req_file, 'r') as f:
         requirements.extend(f.readlines())
 
-try:
-    with status('Verifying Python package dependencies'):
-        pkg_resources.require(requirements)
 
-except (DistributionNotFound, VersionConflict) as e:
-    print(e.report())
+def pip(req_file):
     p = subprocess.Popen(['pip', 'install', '-r', req_file],
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     for line in iter(p.stdout.readline, b''):
@@ -29,3 +26,13 @@ except (DistributionNotFound, VersionConflict) as e:
             continue
         print(line, end='')
     sys.exit(p.wait())
+
+
+try:
+    with status('Verifying Python package dependencies'):
+        pkg_resources.require(requirements)
+
+except (DistributionNotFound, VersionConflict) as e:
+    print(e.report())
+    for req_file in all_req_files:
+        pip(req_file)
