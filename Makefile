@@ -8,8 +8,8 @@ ESLINT=npx eslint
 # through setting FLAGS environment variable
 FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
 
-SUPERVISORD=PYTHONPATH=. FLAGS=$(FLAGS) supervisord -c baselayer/conf/supervisor/supervisor.conf
-SUPERVISORCTL=PYTHONPATH=. FLAGS=$(FLAGS) supervisorctl -c baselayer/conf/supervisor/supervisor.conf
+SUPERVISORD:=PYTHONPATH=. FLAGS=$$FLAGS supervisord -c baselayer/conf/supervisor/supervisor.conf
+SUPERVISORCTL:=PYTHONPATH=. FLAGS=$$FLAGS supervisorctl -c baselayer/conf/supervisor/supervisor.conf
 
 # Bold
 B=\033[1m
