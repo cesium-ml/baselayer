@@ -35,7 +35,8 @@ def all_services_running():
     (RUNNING) or have finished successfully (EXITED). Returns `False` if any
     other statuses (STARTING, STOPPED, etc.) are present.
     """
-    return all(['RUNNING' in line or 'EXITED' in line
+    valid_states = ('RUNNING', 'EXITED')
+    return all([any(state in line for state in valid_states)
                 for line in supervisor_status()])
 
 
