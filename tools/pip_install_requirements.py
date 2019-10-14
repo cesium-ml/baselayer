@@ -25,7 +25,10 @@ def pip(req_file):
         if line.startswith('Requirement already satisfied'):
             continue
         print(line, end='')
-    sys.exit(p.wait())
+
+    retcode = p.wait()
+    if retcode != 0:
+        sys.exit(retcode)
 
 
 try:
