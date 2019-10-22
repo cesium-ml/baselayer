@@ -7,7 +7,7 @@ distributed>=1.21.1
 simplejson
 requests
 selenium>=3.12.0
-pytest==4.3.1
+pytest==5.2.1
 sqlalchemy==1.2.18
 social-auth-core>=3.0.0
 social-auth-app-tornado>=1.0.0
