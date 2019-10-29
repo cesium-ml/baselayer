@@ -24,10 +24,14 @@ def auth_or_token(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         token_header = self.request.headers.get('Authorization', None)
+        # desciption of pr: wip: apixxxx
+        # method_called="<" + str(method)[10:]
         if cfg["server"]["log"]["api_calls"]:
-            # struct log approach:
             log = structlog.get_logger()
-            log.msg("User logged in.", created_at=(self.current_user.created_at).strftime('%m/%d/%Y %H:%M:%S'), method_called="<" + str(method)[10:], username=self.current_user.username)
+            if (self.request.uri[5:9] == "user"):
+                log.msg("User logged in.", created_at=(self.current_user.created_at).strftime('%m/%d/%Y %H:%M:%S'), api_uri=self.request.uri, username=self.current_user.username)
+            else:
+                log.msg("Api Called", created_at=(self.current_user.created_at).strftime('%m/%d/%Y %H:%M:%S'), api_uri=self.request.uri, username=self.current_user.username)
         if token_header and token_header.startswith('token '):
             token_id = token_header.replace('token', '').strip()
             token = Token.query.get(token_id)
