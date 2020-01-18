@@ -25,11 +25,6 @@ deps = {
         # It must be >= 1.7
         '1.7'
     ),
-    'supervisord': (
-        ['supervisord', '-v'],
-        lambda v: v,
-        '3.0b2'
-    ),
     'psql': (
         ['psql', '--version'],
         lambda v: v.split()[2],
