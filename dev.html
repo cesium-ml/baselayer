@@ -192,8 +192,8 @@ make use of include:</p>
 <ul class="simple">
 <li><p>Logic for connecting to the DB, refreshing tables, etc. is found in <code class="docutils literal notranslate"><span class="pre">baselayer/model_utils.py</span></code>:</p></li>
 </ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">baselayer.app.env</span> <span class="k">import</span> <span class="n">load_env</span>
-<span class="kn">from</span> <span class="nn">baselayer.models</span> <span class="k">import</span> <span class="n">DBSession</span><span class="p">,</span> <span class="n">init_db</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">baselayer.app.env</span> <span class="kn">import</span> <span class="n">load_env</span>
+<span class="kn">from</span> <span class="nn">baselayer.models</span> <span class="kn">import</span> <span class="n">DBSession</span><span class="p">,</span> <span class="n">init_db</span>
 <span class="n">env</span><span class="p">,</span> <span class="n">cfg</span> <span class="o">=</span> <span class="n">load_env</span><span class="p">()</span>
 <span class="n">init_db</span><span class="p">(</span><span class="o">**</span><span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;database&#39;</span><span class="p">])</span>
 </pre></div>
