@@ -10,7 +10,7 @@ base_dir = os.path.abspath(pjoin(os.path.dirname(__file__), '../..'))
 
 def supervisor_status():
     result = subprocess.run(
-        'supervisorctl -c baselayer/conf/supervisor/supervisor.conf status',
+        'python -m supervisor.supervisorctl -c baselayer/conf/supervisor/supervisor.conf status',
         shell=True, cwd=base_dir, check=True,
         stdout=subprocess.PIPE
     )
