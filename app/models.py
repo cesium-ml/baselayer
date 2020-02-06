@@ -6,6 +6,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.dialects.postgresql import JSONB
 
 from .json_util import to_json
 from .custom_exceptions import AccessError
@@ -156,6 +157,7 @@ class User(Base):
     permissions = association_proxy('acls', 'id')
     tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
                           back_populates='created_by', passive_deletes=True)
+    preferences = sa.Column(JSONB, nullable=True)
 
     @classmethod
     def user_model(cls):
