@@ -9,8 +9,8 @@ from distutils.version import LooseVersion as Version
 
 
 def output(cmd):
-    p = subprocess.Popen(cmd,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
     out, err = p.communicate()
     success = (p.returncode == 0)
     return success, out
@@ -27,7 +27,7 @@ deps = {
     ),
     'psql': (
         ['psql', '--version'],
-        lambda v: v.split()[2],
+        lambda v: v.split('\n')[-1].split()[2],
         '9.6',
     ),
     'node (npm)': (

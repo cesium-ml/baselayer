@@ -17,7 +17,7 @@ SUPERVISORD_CFG=baselayer/conf/supervisor/supervisor.conf
 SUPERVISORD=export FLAGS=$(FLAGS) && $(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
 SUPERVISORCTL=$(PYTHON) -m supervisor.supervisorctl -c $(SUPERVISORD_CFG)
 
-LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('skyportal'); spl('$1')"
+LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('baselayer'); spl('$1')"
 
 # Bold
 B=\033[1m
