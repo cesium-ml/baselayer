@@ -1,5 +1,4 @@
 SHELL = /bin/bash
-ENV_SUMMARY=PYTHONPATH=. baselayer/tools/env_summary.py $$FLAGS
 ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
@@ -8,8 +7,17 @@ ESLINT=npx eslint
 # through setting FLAGS environment variable
 FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
 
-SUPERVISORD:=PYTHONPATH=. FLAGS=$$FLAGS python -m supervisor.supervisord -c baselayer/conf/supervisor/supervisor.conf
-SUPERVISORCTL:=PYTHONPATH=. FLAGS=$$FLAGS python -m supervisor.supervisorctl -c baselayer/conf/supervisor/supervisor.conf
+PYTHON=PYTHONPATH=. python
+ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
+
+# Flags are propagated to supervisord via the FLAGS environment variable
+# Inside of supervisord configuration files, you may reference them using
+# %(ENV_FLAGS)s
+SUPERVISORD_CFG=baselayer/conf/supervisor/supervisor.conf
+SUPERVISORD=export FLAGS=$(FLAGS) && $(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
+SUPERVISORCTL=$(PYTHON) -m supervisor.supervisorctl -c $(SUPERVISORD_CFG)
+
+LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('baselayer'); spl('$1')"
 
 # Bold
 B=\033[1m
@@ -65,17 +73,18 @@ log: paths
 
 run: ## Start the web application.
 run: paths dependencies fill_conf_values
-	@echo "Supervisor will now fire up various micro-services."
+	@echo
+	$(call LOG, Starting micro-services)
 	@echo
 	@echo " - Run \`make log\` in another terminal to view logs"
 	@echo " - Run \`make monitor\` in another terminal to restart services"
 	@echo
 	@echo "The server is in debug mode:"
+	@echo
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
 
-	@export FLAGS="--config=config.yaml --debug" && \
-	$(ENV_SUMMARY) && echo && \
+	@$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
 	$(SUPERVISORD)
@@ -84,7 +93,6 @@ run_production: ## Run the web application in production mode (no dependency che
 run_production: paths fill_conf_values
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	@export FLAGS=$(FLAGS) && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
