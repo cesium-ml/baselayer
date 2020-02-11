@@ -34,6 +34,7 @@ webpack = npx webpack
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
 .PHONY: stop status test_headless test check-js-updates lint-install
 .PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
+.PHONY: $(bundle) bundle bundle-watch
 
 help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
@@ -53,7 +54,7 @@ db_clear: dependencies
 	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
 
 $(bundle): webpack.config.js package.json
-	$(webpack)
+	@$(webpack)
 
 bundle: $(bundle)
 
