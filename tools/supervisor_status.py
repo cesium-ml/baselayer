@@ -9,6 +9,9 @@ base_dir = os.path.abspath(pjoin(os.path.dirname(__file__), '../..'))
 
 
 def supervisor_status():
+    """
+    Raises CalledProcessError if supervisorctl exits with non-zero status
+    """
     result = subprocess.run(
         'python -m supervisor.supervisorctl -c baselayer/conf/supervisor/supervisor.conf status',
         shell=True, cwd=base_dir, check=True,

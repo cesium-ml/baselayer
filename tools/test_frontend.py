@@ -6,7 +6,6 @@ import pathlib
 import requests
 import sys
 import signal
-import socket
 import subprocess
 import time
 
@@ -36,8 +35,11 @@ def all_services_running():
     other statuses (STARTING, STOPPED, etc.) are present.
     """
     valid_states = ('RUNNING', 'EXITED')
-    return all([any(state in line for state in valid_states)
-                for line in supervisor_status()])
+    try:
+        return all([any(state in line for state in valid_states)
+                    for line in supervisor_status()])
+    except subprocess.CalledProcessError:
+        return False
 
 
 def verify_server_availability(url, timeout=60):
