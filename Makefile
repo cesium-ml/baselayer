@@ -14,7 +14,7 @@ ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
 # Inside of supervisord configuration files, you may reference them using
 # %(ENV_FLAGS)s
 SUPERVISORD_CFG=baselayer/conf/supervisor/supervisor.conf
-SUPERVISORD=export FLAGS=$(FLAGS) && $(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
+SUPERVISORD=$(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
 SUPERVISORCTL=$(PYTHON) -m supervisor.supervisorctl -c $(SUPERVISORD_CFG)
 
 LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('baselayer'); spl('$1')"
@@ -84,8 +84,8 @@ run: paths dependencies fill_conf_values
 	@echo
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
-
-	@$(ENV_SUMMARY) && echo && \
+	@export FLAGS="$(FLAGS) --debug" && \
+	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
 	$(SUPERVISORD)
@@ -94,6 +94,7 @@ run_production: ## Run the web application in production mode (no dependency che
 run_production: paths fill_conf_values
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
+	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
