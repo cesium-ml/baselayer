@@ -106,7 +106,7 @@ class WebSocket(websocket.WebSocketHandler):
 
     def request_auth(self):
         self.auth_failures += 1
-        self.send_json(action="AUTH REQUEST")
+        self.send_json(actionType="AUTH REQUEST")
 
     def send_json(self, **kwargs):
         self.write_message(json.dumps(kwargs))
@@ -119,7 +119,7 @@ class WebSocket(websocket.WebSocketHandler):
             self.username = username
             self.authenticated = True
             self.auth_failures = 0
-            self.send_json(action='AUTH OK')
+            self.send_json(actionType='AUTH OK')
 
             # If we are the first websocket connecting on behalf of
             # a given user, subscribe to the feed for that user
@@ -129,9 +129,9 @@ class WebSocket(websocket.WebSocketHandler):
             WebSocket.sockets[username].add(self)
 
         except jwt.DecodeError:
-            self.send_json(action='AUTH FAILED')
+            self.send_json(actionType='AUTH FAILED')
         except jwt.ExpiredSignatureError:
-            self.send_json(action='AUTH FAILED')
+            self.send_json(actionType='AUTH FAILED')
 
     @classmethod
     def heartbeat(cls):

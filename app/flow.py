@@ -36,6 +36,6 @@ class Flow(object):
         print('[Flow] Pushing action {} to {}'.format(action_type, username))
         message = [username,
                    to_json({'username': username,
-                            'action': action_type,
+                            'actionType': action_type,
                             'payload': payload})]
         self._bus.send_multipart([m.encode('utf-8') for m in message])
