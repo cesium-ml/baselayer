@@ -20,16 +20,16 @@ class MessageHandler {
     this._handlers.push(handler);
   }
 
-  handle(action, payload) {
+  handle(actionType, payload) {
     // Execute all registered handlers on the incoming message
     this._handlers.forEach((handler) => {
-      handler(action, payload, this._dispatch, this._getState);
+      handler(actionType, payload, this._dispatch, this._getState);
     });
   }
 }
 
-const notificationHandler = (action, payload, dispatch) => {
-  if (action === SHOW_NOTIFICATION) {
+const notificationHandler = (actionType, payload, dispatch) => {
+  if (actionType === SHOW_NOTIFICATION) {
     const { note, type } = payload;
     dispatch(showNotification(note, type));
   }
