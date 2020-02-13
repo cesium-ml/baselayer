@@ -105,9 +105,9 @@ class WebSocket extends React.Component {
       }
 
       const message = JSON.parse(data);
-      const { action, payload } = message;
+      const { actionType, payload } = message;
 
-      switch (action) {
+      switch (actionType) {
         case "AUTH REQUEST":
           getAuthToken(this.props.auth_url)
             .then(token => ws.send(token));
@@ -126,7 +126,7 @@ class WebSocket extends React.Component {
           this.props.dispatch(hideNotificationByTag(tag));
           break;
         default:
-          messageHandler.handle(action, payload);
+          messageHandler.handle(actionType, payload);
       }
     };
 
