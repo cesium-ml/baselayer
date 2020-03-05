@@ -57,9 +57,7 @@ class BaseMixin(object):
     def get_if_owned_by(cls, ident, user, options=[]):
         obj = cls.query.options(options).get(ident)
 
-        if obj is None:
-            raise AccessError(f'No such {cls.__name__}')
-        elif not obj.is_owned_by(user):
+        if obj is not None and not obj.is_owned_by(user):
             raise AccessError('Insufficient permissions.')
 
         return obj
