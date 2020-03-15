@@ -1,8 +1,11 @@
 import functools
+import structlog
 import tornado.web
 from baselayer.app.custom_exceptions import AccessError
 from baselayer.app.models import Role, User, Token
+from baselayer.app.env import load_env
 
+env, cfg = load_env()
 
 def auth_or_token(method):
     """Ensure that a user is signed in.
@@ -19,6 +22,12 @@ def auth_or_token(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         token_header = self.request.headers.get('Authorization', None)
+        if cfg["server"]["log"]["api_calls"]:
+            log = structlog.get_logger()
+            log.msg("Api Called", \
+                    created_at=(self.current_user.created_at).strftime('%m/%d/%Y %H:%M:%S'), \
+                    api_uri=self.request.uri, \
+                    username=self.current_user.username)
         if token_header and token_header.startswith('token '):
             token_id = token_header.replace('token', '').strip()
             token = Token.query.get(token_id)
