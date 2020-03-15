@@ -51,6 +51,12 @@ def permissions(acl_list):
         def wrapper(self, *args, **kwargs):
             if not set(acl_list).issubset(self.current_user.permissions):
                 raise tornado.web.HTTPError(403)
+            if cfg["server"]["log"]["api_calls"]:
+                log = structlog.get_logger()
+                log.msg("Api Called", \
+                        created_at=(self.current_user.created_at).strftime('%m/%d/%Y %H:%M:%S'), \
+                        api_uri=self.request.uri, \
+                        username=self.current_user.username)
             return method(self, *args, **kwargs)
         return wrapper
     return check_acls
