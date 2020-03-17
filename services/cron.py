@@ -56,8 +56,10 @@ while True:
         if tc.should_run(key, interval):
             print('Running ', script)
             tc.reset(key)
-            subprocess.Popen(script, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
-
+            try:
+                subprocess.Popen(script, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT)
+            except Exception as e:
+                log(f'Error executing {script}: {e}')
 
     time.sleep(60)
