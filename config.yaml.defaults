@@ -44,3 +44,14 @@ ports:
     dask: 63500
     websocket_path_in: 'ipc://run/message_flow_in'
     websocket_path_out: 'ipc://run/message_flow_out'
+
+# You can schedule jobs to run at a certain time interval (given in minutes).
+#
+# If baselayer is not running at the time the job is supposed to run,
+# it will be run when fired up the next time.
+#
+# cron:
+#   - interval: 1
+#     script: tools/1_minute.py
+#   - interval: 5
+#     script: tools/5_minute.py

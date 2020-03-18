@@ -70,3 +70,15 @@ stdout_logfile=log/dask_workers.log
 redirect_stderr=true
 
 {% endif %}
+
+{% if cron %}
+
+[program:cron]
+command=/usr/bin/env python baselayer/services/cron.py {{ '%' }}(ENV_FLAGS)s
+environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
+startretries=0
+startsecs=1
+stdout_logfile=log/cron.log
+redirect_stderr=true
+
+{% endif %}
