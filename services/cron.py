@@ -54,7 +54,7 @@ while True:
         key = f'{script}+{interval}'
 
         if tc.should_run(key, interval):
-            print('Running ', script)
+            log(f'Executing {script}')
             tc.reset(key)
             try:
                 subprocess.Popen(script, stdout=subprocess.PIPE,
