@@ -50,8 +50,12 @@ ports:
 # If baselayer is not running at the time the job is supposed to run,
 # it will be run when fired up the next time.
 #
+# If a "limit" is provided, the cron job will only executed between
+# the start and end times given.
+#
 # cron:
 #   - interval: 1
 #     script: tools/1_minute.py
 #   - interval: 5
 #     script: tools/5_minute.py
+#     limit: ["01:00", "02:00"]

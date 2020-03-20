@@ -3,6 +3,8 @@ import time
 import os
 import subprocess
 
+from datetime import datetime
+from dateutil.parser import parse as parse_time
 
 from baselayer.app.env import load_env
 from baselayer.log import make_log
@@ -27,7 +29,25 @@ class TimeCache:
 
         self.ts = timestamps
 
-    def should_run(self, key, interval):
+    def should_run(self, key, interval, limit=None):
+        """Determine whether job should run.
+
+        Parameters
+        ----------
+        key : str
+            A key for the job, made up of `script_name+interval`.
+        interval : int
+            Interval, in minutes, at which to execute the job.
+        limit : tuple of two time strings, optional
+            Limit the execution of the job to this bracket.
+
+        """
+        if limit is not None:
+            limit_start, limit_end = [parse_time(t) for t in limit]
+            now = datetime.now()
+            if not (limit_start < now < limit_end):
+                return False
+
         if not key in self.ts:
             self.reset(key)
 
@@ -50,10 +70,11 @@ while True:
     for job in jobs:
         interval = job['interval']
         script = job['script']
+        limit = job.get('limit')
 
         key = f'{script}+{interval}'
 
-        if tc.should_run(key, interval):
+        if tc.should_run(key, interval, limit=limit):
             log(f'Executing {script}')
             tc.reset(key)
             try:
