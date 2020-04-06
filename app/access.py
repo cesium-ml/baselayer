@@ -26,7 +26,8 @@ def auth_or_token(method):
         if cfg["server"]["log"]["api_calls"]:
             log = structlog.get_logger()
             log.msg("Api Called",
-                    created_at=(self.current_user.created_at).strftime('%m/%d/%Y %H:%M:%S'),
+                    created_at=(self.current_user.created_at)
+                    .strftime('%m/%d/%Y %H:%M:%S'),
                     api_uri=self.request.uri,
                     username=self.current_user.username)
         if token_header and token_header.startswith('token '):
@@ -55,7 +56,8 @@ def permissions(acl_list):
             if cfg["server"]["log"]["api_calls"]:
                 log = structlog.get_logger()
                 log.msg("Api Called",
-                        created_at=(self.current_user.created_at).strftime('%m/%d/%Y %H:%M:%S'),
+                        created_at=(self.current_user.created_at)
+                        .strftime('%m/%d/%Y %H:%M:%S'),
                         api_uri=self.request.uri,
                         username=self.current_user.username)
             return method(self, *args, **kwargs)
