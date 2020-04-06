@@ -31,6 +31,9 @@ server:
         debug_login: False
         google_oauth2_key:
         google_oauth2_secret:
+    
+    log:
+        api_calls: True
 
 services:
     dask: True
