@@ -54,10 +54,10 @@ class BaseMixin(object):
         return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
 
     @classmethod
-    def get_if_owned_by(cls, ident, user, options=[]):
+    def get_if_owned_by(cls, ident, user, groups_attr="groups", options=[]):
         obj = cls.query.options(options).get(ident)
 
-        if obj is not None and not obj.is_owned_by(user):
+        if obj is not None and not obj.is_owned_by(user, groups_attr=groups_attr):
             raise AccessError('Insufficient permissions.')
 
         return obj
@@ -150,7 +150,7 @@ class User(Base):
     roles = relationship('Role', secondary='user_roles', back_populates='users')
     role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
     acls = relationship('ACL', secondary='join(roles, user_roles).'
-                                       'join(role_acls)',
+                        'join(role_acls)',
                         primaryjoin='user_roles.c.user_id == users.c.id')
     permissions = association_proxy('acls', 'id')
     tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
