@@ -181,7 +181,7 @@ class Token(Base):
     name = sa.Column(sa.String, nullable=False, unique=True,
                      default=lambda: str(uuid.uuid4()))
 
-    def is_owned_by(self, user_or_token):
+    def is_owned_by(self, user_or_token, **kwargs):
         return (user_or_token.id in [self.created_by_id, self.id])
 
 
