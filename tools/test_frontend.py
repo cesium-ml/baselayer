@@ -35,11 +35,12 @@ def all_services_running():
     other statuses (STARTING, STOPPED, etc.) are present.
     """
     valid_states = ('RUNNING', 'EXITED')
-    try:
-        return all([any(state in line for state in valid_states)
-                    for line in supervisor_status()])
-    except subprocess.CalledProcessError:
-        return False
+    supervisor_output, return_code = supervisor_status()
+    running = all([any(state in line for state in valid_states)
+                   for line in supervisor_output])
+
+    # Return 3 is associated with a service exiting normally
+    return running if return_code in (0, 3) else False
 
 
 def verify_server_availability(url, timeout=60):
@@ -59,7 +60,7 @@ def verify_server_availability(url, timeout=60):
                                                  " did Webpack fail?")
             return  # all checks passed
         except Exception as e:
-            if i == max(range(timeout)):  # last iteration
+            if i == timeout - 1:  # last iteration
                 raise ConnectionError(str(e)) from None
         time.sleep(1)
 
