@@ -1,5 +1,11 @@
 # Setup
 
+This guide describes how to get a webapp, derived from `baselayer`, up
+and running.  A simple example of such an application is provides as a
+[template application](https://github.com/cesium-ml/baselayer_template_app).
+
+Clone that application, and then proceed with the following instructions.
+
 ## Installation
 
 - A **Python 3.6** or later installation is required.
