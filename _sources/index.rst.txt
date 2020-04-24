@@ -7,6 +7,7 @@ Baselayer
    setup
    dev
    usage
+   extending
 
 .. Indices and tables
 .. ==================

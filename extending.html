@@ -36,8 +36,7 @@
   <link rel="stylesheet" href="_static/output_cells.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="&lt;no title&gt;" href="dev.html" />
-    <link rel="prev" title="Baselayer" href="index.html" /> 
+    <link rel="prev" title="&lt;no title&gt;" href="usage.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -149,54 +148,58 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <p># Setup</p>
-<p>This guide describes how to get a webapp, derived from <cite>baselayer</cite>, up
-and running.  A simple example of such an application is provides as a
-[template application](<a class="reference external" href="https://github.com/cesium-ml/baselayer_template_app">https://github.com/cesium-ml/baselayer_template_app</a>).</p>
-<p>Clone that application, and then proceed with the following instructions.</p>
-<p>## Installation</p>
-<ul class="simple">
-<li><p>A <strong>Python 3.6</strong> or later installation is required.</p></li>
-<li><p>Install the following dependencies: Supervisor, NGINX, PostgreSQL, Node.JS</p></li>
-</ul>
-<p>### On macOS</p>
-<ul class="simple">
-<li><p>Using [Homebrew](<a class="reference external" href="http://brew.sh/">http://brew.sh/</a>): <cite>brew install supervisor nginx postgresql node</cite></p></li>
-<li><p>Start the postgresql server:
-- to start automatically at login: <cite>brew services start postgresql</cite>
-- to start manually: <cite>pg_ctl -D /usr/local/var/postgres start</cite></p></li>
-</ul>
-<p>### On Linux</p>
-<ul class="simple">
-<li><p>Using <cite>apt-get</cite>:
-<cite>sudo apt-get install nginx supervisor postgresql libpq-dev npm nodejs-legacy</cite></p></li>
-<li><p>It may be necessary to configure your database permissions: at
-the end of your <cite>pg_hba.conf</cite> (typically in <cite>/etc/postgresql/9.6/main</cite>),
-add the following lines and restart PostgreSQL
-(<cite>sudo service postgresql restart</cite>):
-<code class="docutils literal notranslate"><span class="pre">`</span>
-<span class="pre">local</span> <span class="pre">all</span> <span class="pre">postgres</span> <span class="pre">peer</span>
-<span class="pre">local</span> <span class="pre">baselayer</span> <span class="pre">baselayer</span> <span class="pre">trust</span>
-<span class="pre">local</span> <span class="pre">baselayer_test</span> <span class="pre">baselayer</span> <span class="pre">trust</span>
-<span class="pre">`</span></code></p></li>
-<li><p>Initialize the database with <cite>make db_init</cite> (also tests that your
-permissions have been properly configured).</p></li>
-<li><p>Run <cite>make</cite> to start the server and navigate to <cite>localhost:5000</cite></p></li>
-</ul>
-<p>## Configuration</p>
-<ul class="simple">
-<li><p>Customize <cite>config.yaml</cite> (see <cite>config.yaml.defaults</cite> for all options).
-- Always modify <cite>secret_key</cite> before deployment!</p></li>
-<li><p>If you want other users to be able to log in:
-- Provide Google auth credentials, obtained as described in <cite>config.yaml</cite>.</p></li>
-</ul>
-<p>## Launch</p>
-<p>Launch the app with <cite>make run</cite>.</p>
-<p>## Deployment options</p>
-<p>The default configuration file used can be overridden by setting the
-FLAGS environment variable:</p>
+  <p># Extending baselayer</p>
+<p>## Modifying the Tornado application</p>
+<p>A Python function can be specified in the configuration as
+<cite>app.factory</cite>, that will be used to create the Tornado
+application. This is often needed to add additional routes, or do
+certain setup procedures before the application is run.</p>
+<p>The function should have the following argument signature:</p>
 <p><code class="docutils literal notranslate"><span class="pre">`</span>
-<span class="pre">FLAGS=&quot;--config=myconfig.yaml&quot;</span> <span class="pre">make</span> <span class="pre">run</span>
+<span class="pre">def</span> <span class="pre">make_app(config,</span> <span class="pre">baselayer_handlers,</span> <span class="pre">baselayer_settings)</span>
+<span class="pre">`</span></code></p>
+<p>The configuration is passed in as the first parameter, followed by
+baselayer-handlers (those should be appended to your Tornado handlers,
+to put in place system endpoints such as logging in).  The last
+argument contains baselayer-specific Tornado configuration.</p>
+<p>A typical <cite>make_app</cite> could be:</p>
+<p><a href="#id1"><span class="problematic" id="id2">``</span></a>`
+from baselayer.app.app_server import MainPageHandler</p>
+<dl>
+<dt>def make_app(config, baselayer_handlers, baselayer_settings):</dt><dd><dl class="simple">
+<dt>handlers = baselayer_handlers + [</dt><dd><p>(r’/my_page’, MyPageHandler),
+(r’/.*’, MainPageHandler)</p>
+</dd>
+</dl>
+<p>]</p>
+<p>settings = baselayer_settings
+settings.update({</p>
+<blockquote>
+<div><p>‘tornado_config_key’: ‘tornado_config_value’</p>
+</div></blockquote>
+<p>})  # Specify any additional settings here</p>
+<p>app = tornado.web.Application(handlers, <a href="#id3"><span class="problematic" id="id4">**</span></a>settings)
+return app</p>
+</dd>
+</dl>
+<p><a href="#id5"><span class="problematic" id="id6">``</span></a><a href="#id7"><span class="problematic" id="id8">`</span></a></p>
+<p>## Templating</p>
+<p>Often, values inside your JavaScript code or engineering configuration
+files (nginx, supervisor, etc.) depend on settings inside
+<cite>config.yaml</cite>.  To simplify propagating these values, <cite>baselayer</cite>
+provides templating functionality, applied to files named
+<cite>*.template</cite>, before running the application. The template engine used
+is [Jinja2](<a class="reference external" href="https://jinja.palletsprojects.com">https://jinja.palletsprojects.com</a>).</p>
+<p>The configuration file is injected into the template, so you can
+include their values as follows:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">The</span> <span class="pre">database</span> <span class="pre">port</span> <span class="pre">is</span> <span class="pre">{{</span> <span class="pre">database.port</span> <span class="pre">}}.</span>
+<span class="pre">`</span></code></p>
+<p>When you launch the <cite>run</cite> or <cite>run_production</cite> targets for baselayer,
+it will automatically fill out all template files.  Alternatively, you
+can run the templating manually:</p>
+<p><code class="docutils literal notranslate"><span class="pre">`</span>
+<span class="pre">./baselayer/tools/fill_conf_values.py</span> <span class="pre">--config=&quot;config.yaml&quot;</span> <span class="pre">static/js/component.jsx.template</span>
 <span class="pre">`</span></code></p>
 
 
@@ -207,10 +210,8 @@ FLAGS environment variable:</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="dev.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
-      
-        <a href="index.html" class="btn btn-neutral float-left" title="Baselayer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="usage.html" class="btn btn-neutral float-left" title="&lt;no title&gt;" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

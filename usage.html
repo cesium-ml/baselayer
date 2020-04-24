@@ -36,6 +36,7 @@
   <link rel="stylesheet" href="_static/output_cells.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="extending.html" />
     <link rel="prev" title="&lt;no title&gt;" href="dev.html" /> 
 </head>
 
@@ -148,9 +149,15 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <p># Usage
-## Permissions
-Access to resources in Skyportal is controlled in two ways:
+  <p># Usage</p>
+<p>The premiere application of <cite>baselayer</cite> is
+[SkyPortal](<a class="reference external" href="https://skyportal.io">https://skyportal.io</a>).  Several pieces of functionality
+have been implemented there, but have not been backported to
+<cite>baselayer</cite> yet.  Please refer to the SkyPortal documentation, and if
+you see a feature you’d like to use, file an issue so we can bring it
+in.</p>
+<p>## Permissions</p>
+<p>Access to resources in Skyportal is controlled in two ways:
 - <em>Roles</em> are sets of site-wide permissions (<em>ACLs</em>) that allow a user to perform certain actions: e.g, create a new user, upload spectra, post comments, etc.
 - <em>Groups</em> are sets of sources that are accessible to members of that group</p>
 <blockquote>
@@ -159,12 +166,14 @@ Access to resources in Skyportal is controlled in two ways:
 <li><p>The same source source can belong to multiple groups</p></li>
 </ul>
 </div></blockquote>
-<p>## Adding roles to users
-- User permissions can be managed on the <cite>/users/</cite> page  # TODO not fully implemented
-## Adding users to groups
-- Groups membership can be managed on the <cite>/groups/</cite> page  # TODO not fully implemented
-## Connecting streams and groups
-- Not yet implemented</p>
+<p>## Adding roles to users</p>
+<ul class="simple">
+<li><p>User permissions can be managed on the <cite>/users/</cite> page  # TODO not fully implemented</p></li>
+</ul>
+<p>## Adding users to groups</p>
+<ul class="simple">
+<li><p>Groups membership can be managed on the <cite>/groups/</cite> page  # TODO not fully implemented</p></li>
+</ul>
 
 
            </div>
@@ -173,6 +182,8 @@ Access to resources in Skyportal is controlled in two ways:
           <footer>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="extending.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="dev.html" class="btn btn-neutral float-left" title="&lt;no title&gt;" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
