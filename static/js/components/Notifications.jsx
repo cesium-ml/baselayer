@@ -1,5 +1,5 @@
 import React from 'react';
-import { connect } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 
 export const SHOW_NOTIFICATION = 'baselayer/SHOW_NOTIFICATION';
@@ -28,7 +28,7 @@ export function hideNotificationByTag(tag) {
   };
 }
 
-export let Notifications = (props) => {
+export const Notifications = () => {
   const style = {
     position: 'fixed',
     zIndex: 20000,
@@ -59,38 +59,36 @@ export let Notifications = (props) => {
     info: 'MediumAquaMarine'
   };
 
+  const dispatch = useDispatch();
+  const notifications = useSelector((state) => state.notifications.notes);
+
   return (
-    (props.notifications.length > 0) &&
-      <div style={style}>
-        {
-          props.notifications.map((notification, idx) => (
-            <div
-              key={notification.id}
-              style={{ ...style.note, background: noteColor[notification.type] }}
-              onClick={() => props.dispatch(hideNotification(notification.id))}
-            >
-              {notification.note}
-            </div>
-          ))
-        }
-      </div>
+    (notifications.length > 0) &&
+      (
+        <div style={style}>
+          {
+            notifications.map((notification) => (
+              <div
+                key={notification.id}
+                style={{ ...style.note, background: noteColor[notification.type] }}
+                onClick={() => dispatch(hideNotification(notification.id))}
+              >
+                {notification.note}
+              </div>
+            ))
+          }
+        </div>
+      )
   );
 };
 
-const mapStateToProps = state => (
-  {
-    notifications: state.notifications.notes
-  }
-);
-
-Notifications = connect(mapStateToProps)(Notifications);
-
-
 let nextNotificationId = 0;
 export function showNotification(note, type='info', duration=3000, tag='default') {
-  const thisId = nextNotificationId++;
+  const thisId = nextNotificationId;
+  nextNotificationId += 1;
 
   if (type === 'error') {
+    // eslint-disable-next-line no-console
     console.error(note);
   }
 
@@ -99,9 +97,9 @@ export function showNotification(note, type='info', duration=3000, tag='default'
       type: SHOW_NOTIFICATION,
       payload: {
         id: thisId,
-        note: note,
-        type: type,
-        tag: tag
+        note,
+        type,
+        tag
       }
     });
     setTimeout(() => dispatch(hideNotification(thisId)), duration);
@@ -111,19 +109,19 @@ export function showNotification(note, type='info', duration=3000, tag='default'
 export function reducer(state={ notes: [] }, action) {
   switch (action.type) {
     case SHOW_NOTIFICATION: {
-      let { id, note, type, tag } = action.payload;
+      const { id, note, type, tag } = action.payload;
       return {
         notes: state.notes.concat({ id, note, type, tag })
       };
     }
     case HIDE_NOTIFICATION:
       return {
-        notes: state.notes.filter(n => (n.id !== action.payload.id))
+        notes: state.notes.filter((n) => (n.id !== action.payload.id))
       };
     case HIDE_NOTIFICATION_BY_TAG:
       return {
-        notes: state.notes.filter(n => (n.tag !== action.payload.tag))
-      }
+        notes: state.notes.filter((n) => (n.tag !== action.payload.tag))
+      };
     default:
       return state;
   }
