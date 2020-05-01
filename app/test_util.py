@@ -4,7 +4,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import (TimeoutException,
+                                        ElementClickInterceptedException)
 from seleniumrequests.request import RequestMixin
 import os
 from baselayer.app import models
@@ -41,6 +42,13 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     def wait_for_xpath_to_disappear(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
+
+    def scroll_to_element_and_click(self, element):
+        try:
+            return element.click()
+        except ElementClickInterceptedException:
+            self.execute_script("arguments[0].scrollIntoView();", element)
+            return element.click()
 
 
 @pytest.fixture(scope='session')
