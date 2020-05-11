@@ -111,12 +111,14 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
     sqlalchemy.ext.declarative.api.DeclarativeMeta
         SQLAlchemy association model class
     """
+
     table_1 = model_1.__tablename__
     table_2 = model_2.__tablename__
     if column_1 is None:
         column_1 = f'{table_1[:-1]}_id'
     if column_2 is None:
         column_2 = f'{table_2[:-1]}_id'
+    reverse_ind_name = f'{join_table}_reverse_ind'
 
     model_attrs = {
         '__tablename__': join_table,
@@ -126,10 +128,22 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
                             primary_key=True),
         column_2: sa.Column(column_2, sa.ForeignKey(f'{table_2}.{fk_2}',
                                                     ondelete='CASCADE'),
-                            primary_key=True),
-        model_1.__name__.lower(): relationship(model_1, cascade='save-update, merge, refresh-expire, expunge'),
-        model_2.__name__.lower(): relationship(model_2, cascade='save-update, merge, refresh-expire, expunge')
+                            primary_key=True)
     }
+
+    model_attrs.update({
+        model_1.__name__.lower(): relationship(
+            model_1, cascade='save-update, merge, refresh-expire, expunge',
+            foreign_keys=[model_attrs[column_1]]),
+        model_2.__name__.lower(): relationship(
+            model_2, cascade='save-update, merge, refresh-expire, expunge',
+            foreign_keys=[model_attrs[column_2]]),
+        reverse_ind_name: sa.Index(reverse_ind_name,
+                                   model_attrs[column_2],
+                                   model_attrs[column_1])
+
+    })
+
     model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
 
     return model
