@@ -6,7 +6,6 @@ import pathlib
 import requests
 import sys
 import signal
-import socket
 import subprocess
 import time
 
@@ -35,8 +34,13 @@ def all_services_running():
     (RUNNING) or have finished successfully (EXITED). Returns `False` if any
     other statuses (STARTING, STOPPED, etc.) are present.
     """
-    return all(['RUNNING' in line or 'EXITED' in line
-                for line in supervisor_status()])
+    valid_states = ('RUNNING', 'EXITED')
+    supervisor_output, return_code = supervisor_status()
+    running = all([any(state in line for state in valid_states)
+                   for line in supervisor_output])
+
+    # Return 3 is associated with a service exiting normally
+    return running if return_code in (0, 3) else False
 
 
 def verify_server_availability(url, timeout=60):
@@ -56,7 +60,7 @@ def verify_server_availability(url, timeout=60):
                                                  " did Webpack fail?")
             return  # all checks passed
         except Exception as e:
-            if i == max(range(timeout)):  # last iteration
+            if i == timeout - 1:  # last iteration
                 raise ConnectionError(str(e)) from None
         time.sleep(1)
 
@@ -80,7 +84,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         test_spec = sys.argv[1]
     else:
-        app_name = cfg['app:factory'].split('.')[0]
+        app_name = cfg['app.factory'].split('.')[0]
         test_spec = basedir/app_name/'tests'
 
     clear_tables()
@@ -88,14 +92,14 @@ if __name__ == '__main__':
     web_client = subprocess.Popen(['make', 'run_testing'],
                                   cwd=basedir, preexec_fn=os.setsid)
 
-    server_url = f"http://localhost:{cfg['ports:app']}"
+    server_url = f"http://localhost:{cfg['ports.app']}"
     print()
     log(f'Waiting for server to appear at {server_url}...')
 
     try:
         verify_server_availability(server_url)
         log(f'Launching pytest on {test_spec}...\n')
-        status = subprocess.run(f'python -m pytest -v {test_spec} {RAND_ARGS}',
+        status = subprocess.run(f'python -m pytest -s -v {test_spec} {RAND_ARGS}',
                                 shell=True, check=True)
     except Exception as e:
         log('Could not launch server processes; terminating')

@@ -7,6 +7,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import JSONB
 
 from .json_util import to_json
 from .custom_exceptions import AccessError
@@ -60,8 +61,8 @@ class BaseMixin(object):
     def get_if_owned_by(cls, ident, user, options=[]):
         obj = cls.query.options(options).get(ident)
 
-        if obj is None or not obj.is_owned_by(user):
-            raise AccessError(f'No such {cls.__name__}')
+        if obj is not None and not obj.is_owned_by(user):
+            raise AccessError('Insufficient permissions.')
 
         return obj
 
@@ -126,8 +127,8 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
         column_2: sa.Column(column_2, sa.ForeignKey(f'{table_2}.{fk_2}',
                                                     ondelete='CASCADE'),
                             primary_key=True),
-        model_1.__name__.lower(): relationship(model_1, cascade='all'),
-        model_2.__name__.lower(): relationship(model_2, cascade='all')
+        model_1.__name__.lower(): relationship(model_1, cascade='save-update, merge, refresh-expire, expunge'),
+        model_2.__name__.lower(): relationship(model_2, cascade='save-update, merge, refresh-expire, expunge')
     }
     model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
 
@@ -136,16 +137,13 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
 
 class ACL(Base):
     id = sa.Column(sa.String, nullable=False, primary_key=True)
-    roles = relationship('Role', secondary='role_acls', back_populates='acls',
-                         cascade='all')
+    roles = relationship('Role', secondary='role_acls', back_populates='acls')
 
 
 class Role(Base):
     id = sa.Column(sa.String, nullable=False, primary_key=True)
-    acls = relationship('ACL', secondary='role_acls', back_populates='roles',
-                        cascade='all')
-    users = relationship('User', secondary='user_roles', back_populates='roles',
-                         cascade='all')
+    acls = relationship('ACL', secondary='role_acls', back_populates='roles')
+    users = relationship('User', secondary='user_roles', back_populates='roles')
 
 
 RoleACL = join_model('role_acls', Role, ACL)
@@ -153,15 +151,15 @@ RoleACL = join_model('role_acls', Role, ACL)
 
 class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
-    roles = relationship('Role', secondary='user_roles', back_populates='users',
-                         cascade='all')
+    roles = relationship('Role', secondary='user_roles', back_populates='users')
     role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
-    acls = relationship(ACL, secondary='join(roles, user_roles).'
+    acls = relationship('ACL', secondary='join(roles, user_roles).'
                                        'join(role_acls)',
                         primaryjoin='user_roles.c.user_id == users.c.id')
     permissions = association_proxy('acls', 'id')
-    tokens = relationship('Token', secondary='user_tokens',# back_populates='tokens',
-                          cascade='all')
+    tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
+                          back_populates='created_by', passive_deletes=True)
+    preferences = sa.Column(JSONB, nullable=True)
 
     @classmethod
     def user_model(cls):
@@ -177,7 +175,9 @@ class User(Base):
 class Token(Base):
     id = sa.Column(sa.String, nullable=False, primary_key=True,
                    default=lambda: str(uuid.uuid4()))
-    created_by_id = sa.Column(sa.ForeignKey('users.id'), nullable=True)
+    created_by_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
+                              nullable=True)
+    created_by = relationship('User', back_populates='tokens')
     acls = relationship('ACL', secondary='token_acls')
     acl_ids = association_proxy('acls', 'id',
                                 creator=lambda acl: ACL.query.get(acl))
@@ -191,4 +191,3 @@ class Token(Base):
 
 TokenACL = join_model('token_acls', Token, ACL)
 UserRole = join_model('user_roles', User, Role)
-UserToken = join_model('user_tokens', User, Token)

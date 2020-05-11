@@ -4,7 +4,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import (TimeoutException,
+                                        ElementClickInterceptedException)
 from seleniumrequests.request import RequestMixin
 import os
 from baselayer.app import models
@@ -38,9 +39,16 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         return WebDriverWait(self, timeout).until(
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
 
-    def wait_for_xpath_missing(self, xpath, timeout=5):
+    def wait_for_xpath_to_disappear(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
+
+    def scroll_to_element_and_click(self, element):
+        try:
+            return element.click()
+        except ElementClickInterceptedException:
+            self.execute_script("arguments[0].scrollIntoView();", element)
+            return element.click()
 
 
 @pytest.fixture(scope='session')
@@ -51,7 +59,7 @@ def driver(request):
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.folderList", 2)
     profile.set_preference("browser.download.dir",
-                           os.path.abspath(cfg['paths:downloads_folder']))
+                           os.path.abspath(cfg['paths.downloads_folder']))
     profile.set_preference("browser.helperApps.neverAsk.saveToDisk",
                            ("text/csv,text/plain,application/octet-stream,"
                             "text/comma-separated-values,text/html"))

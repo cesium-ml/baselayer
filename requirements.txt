@@ -1,7 +1,8 @@
-psycopg2-binary==2.7.3.2
+supervisor>=4
+psycopg2-binary
 pyyaml
-tornado==4.5.3
-pyzmq
+tornado==6.0.3
+pyzmq>=0.17
 pyjwt
 distributed>=1.21.1
 simplejson
@@ -13,4 +14,6 @@ social-auth-core>=3.0.0
 social-auth-app-tornado>=1.0.0
 social-auth-storage-sqlalchemy>=1.1.0
 selenium-requests
-arrow==0.13.0
+arrow==0.15.4
+jinja2
+python-dateutil

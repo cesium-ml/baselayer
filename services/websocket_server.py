@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-from tornado import websocket, web
+from tornado import websocket, web, ioloop
 import json
 import zmq
 import jwt
@@ -11,7 +11,7 @@ import collections
 from baselayer.app.env import load_env
 
 env, cfg = load_env()
-secret = cfg['app:secret-key']
+secret = cfg['app.secret_key']
 
 if secret is None:
     raise RuntimeError('We need a secret key to communicate with the server!')
@@ -106,7 +106,7 @@ class WebSocket(websocket.WebSocketHandler):
 
     def request_auth(self):
         self.auth_failures += 1
-        self.send_json(action="AUTH REQUEST")
+        self.send_json(actionType="AUTH REQUEST")
 
     def send_json(self, **kwargs):
         self.write_message(json.dumps(kwargs))
@@ -119,7 +119,7 @@ class WebSocket(websocket.WebSocketHandler):
             self.username = username
             self.authenticated = True
             self.auth_failures = 0
-            self.send_json(action='AUTH OK')
+            self.send_json(actionType='AUTH OK')
 
             # If we are the first websocket connecting on behalf of
             # a given user, subscribe to the feed for that user
@@ -129,9 +129,9 @@ class WebSocket(websocket.WebSocketHandler):
             WebSocket.sockets[username].add(self)
 
         except jwt.DecodeError:
-            self.send_json(action='AUTH FAILED')
+            self.send_json(actionType='AUTH FAILED')
         except jwt.ExpiredSignatureError:
-            self.send_json(action='AUTH FAILED')
+            self.send_json(actionType='AUTH FAILED')
 
     @classmethod
     def heartbeat(cls):
@@ -163,14 +163,13 @@ class WebSocket(websocket.WebSocketHandler):
 
 
 if __name__ == "__main__":
-    PORT = cfg['ports:websocket']
-    LOCAL_OUTPUT = cfg['ports:websocket_path_out']
+    PORT = cfg['ports.websocket']
+    LOCAL_OUTPUT = cfg['ports.websocket_path_out']
 
     import zmq
+    from zmq.eventloop import zmqstream
 
-    # https://zeromq.github.io/pyzmq/eventloop.html
-    from zmq.eventloop import ioloop, zmqstream
-    ioloop.install()
+    # https://pyzmq.readthedocs.io/en/latest/eventloop.html
 
     sub = ctx.socket(zmq.SUB)
     sub.connect(LOCAL_OUTPUT)
@@ -184,6 +183,9 @@ if __name__ == "__main__":
         (r'/websocket', WebSocket),
     ])
     server.listen(PORT)
+
+
+    io_loop = ioloop.IOLoop.current()
 
     # We send a heartbeat every 45 seconds to make sure that nginx
     # proxy does not time out and close the connection

@@ -1,10 +1,23 @@
 SHELL = /bin/bash
-SUPERVISORD=PYTHONPATH=. FLAGS=$$FLAGS supervisord -c baselayer/conf/supervisor/supervisor.conf
-SUPERVISORCTL=PYTHONPATH=. FLAGS=$$FLAGS supervisorctl -c baselayer/conf/supervisor/supervisor.conf
-ENV_SUMMARY=PYTHONPATH=. baselayer/tools/env_summary.py $$FLAGS
 ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
+
+# Use `config.yaml` by default, unless overridden by user
+# through setting FLAGS environment variable
+FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
+
+PYTHON=PYTHONPATH=. python
+ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
+
+# Flags are propagated to supervisord via the FLAGS environment variable
+# Inside of supervisord configuration files, you may reference them using
+# %(ENV_FLAGS)s
+SUPERVISORD_CFG=baselayer/conf/supervisor/supervisor.conf
+SUPERVISORD=$(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
+SUPERVISORCTL=$(PYTHON) -m supervisor.supervisorctl -c $(SUPERVISORD_CFG)
+
+LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('baselayer'); spl('$1')"
 
 # Bold
 B=\033[1m
@@ -21,27 +34,27 @@ webpack = npx webpack
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
 .PHONY: stop status test_headless test check-js-updates lint-install
 .PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
+.PHONY: $(bundle) bundle bundle-watch
 
 help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
 	@cd baselayer && ./tools/check_app_environment.py
-	@./baselayer/tools/silent_monitor.py pip install -r baselayer/requirements.txt
-	@./baselayer/tools/silent_monitor.py pip install -r requirements.txt
+	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
 db_init: ## Initialize database and models.
 db_init: dependencies
 	@echo -e "\nInitializing database:"
-	@PYTHONPATH=. baselayer/tools/db_init.py
+	@PYTHONPATH=. baselayer/tools/db_init.py $(FLAGS)
 
 db_clear: ## Delete all data from the database.
 db_clear: dependencies
-	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f
+	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
 
 $(bundle): webpack.config.js package.json
-	$(webpack)
+	@$(webpack)
 
 bundle: $(bundle)
 
@@ -53,7 +66,7 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find . -name "*.template" | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 log: ## Monitor log files for all services.
 log: paths
@@ -61,27 +74,27 @@ log: paths
 
 run: ## Start the web application.
 run: paths dependencies fill_conf_values
-	@echo "Supervisor will now fire up various micro-services."
+	@echo
+	$(call LOG, Starting micro-services)
 	@echo
 	@echo " - Run \`make log\` in another terminal to view logs"
 	@echo " - Run \`make monitor\` in another terminal to restart services"
 	@echo
 	@echo "The server is in debug mode:"
+	@echo
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
-
-	@export FLAGS="--config=config.yaml --debug" && \
+	@export FLAGS="$(FLAGS) --debug" && \
 	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
 	$(SUPERVISORD)
 
 run_production: ## Run the web application in production mode (no dependency checking).
-run_production: FLAGS = "--config=config.yaml"  # both this and the next FLAGS definition are needed
 run_production: paths fill_conf_values
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	@export FLAGS=$(FLAGS) && \
+	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
@@ -94,8 +107,10 @@ run_testing: paths dependencies fill_conf_values
 
 monitor: ## Monitor microservice status.
 	@echo "Entering supervisor control panel."
-	@echo " - Type \`status\` too see microservice status"
-	$(SUPERVISORCTL) -i status
+	@echo
+	@echo " - Type \`status\` to see microservice status"
+	@echo
+	@$(SUPERVISORCTL) -i
 
 attach: ## Attach to terminal of running webserver; useful to, e.g., use pdb.
 	$(SUPERVISORCTL) fg app

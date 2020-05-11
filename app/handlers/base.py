@@ -1,7 +1,5 @@
 import tornado.escape
-import tornado.ioloop
 from sqlalchemy.orm import joinedload
-from sqlalchemy.orm.exc import NoResultFound
 from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
@@ -28,7 +26,7 @@ class BaseHandler(PSABaseHandler):
         if self.path_args and self.path_args[0] is not None:
             self.path_args = [arg.lstrip('/') for arg in self.path_args]
             self.path_args = [arg if (arg != '') else None
-                                  for arg in self.path_args]
+                              for arg in self.path_args]
 
         # If there are no arguments, make it explicit, otherwise
         # get / post / put / delete all have to accept an optional kwd argument
@@ -112,7 +110,7 @@ class BaseHandler(PSABaseHandler):
         try:
             return tornado.escape.json_decode(self.request.body)
         except JSONDecodeError:
-            raise JSONDecodeError(
+            raise Exception(
                 f'JSON decode of request body failed on {self.request.uri}.'
                 ' Please ensure all requests are of type application/json.')
 
@@ -120,7 +118,7 @@ class BaseHandler(PSABaseHandler):
         DBSession.remove()
         return super(BaseHandler, self).on_finish()
 
-    def error(self, message, data={}):
+    def error(self, message, data={}, status=400):
         """Push an error message to the frontend via WebSocket connection.
 
         Parameters
@@ -129,10 +127,14 @@ class BaseHandler(PSABaseHandler):
             Description of the error.
         data : dict, optional
             Any data to be included with error message.
+        status : int, optional
+            HTTP status code.  Defaults to 400 (bad request).
+            See https://www.restapitutorial.com/httpstatuscodes.html for a full
+            list.
         """
         print('! App Error:', message)
 
-        self.set_status(400)
+        self.set_status(status)
         self.write({
             "status": "error",
             "message": message,
@@ -153,7 +155,7 @@ class BaseHandler(PSABaseHandler):
         """
         self.push(action, payload)
 
-    def success(self, data={}, action=None, payload={}):
+    def success(self, data={}, action=None, payload={}, status=200):
         """Write data and send actions on API success.
 
         Parameters
@@ -166,10 +168,15 @@ class BaseHandler(PSABaseHandler):
         payload : dict, optional
             Action payload.  This data accompanies the action string
             to the frontend.
+        status : int, optional
+            HTTP status code.  Defaults to 200 (OK).
+            See https://www.restapitutorial.com/httpstatuscodes.html for a full
+            list.
         """
         if action is not None:
             self.action(action, payload)
 
+        self.set_status(status)
         self.write(to_json(
             {
                 "status": "success",
@@ -186,10 +193,15 @@ class BaseHandler(PSABaseHandler):
 
     async def _get_client(self):
         IP = '127.0.0.1'
-        PORT_SCHEDULER = self.cfg['ports:dask']
+        PORT_SCHEDULER = self.cfg['ports.dask']
 
         from distributed import Client
         client = await Client('{}:{}'.format(IP, PORT_SCHEDULER),
                               asynchronous=True)
 
         return client
+
+    def push_notification(self, note, notification_type='info'):
+        self.push(action='baselayer/SHOW_NOTIFICATION',
+                  payload={'note': note,
+                           'type': notification_type})

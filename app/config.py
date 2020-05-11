@@ -15,12 +15,31 @@ def recursive_update(d, u):
     return d
 
 
+def relative_to(path, root):
+    p = Path(path)
+    try:
+        return p.relative_to(root)
+    except ValueError:
+        return p
+
+
 class Config(dict):
+    """To simplify access, the configuration allows fetching nested
+    keys separated by a period `.`, e.g.:
+
+    >>> cfg['app.db']
+
+    is equivalent to
+
+    >>> cfg['app']['db']
+
+    """
+
     def __init__(self, config_files=None):
         dict.__init__(self)
         if config_files is not None:
             cwd = os.getcwd()
-            config_names = [Path(c).relative_to(cwd) for c in config_files]
+            config_names = [relative_to(c, cwd) for c in config_files]
             print(f'  Config files: {config_names[0]}')
             for f in config_names[1:]:
                 print(f'                {f}')
@@ -35,7 +54,7 @@ class Config(dict):
             recursive_update(self, more_cfg)
 
     def __getitem__(self, key):
-        keys = key.split(':')
+        keys = key.split('.')
 
         val = self
         for key in keys:
@@ -64,8 +83,11 @@ class Config(dict):
 def load_config(config_files=[]):
     basedir = Path(os.path.dirname(__file__))/'..'
     missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
-    if missing:
-        raise RuntimeError(f"[Baselayer] Missing config files: {missing}")
+    for f in missing:
+        print(f'[Baselayer] Missing config files: {", ".join(missing)}; continuing.')
+    if 'config.yaml' in missing:
+        print("\nWarning: You are running on the default configuration. To configure your system,\n"
+            "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit.\n")
 
     # Always load the default configuration values first, and override
     # with values in user configuration files

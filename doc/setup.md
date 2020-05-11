@@ -1,5 +1,11 @@
 # Setup
 
+This guide describes how to get a webapp, derived from `baselayer`, up
+and running.  A simple example of such an application is provides as a
+[template application](https://github.com/cesium-ml/baselayer_template_app).
+
+Clone that application, and then proceed with the following instructions.
+
 ## Installation
 
 - A **Python 3.6** or later installation is required.
@@ -34,10 +40,19 @@
 ## Configuration
 
 - Customize `config.yaml` (see `config.yaml.defaults` for all options).
-  - Always modify `secret-key` before deployment!
+  - Always modify `secret_key` before deployment!
 - If you want other users to be able to log in:
   - Provide Google auth credentials, obtained as described in `config.yaml`.
 
 ## Launch
 
 Launch the app with `make run`.
+
+## Deployment options
+
+The default configuration file used can be overridden by setting the
+FLAGS environment variable:
+
+```
+FLAGS="--config=myconfig.yaml" make run
+```
