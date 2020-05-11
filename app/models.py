@@ -129,9 +129,11 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
 
     model_attrs.update({
         model_1.__name__.lower(): relationship(
-            model_1, cascade='save-update, merge, refresh-expire, expunge', foreign_keys=[model_attrs[column_1]]),
+            model_1, cascade='save-update, merge, refresh-expire, expunge',
+            foreign_keys=[model_attrs[column_1]]),
         model_2.__name__.lower(): relationship(
-            model_2, cascade='save-update, merge, refresh-expire, expunge', foreign_keys=[model_attrs[column_2]]),
+            model_2, cascade='save-update, merge, refresh-expire, expunge',
+            foreign_keys=[model_attrs[column_2]]),
         reverse_ind_name: sa.Index(reverse_ind_name,
                                    model_attrs[column_2],
                                    model_attrs[column_1])
