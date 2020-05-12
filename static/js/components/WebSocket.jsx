@@ -184,4 +184,4 @@ WebSocket.propTypes = {
   dispatch: PropTypes.func.isRequired
 };
 
-module.exports = WebSocket;
+export default WebSocket;
