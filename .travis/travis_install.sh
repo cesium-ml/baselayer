@@ -30,7 +30,7 @@ make db_init
 section_end "init.baselayer"
 
 section "install.geckodriver.and.selenium"
-GECKO_VER=0.24.0
+GECKO_VER=0.26.0
 wget https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VER}/geckodriver-v${GECKO_VER}-linux64.tar.gz
 sudo tar -xzf geckodriver-v${GECKO_VER}-linux64.tar.gz -C /usr/local/bin
 rm geckodriver-v${GECKO_VER}-linux64.tar.gz
