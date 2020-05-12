@@ -14,7 +14,7 @@ ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
 # Inside of supervisord configuration files, you may reference them using
 # %(ENV_FLAGS)s
 SUPERVISORD_CFG=baselayer/conf/supervisor/supervisor.conf
-SUPERVISORD=export FLAGS=$(FLAGS) && $(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
+SUPERVISORD=$(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
 SUPERVISORCTL=$(PYTHON) -m supervisor.supervisorctl -c $(SUPERVISORD_CFG)
 
 LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('baselayer'); spl('$1')"
@@ -34,6 +34,7 @@ webpack = npx webpack
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
 .PHONY: stop status test_headless test test-nginx-config check-js-updates
 .PHONY: lint-install lint lint-unix lint-githook baselayer_doc_reqs html
+.PHONY: $(bundle) bundle bundle-watch
 
 help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
@@ -53,7 +54,7 @@ db_clear: dependencies
 	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
 
 $(bundle): webpack.config.js package.json
-	$(webpack)
+	@$(webpack)
 
 bundle: $(bundle)
 
@@ -65,7 +66,7 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find ./baselayer -name "*.template" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find . -name "*.template" | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 log: ## Monitor log files for all services.
 log: paths
@@ -83,8 +84,8 @@ run: paths dependencies fill_conf_values
 	@echo
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
-
-	@$(ENV_SUMMARY) && echo && \
+	@export FLAGS="$(FLAGS) --debug" && \
+	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
 	$(SUPERVISORD)
@@ -93,6 +94,7 @@ run_production: ## Run the web application in production mode (no dependency che
 run_production: paths fill_conf_values
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
+	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 

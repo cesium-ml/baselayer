@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { createCookie, readCookie, eraseCookie } from '../cookies';
 import ReconnectingWebSocket from '../reconnecting-websocket';
-import MessageHandler from '../MessageHandler';
+import messageHandler, { MessageHandler } from '../MessageHandler';
 import { showNotification, hideNotificationByTag, MS_PER_YEAR } from './Notifications';
 
 
@@ -97,17 +97,17 @@ class WebSocket extends React.Component {
     };
 
     ws.onmessage = (event) => {
-      const message = event.data;
+      const data = event.data;
 
       // Ignore heartbeat signals
-      if (message === '<3') {
+      if (data === '<3') {
         return;
       }
 
-      const data = JSON.parse(message);
-      const action = data.action;
+      const message = JSON.parse(data);
+      const { actionType, payload } = message;
 
-      switch (action) {
+      switch (actionType) {
         case "AUTH REQUEST":
           getAuthToken(this.props.auth_url)
             .then(token => ws.send(token));
@@ -126,7 +126,7 @@ class WebSocket extends React.Component {
           this.props.dispatch(hideNotificationByTag(tag));
           break;
         default:
-          this.props.messageHandler.handle(data);
+          messageHandler.handle(actionType, payload);
       }
     };
 
@@ -182,7 +182,9 @@ class WebSocket extends React.Component {
 WebSocket.propTypes = {
   url: PropTypes.string.isRequired,
   auth_url: PropTypes.string.isRequired,
-  messageHandler: PropTypes.instanceOf(MessageHandler)
+  messageHandler: PropTypes.shape({
+    handle: PropTypes.func.isRequired
+  })
 };
 
 module.exports = WebSocket;
