@@ -93,6 +93,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#database">Database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#standards">Standards</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#docker-images">Docker images</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#upgrading-javascript-dependencies">Upgrading Javascript dependencies</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
@@ -236,6 +237,13 @@ make use of include:</p>
 <div class="section" id="docker-images">
 <h2>Docker images<a class="headerlink" href="#docker-images" title="Permalink to this headline">¶</a></h2>
 <p>Run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">docker-images</span></code> to build and push to Docker hub.</p>
+</div>
+<div class="section" id="upgrading-javascript-dependencies">
+<h2>Upgrading Javascript dependencies<a class="headerlink" href="#upgrading-javascript-dependencies" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">./tools/check_js_updates.sh</span></code> script uses
+<a class="reference external" href="https://github.com/dylang/npm-check"><code class="docutils literal notranslate"><span class="pre">npm-check</span></code></a> to search updates
+for packages defined in <code class="docutils literal notranslate"><span class="pre">package.json</span></code>.  It then provides an
+interactive interface for selecting new versions and performing the upgrade.</p>
 </div>
 </div>
 
