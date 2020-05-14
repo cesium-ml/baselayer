@@ -1,5 +1,7 @@
 # Developer notes
+
 ## Testing
+
 To execute the test suite:
 
 - Install ChromeDriver from [https://sites.google.com/a/chromium.org/chromedriver/home](https://sites.google.com/a/chromium.org/chromedriver/home)
@@ -12,12 +14,14 @@ On Linux, the tests can be run in "headless" mode (no browser display):
   - `make test_headless`
 
 ## Debugging
+
 - Run `make log` to watch log output
 - Run `make stop` to stop any running web services.
 - Run `make attach` to attach to output of webserver, e.g. for use with `pdb.set_trace()`
 - Run `make check-js-updates` to see which Javascript packages are eligible for an upgrade.
 
 ## Database
+
 All interactions with the database are performed by way of SQLAlchemy using the
 Pyscopg2 backend. Some standard but not necessarily obvious usage patterns we
 make use of include:
@@ -50,10 +54,19 @@ DBSession().rollback()  # recover after a DB error
         - `u = User.query.first(); u.acls; u.to_dict()` does include a list of the user's ACLs
 
 ## Standards
+
 We use ESLint to ensure that our JavaScript & JSX code is consistent and conforms with recommended standards.
 
 - Install ESLint using `make lint-install`.  This will also install a git pre-commit hook so that any commit is linted before it is checked in.
 - Run `make lint`  to perform a style check
 
 ## Docker images
+
 Run `make docker-images` to build and push to Docker hub.
+
+## Upgrading Javascript dependencies
+
+The `./tools/check_js_updates.sh` script uses
+[`npm-check`](https://github.com/dylang/npm-check) to search updates
+for packages defined in `package.json`.  It then provides an
+interactive interface for selecting new versions and performing the upgrade.
