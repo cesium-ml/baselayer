@@ -7,7 +7,7 @@ export function createCookie(name, value, minutes) {
     date.setTime(date.getTime() + (minutes * 60 * 1000));
     expires = `; expires=${date.toGMTString()}`;
   }
-  document.cookie = `${name}=${value}${expires}; path=/`;
+  document.cookie = `${name}=${value}${expires};path=/;SameSite=Strict`;
 }
 
 export function readCookie(name) {
