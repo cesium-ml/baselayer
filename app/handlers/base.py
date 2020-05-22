@@ -118,8 +118,16 @@ class BaseHandler(PSABaseHandler):
         DBSession.remove()
         return super(BaseHandler, self).on_finish()
 
-    def error(self, message, data={}, status=400):
+    def error(self, message, data={}, status=400, extra={}):
         """Push an error message to the frontend via WebSocket connection.
+
+        The return JSON has the following format::
+
+          {
+            "status": "error",
+            "data": ...,
+            ...extra...
+          }
 
         Parameters
         ----------
@@ -131,6 +139,8 @@ class BaseHandler(PSABaseHandler):
             HTTP status code.  Defaults to 400 (bad request).
             See https://www.restapitutorial.com/httpstatuscodes.html for a full
             list.
+        extra : dict
+            Extra fields to be included in the response.
         """
         print('! App Error:', message)
 
@@ -138,8 +148,9 @@ class BaseHandler(PSABaseHandler):
         self.write({
             "status": "error",
             "message": message,
-            "data": data
-            })
+            "data": data,
+            **extra
+        })
 
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
@@ -155,13 +166,22 @@ class BaseHandler(PSABaseHandler):
         """
         self.push(action, payload)
 
-    def success(self, data={}, action=None, payload={}, status=200):
+    def success(self, data={}, action=None, payload={}, status=200,
+                extra={}):
         """Write data and send actions on API success.
+
+        The return JSON has the following format::
+
+          {
+            "status": "success",
+            "data": ...,
+            ...extra...
+          }
 
         Parameters
         ----------
         data : dict, optional
-            The JSON returned by the API call.
+            The JSON returned by the API call in the `data` field.
         action : str, optional
             Name of frontend action to perform after API success.  This action
             is sent to the frontend over WebSocket.
@@ -172,6 +192,8 @@ class BaseHandler(PSABaseHandler):
             HTTP status code.  Defaults to 200 (OK).
             See https://www.restapitutorial.com/httpstatuscodes.html for a full
             list.
+        extra : dict
+            Extra fields to be included in the response.
         """
         if action is not None:
             self.action(action, payload)
@@ -180,7 +202,8 @@ class BaseHandler(PSABaseHandler):
         self.write(to_json(
             {
                 "status": "success",
-                "data": data
+                "data": data,
+                **extra
             }))
 
     def write_error(self, status_code, exc_info=None):
