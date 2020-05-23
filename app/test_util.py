@@ -43,6 +43,10 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.presence_of_element_located((By.XPATH, xpath)))
 
+    def wait_for_xpath_to_be_clickable(self, xpath, timeout=5):
+        return WebDriverWait(self, timeout).until(
+            expected_conditions.element_to_be_clickable((By.XPATH, xpath)))
+
     def scroll_to_element_and_click(self, element):
         try:
             return element.click()
