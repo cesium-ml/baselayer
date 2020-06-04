@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 import simplejson as json
 import six
 from sqlalchemy.orm.base import object_mapper
@@ -19,7 +19,7 @@ data_types = {
 class Encoder(json.JSONEncoder):
     """Extends json.JSONEncoder with additional capabilities/configurations."""
     def default(self, o):
-        if isinstance(o, (datetime, Arrow)):
+        if isinstance(o, (datetime, Arrow, date)):
             return o.isoformat()
 
         elif isinstance(o, bytes):
@@ -43,6 +43,8 @@ class Encoder(json.JSONEncoder):
 
         elif type(o) is type and o in data_types:
             return data_types[o]
+
+
 
         return json.JSONEncoder.default(self, o)
 
