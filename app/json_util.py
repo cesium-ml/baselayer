@@ -44,8 +44,6 @@ class Encoder(json.JSONEncoder):
         elif type(o) is type and o in data_types:
             return data_types[o]
 
-
-
         return json.JSONEncoder.default(self, o)
 
 
