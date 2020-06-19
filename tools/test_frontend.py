@@ -55,7 +55,7 @@ def verify_server_availability(url, timeout=60):
             assert response.status_code == 200, ("Expected status 200, got"
                                                  f" {response.status_code}"
                                                  f" for URL {url}.")
-            response = requests.get(url + '/static/build/bundle.js')
+            response = requests.get(url + '/static/build/main.bundle.js')
             assert response.status_code == 200, ("Javascript bundle not found,"
                                                  " did Webpack fail?")
             return  # all checks passed
