@@ -24,7 +24,7 @@ B=\033[1m
 # Normal
 N=\033[0m
 
-bundle = static/build/bundle.js
+bundle = static/build/main.bundle.js
 webpack = npx webpack
 
 # NOTE: These targets are meant to be *included* in the parent app
