@@ -25,6 +25,7 @@ def fill_config_file_values(template_paths):
 
             with open(os.path.splitext(template_path)[0], 'w') as f:
                 f.write(rendered)
+                f.write('\n')
 
 
 if __name__ == '__main__':
