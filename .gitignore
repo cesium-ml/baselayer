@@ -12,5 +12,9 @@ public/
 __pycache__/
 node_modules/
 *.pyc
-conf/nginx.conf
+doc/_build
+
+# These are built from templates
 conf/supervisor/supervisor.conf
+services/dask/supervisor.conf
+conf/nginx.conf
