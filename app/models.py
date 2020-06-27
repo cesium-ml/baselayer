@@ -14,7 +14,7 @@ from .custom_exceptions import AccessError
 
 
 DBSession = scoped_session(sessionmaker())
-EXECUTEMANY_PAGESIZE = 10000
+EXECUTEMANY_PAGESIZE = 50000
 
 
 # The db has to be initialized later; this is done by the app itself
