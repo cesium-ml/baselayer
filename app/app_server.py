@@ -38,6 +38,8 @@ settings = {
         cfg['server.auth.google_oauth2_key'],
     'SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET': \
         cfg['server.auth.google_oauth2_secret'],
+    'SOCIAL_AUTH_REDIRECT_IS_HTTPS': \
+        cfg['server.auth.ssl']
 }
 
 if cfg['server.auth.debug_login']:
