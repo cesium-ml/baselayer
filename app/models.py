@@ -14,6 +14,7 @@ from .custom_exceptions import AccessError
 
 
 DBSession = scoped_session(sessionmaker())
+EXECUTEMANY_PAGESIZE = 50000
 
 
 # The db has to be initialized later; this is done by the app itself
@@ -22,7 +23,9 @@ def init_db(user, database, password=None, host=None, port=None):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
-    conn = sa.create_engine(url, client_encoding='utf8')
+    conn = sa.create_engine(url, client_encoding='utf8',
+                            executemany_mode='values',
+                            executemany_values_page_size=EXECUTEMANY_PAGESIZE)
 
     DBSession.configure(bind=conn)
     Base.metadata.bind = conn
