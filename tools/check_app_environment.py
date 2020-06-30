@@ -33,7 +33,12 @@ deps = {
     'node (npm)': (
         ['npm', '-v'],
         lambda v: v,
-        '5.8.0')
+        '5.8.0'),
+    'python': (
+        ['python', '--version'],
+        lambda v: v.split()[1],
+        '3.7'
+    )
 }
 
 print('Checking system dependencies:')
