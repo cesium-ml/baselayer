@@ -14,6 +14,11 @@ from .custom_exceptions import AccessError
 
 
 DBSession = scoped_session(sessionmaker())
+
+# https://docs.sqlalchemy.org/en/13/dialects/postgresql.html#psycopg2-fast-execution-helpers
+# executemany_values_page_size arguments control how many parameter sets
+# should be represented in each execution of an INSERT
+# 50000 was chosen based on recommendations in the docs and on profiling tests
 EXECUTEMANY_PAGESIZE = 50000
 
 
