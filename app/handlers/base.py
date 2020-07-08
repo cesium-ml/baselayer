@@ -60,9 +60,7 @@ class BaseHandler(PSABaseHandler):
         if user_id is None:
             return None
         else:
-            return User.query\
-                       .options(joinedload('acls'))\
-                       .get(int(user_id))
+            return User.query.get(int(user_id))
 
     def push(self, action, payload={}):
         """Broadcast a message to current frontend user.
