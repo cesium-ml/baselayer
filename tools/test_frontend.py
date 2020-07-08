@@ -15,6 +15,8 @@ from baselayer.tools.supervisor_status import supervisor_status
 from baselayer.app.model_util import clear_tables
 from baselayer.log import make_log
 
+
+
 log = make_log('test_frontend')
 
 
@@ -66,12 +68,15 @@ def verify_server_availability(url, timeout=60):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) == 2 and (sys.argv[1] == '--help' or sys.argv[1] == '-h'):
-        print('Usage: test_frontend.py <pytest-test-spec>')
-        print()
-        print('Example:')
-        print('  test_frontend.py skyportal/tests/api')
-        sys.exit(0)
+
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument('test_spec', nargs='?', default=None,
+                        help='''Test spec. Example: 
+    test_frontend.py skyportal/tests/api
+''')
+    parser.add_argument('--xml', action='store_true')
+    args = parser.parse_args()
 
     # Initialize the test database connection
     log('Initializing test database')
@@ -79,13 +84,21 @@ if __name__ == '__main__':
     from baselayer.app.config import load_config
     basedir = pathlib.Path(os.path.dirname(__file__))/'..'/'..'
     cfg = load_config([basedir/TEST_CONFIG])
+    app_name = cfg['app.factory'].split('.')[0]
     init_db(**cfg['database'])
 
-    if len(sys.argv) > 1:
-        test_spec = sys.argv[1]
+    if args.test_spec is not None:
+        test_spec = args.test_spec
     else:
-        app_name = cfg['app.factory'].split('.')[0]
         test_spec = basedir/app_name/'tests'
+
+    if args.xml:
+        test_outdir = basedir/'test-results'
+        if not test_outdir.exists():
+            test_outdir.mkdir()
+        xml = f'--junitxml={test_outdir}/junit.xml'
+    else:
+        xml = ''
 
     clear_tables()
 
@@ -96,10 +109,13 @@ if __name__ == '__main__':
     print()
     log(f'Waiting for server to appear at {server_url}...')
 
+
+
     try:
         verify_server_availability(server_url)
         log(f'Launching pytest on {test_spec}...\n')
-        status = subprocess.run(f'python -m pytest -s -v {test_spec} {RAND_ARGS}',
+        status = subprocess.run(f'python -m pytest -s -v {xml} {test_spec} '
+                                f'{RAND_ARGS}',
                                 shell=True, check=True)
     except Exception as e:
         log('Could not launch server processes; terminating')

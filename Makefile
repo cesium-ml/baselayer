@@ -132,6 +132,10 @@ test: ## Run tests.
 test: paths dependencies fill_conf_values
 	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py
 
+test_xml: ## Run tests and generate JUnit XML output.
+test_xml: paths dependencies fill_conf_values
+	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml
+
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
 	./baselayer/tools/check_js_updates.sh
