@@ -72,7 +72,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('test_spec', nargs='?', default=None,
-                        help='''Test spec. Example: 
+                        help='''Test spec. Example:
     test_frontend.py skyportal/tests/api
 ''')
     parser.add_argument('--xml', action='store_true')
