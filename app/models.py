@@ -176,7 +176,7 @@ class User(Base):
 
     @property
     def acls(self):
-        return list({acl for role in self.roles for acl in role})
+        return list({acl for role in self.roles for acl in role.acls})
 
     @classmethod
     def user_model(cls):
