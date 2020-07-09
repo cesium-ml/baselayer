@@ -174,7 +174,6 @@ class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
     roles = relationship('Role', secondary='user_roles', back_populates='users')
     role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
-    permissions = association_proxy('acls', 'id')
     tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
                           back_populates='created_by', passive_deletes=True)
     preferences = sa.Column(JSONB, nullable=True)
@@ -182,6 +181,10 @@ class User(Base):
     @property
     def acls(self):
         return list({acl for role in self.roles for acl in role.acls})
+
+    @property
+    def permissions(self):
+        return [acl.id for acl in self.acls]
 
     @classmethod
     def user_model(cls):
