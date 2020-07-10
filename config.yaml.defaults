@@ -34,7 +34,18 @@ server:
         ssl: False
 
 services:
-    dask: True
+    paths:
+      - ./baselayer/services
+      - ./services
+
+    # By default, all services are enabled.  Use this list to add
+    # services if 'disabled' is set to '*'
+    enabled:
+
+    # A list of service names, or '*'
+    disabled:
+
+    # You can use disabled to disable specific services, or '*' to disable them all
 
 ports:
     websocket: 64000

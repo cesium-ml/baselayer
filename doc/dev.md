@@ -60,10 +60,6 @@ We use ESLint to ensure that our JavaScript & JSX code is consistent and conform
 - Install ESLint using `make lint-install`.  This will also install a git pre-commit hook so that any commit is linted before it is checked in.
 - Run `make lint`  to perform a style check
 
-## Docker images
-
-Run `make docker-images` to build and push to Docker hub.
-
 ## Upgrading Javascript dependencies
 
 The `./tools/check_js_updates.sh` script uses

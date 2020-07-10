@@ -34,6 +34,7 @@ webpack = npx webpack
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
 .PHONY: stop status test_headless test check-js-updates lint-install
 .PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
+.PHONY: system_setup service_setup
 .PHONY: $(bundle) bundle bundle-watch
 
 help:
@@ -66,14 +67,19 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find . -name "*.template" | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find . -name '[^.]*.template' | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
+
+system_setup: | paths dependencies fill_conf_values service_setup
+
+service_setup:
+	@PYTHONPATH=. python ./baselayer/tools/setup_services.py $(FLAGS)
 
 log: ## Monitor log files for all services.
 log: paths
 	@PYTHONPATH=. PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
 
 run: ## Start the web application.
-run: paths dependencies fill_conf_values
+run: system_setup
 	@echo
 	$(call LOG, Starting micro-services)
 	@echo
@@ -91,7 +97,7 @@ run: paths dependencies fill_conf_values
 	$(SUPERVISORD)
 
 run_production: ## Run the web application in production mode (no dependency checking).
-run_production: paths fill_conf_values
+run_production: system_setup
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
 	@export FLAGS="$(FLAGS)" && \
@@ -99,7 +105,7 @@ run_production: paths fill_conf_values
 	$(SUPERVISORD)
 
 run_testing: FLAGS = "--config=test_config.yaml"  # both this and the next FLAGS definition are needed
-run_testing: paths dependencies fill_conf_values
+run_testing: system_setup
 	@echo -e "\n$(B)[baselayer] Launch app for testing$(N)"
 	@export FLAGS=$(FLAGS) && \
 	$(ENV_SUMMARY) && \
@@ -125,11 +131,11 @@ status:
 	@PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
 
 test_headless: ## Run tests headlessly with xvfb (Linux only).
-test_headless: paths dependencies fill_conf_values
+test_headless: system_setup
 	@PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
 
 test: ## Run tests.
-test: paths dependencies fill_conf_values
+test: system_setup
 	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py
 
 test_xml: ## Run tests and generate JUnit XML output.
