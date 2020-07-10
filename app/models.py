@@ -163,8 +163,10 @@ class ACL(Base):
 
 class Role(Base):
     id = sa.Column(sa.String, nullable=False, primary_key=True)
-    acls = relationship('ACL', secondary='role_acls')
-    users = relationship('User', secondary='user_roles', back_populates='roles')
+    acls = relationship('ACL', secondary='role_acls',
+                        passive_deletes=True)
+    users = relationship('User', secondary='user_roles', back_populates='roles',
+                         passive_deletes=True)
 
 
 RoleACL = join_model('role_acls', Role, ACL)
@@ -172,7 +174,8 @@ RoleACL = join_model('role_acls', Role, ACL)
 
 class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
-    roles = relationship('Role', secondary='user_roles', back_populates='users')
+    roles = relationship('Role', secondary='user_roles', back_populates='users',
+                         passive_deletes=True)
     role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
     tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
                           back_populates='created_by', passive_deletes=True)
@@ -203,7 +206,8 @@ class Token(Base):
     created_by_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
                               nullable=True)
     created_by = relationship('User', back_populates='tokens')
-    acls = relationship('ACL', secondary='token_acls')
+    acls = relationship('ACL', secondary='token_acls',
+                        passive_deletes=True)
     acl_ids = association_proxy('acls', 'id',
                                 creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
