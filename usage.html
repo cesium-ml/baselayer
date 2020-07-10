@@ -92,8 +92,7 @@
 <li class="toctree-l1"><a class="reference internal" href="dev.html">Developer notes</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#permissions">Permissions</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#adding-roles-to-users">Adding roles to users</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#adding-users-to-groups">Adding users to groups</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#microservices">Microservices</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="extending.html">Extending baselayer</a></li>
@@ -181,17 +180,44 @@ in.</p>
 </li>
 </ul>
 </div>
-<div class="section" id="adding-roles-to-users">
-<h2>Adding roles to users<a class="headerlink" href="#adding-roles-to-users" title="Permalink to this headline">¶</a></h2>
-<ul class="simple">
-<li><p>User permissions can be managed on the <code class="docutils literal notranslate"><span class="pre">/users/</span></code> page  # TODO not fully implemented</p></li>
-</ul>
+<div class="section" id="microservices">
+<h2>Microservices<a class="headerlink" href="#microservices" title="Permalink to this headline">¶</a></h2>
+<p>Baselayer uses stand-alone micro-services whenever possible.  These
+services are monitored by supervisord, and by default include nginx, the web
+app, a cron-job handler, the websocket server, etc.</p>
+<p>Services are configured in the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file (defaults in
+<code class="docutils literal notranslate"><span class="pre">config.yaml.defaults</span></code>), and are discovered by path:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">services</span><span class="p">:</span>
+    <span class="n">paths</span><span class="p">:</span>
+      <span class="o">-</span> <span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">services</span>
+      <span class="o">-</span> <span class="o">./</span><span class="n">services</span>
+    <span class="n">enabled</span><span class="p">:</span>
+    <span class="n">disabled</span><span class="p">:</span>
+</pre></div>
 </div>
-<div class="section" id="adding-users-to-groups">
-<h2>Adding users to groups<a class="headerlink" href="#adding-users-to-groups" title="Permalink to this headline">¶</a></h2>
-<ul class="simple">
-<li><p>Groups membership can be managed on the <code class="docutils literal notranslate"><span class="pre">/groups/</span></code> page  # TODO not fully implemented</p></li>
-</ul>
+<p>For example, the <code class="docutils literal notranslate"><span class="pre">cron</span></code> microservice lives in
+<code class="docutils literal notranslate"><span class="pre">./baselayer/services/cron</span></code>.  In that directory, there is a
+<code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> file and any other files that implement the
+microservice (in this case, <code class="docutils literal notranslate"><span class="pre">cron.py</span></code>).</p>
+<p>A microservice is loaded by injecting the <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> into the
+<code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> file used by the entire system.</p>
+<p>By default, all discovered microservices are loaded, but this can be
+customized through the <code class="docutils literal notranslate"><span class="pre">services.enabled</span></code> and <code class="docutils literal notranslate"><span class="pre">services.disabled</span></code>
+configuration keys. <code class="docutils literal notranslate"><span class="pre">services.disabled</span></code> can be set to <code class="docutils literal notranslate"><span class="pre">'*'</span></code> to disable
+all services.  E.g., to only load the <code class="docutils literal notranslate"><span class="pre">cron</span></code> service, you would do:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">services</span><span class="p">:</span>
+    <span class="n">paths</span><span class="p">:</span>
+      <span class="o">-</span> <span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">services</span>
+      <span class="o">-</span> <span class="o">./</span><span class="n">services</span>
+    <span class="n">enabled</span><span class="p">:</span>
+      <span class="o">-</span> <span class="n">cron</span>
+    <span class="n">disabled</span><span class="p">:</span> <span class="s1">&#39;*&#39;</span>
+</pre></div>
+</div>
+<p>Sometimes, the supervisor configuration needs information from the
+configuration file, therefore <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> can instead be
+provided as <code class="docutils literal notranslate"><span class="pre">supervisor.conf.template</span></code>, which will be compiled before
+launching.  See, e.g., <code class="docutils literal notranslate"><span class="pre">services/dask</span></code>.</p>
 </div>
 </div>
 
