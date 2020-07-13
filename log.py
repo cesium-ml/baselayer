@@ -61,7 +61,8 @@ def colorize(s, fg=None, bg=None, bold=False, underline=False, reverse=False):
 
 
 def log(app, message):
-    color = COLOR_TABLE[zlib.crc32(message.encode('ascii')) % len(COLOR_TABLE)]
+    color_table = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+    color = color_table[zlib.crc32(app.encode('ascii')) % len(color_table)]
     timestamp = datetime.now().strftime('%H:%M:%S')
     formatted_message = f'[{timestamp} {app}] {message}'
     print(colorize(formatted_message, fg=color, bold=True))
