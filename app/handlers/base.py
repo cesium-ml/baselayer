@@ -106,7 +106,10 @@ class BaseHandler(PSABaseHandler):
         if len(self.request.body) == 0:
             return {}
         try:
-            return tornado.escape.json_decode(self.request.body)
+            json = tornado.escape.json_decode(self.request.body)
+            if not isinstance(json, dict):
+                raise Exception('Please ensure posted data is of type application/json')
+            return json
         except JSONDecodeError:
             raise Exception(
                 f'JSON decode of request body failed on {self.request.uri}.'
