@@ -22,6 +22,9 @@ DBSession = scoped_session(sessionmaker())
 EXECUTEMANY_PAGESIZE = 50000
 
 
+utcnow = func.timezone('UTC', func.current_timestamp())
+
+
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
 def init_db(user, database, password=None, host=None, port=None):
@@ -38,12 +41,12 @@ def init_db(user, database, password=None, host=None, port=None):
     return conn
 
 
+
 class BaseMixin(object):
     query = DBSession.query_property()
     id = sa.Column(sa.Integer, primary_key=True)
-    created_at = sa.Column(sa.DateTime, nullable=False, default=func.now())
-    modified = sa.Column(sa.DateTime, default=func.now(),
-                         onupdate=func.current_timestamp(),
+    created_at = sa.Column(sa.DateTime, nullable=False, default=utcnow)
+    modified = sa.Column(sa.DateTime, default=utcnow, onupdate=utcnow,
                          nullable=False)
 
     @declared_attr
