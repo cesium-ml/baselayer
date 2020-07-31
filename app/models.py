@@ -1,5 +1,6 @@
 from datetime import datetime
 import uuid
+from hashlib import md5
 
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -8,6 +9,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy_utils import EmailType, PhoneNumberType
 
 from .json_util import to_json
 from .custom_exceptions import AccessError
@@ -177,12 +179,27 @@ RoleACL = join_model('role_acls', Role, ACL)
 
 class User(Base):
     username = sa.Column(sa.String, nullable=False, unique=True)
+
+    first_name = sa.Column(sa.String, nullable=True)
+    last_name = sa.Column(sa.String, nullable=True)
+    contact_email = sa.Column(EmailType(), nullable=True)
+    contact_phone = sa.Column(PhoneNumberType(), nullable=True)
+
     roles = relationship('Role', secondary='user_roles', back_populates='users',
                          passive_deletes=True)
     role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
     tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
                           back_populates='created_by', passive_deletes=True)
     preferences = sa.Column(JSONB, nullable=True)
+
+    @property
+    def gravatar_url(self):
+        email = self.contact_email if \
+                self.contact_email is not None else self.username
+
+        digest = md5(email.lower().encode('utf-8')).hexdigest()
+        # return a 404 status code if not found on gravatar
+        return f'https://www.gravatar.com/avatar/{digest}?d=404'
 
     @property
     def acls(self):
