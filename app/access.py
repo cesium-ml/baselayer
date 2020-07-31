@@ -40,7 +40,8 @@ def permissions(acl_list):
         @auth_or_token
         @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
-            if not set(acl_list).issubset(self.current_user.permissions):
+            if not (set(acl_list).issubset(self.current_user.permissions)
+                    or "System admin" in self.current_user.permissions):
                 raise tornado.web.HTTPError(403)
             return method(self, *args, **kwargs)
         return wrapper
