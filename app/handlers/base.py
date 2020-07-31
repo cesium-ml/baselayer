@@ -23,8 +23,9 @@ class BaseHandler(PSABaseHandler):
         self.flow = Flow()
 
         # Remove slash prefixes from arguments
-        if self.path_args and self.path_args[0] is not None:
-            self.path_args = [arg.lstrip('/') for arg in self.path_args]
+        if self.path_args:
+            self.path_args = [arg.lstrip('/') if arg is not None else None
+                              for arg in self.path_args]
             self.path_args = [arg if (arg != '') else None
                               for arg in self.path_args]
 
