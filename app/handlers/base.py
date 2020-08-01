@@ -144,7 +144,7 @@ class BaseHandler(PSABaseHandler):
         extra : dict
             Extra fields to be included in the response.
         """
-        print('! App Error:', message)
+        print(f'[!] Error in `{self.request.path}`: {message}')
 
         self.set_status(status)
         self.write({
