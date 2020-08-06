@@ -48,6 +48,9 @@ services:
 
     # You can use disabled to disable specific services, or '*' to disable them all
 
+log:
+    api_calls: false
+
 ports:
     websocket: 64000
     fake_oauth: 63000
