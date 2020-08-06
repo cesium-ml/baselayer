@@ -49,7 +49,7 @@ services:
     # You can use disabled to disable specific services, or '*' to disable them all
 
 log:
-    api_calls: false
+    api_calls: False
 
 ports:
     websocket: 64000
