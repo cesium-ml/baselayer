@@ -67,7 +67,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         )
 
     def scroll_to_element_and_click(self, element):
-        ActionChains(self).move_to_element(element).perform()
+        self.execute_script("arguments[0].scrollIntoView();", element)
         return element.click()
 
     def click_xpath(self, xpath):
