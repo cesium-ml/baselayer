@@ -3,7 +3,6 @@ import distutils.spawn
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import (TimeoutException,
@@ -79,6 +78,17 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         element = self.wait_for_css_to_be_clickable(xpath)
         return self.scroll_to_element_and_click(element)
 
+    def become_user(self, user_id):
+        self.wait_for_css("body").send_keys(Keys.CONTROL + "t")
+        self.get(f'/become_user/{user_id}')
+        self.wait_for_css("body").send_keys(Keys.CONTROL + "w")
+
+        self.execute_script(f"window.open('{self.server_url + '/become_user/{user_id}'}', 'new_window')")
+        driver.switch_to_window(driver.window_handles[0])
+
+
+        browser.find_element_by_tag_name("body").send_keys(Keys.COMMAND + 
+Keys.NUMPAD2)
 
 
 @pytest.fixture(scope='session')
