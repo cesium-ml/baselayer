@@ -2,6 +2,7 @@ import pytest
 import distutils.spawn
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import (TimeoutException,
@@ -37,22 +38,45 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_xpath(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.presence_of_element_located((By.XPATH, xpath)))
+            expected_conditions.presence_of_element_located((By.XPATH, xpath))
+        )
+
+    def wait_for_css(self, css, timeout=5):
+        return WebDriverWait(self, timeout).until(
+            expected_conditions.presence_of_element_located((By.CSS, css))
+        )
 
     def wait_for_xpath_to_disappear(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until_not(
-            expected_conditions.presence_of_element_located((By.XPATH, xpath)))
+            expected_conditions.presence_of_element_located((By.XPATH, xpath))
+        )
+
+    def wait_for_css_to_disappear(self, css, timeout=5):
+        return WebDriverWait(self, timeout).until_not(
+            expected_conditions.presence_of_element_located((By.CSS, css))
+        )
 
     def wait_for_xpath_to_be_clickable(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.element_to_be_clickable((By.XPATH, xpath)))
+            expected_conditions.element_to_be_clickable((By.XPATH, xpath))
+        )
+
+    def wait_for_css_to_be_clickable(self, css, timeout=5):
+        return WebDriverWait(self, timeout).until(
+            expected_conditions.element_to_be_clickable((By.CSS, css))
+        )
 
     def scroll_to_element_and_click(self, element):
-        try:
-            return element.click()
-        except ElementClickInterceptedException:
-            self.execute_script("arguments[0].scrollIntoView();", element)
-            return element.click()
+        ActionChains(self).move_to_element(element).perform()
+        return element.click()
+
+    def click_xpath(self, xpath):
+        element = self.wait_for_xpath_to_be_clickable(xpath)
+        return self.scroll_to_element_and_click(element)
+
+    def click_css(self, css):
+        element = self.wait_for_css_to_be_clickable(css)
+        return self.scroll_to_element_and_click(element)
 
 
 @pytest.fixture(scope='session')
