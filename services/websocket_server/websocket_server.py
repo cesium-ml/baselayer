@@ -104,8 +104,11 @@ class WebSocket(websocket.WebSocketHandler):
 
     def on_message(self, auth_token):
         self.authenticate(auth_token)
-        if not self.authenticated and self.auth_failures < self.max_auth_fails:
-            self.request_auth()
+        if not self.authenticated:
+            if self.auth_failures <= self.max_auth_fails:
+                self.request_auth()
+            else:
+                log('max auth failure count reached')
 
     def request_auth(self):
         self.auth_failures += 1
