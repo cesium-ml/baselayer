@@ -78,18 +78,6 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         element = self.wait_for_css_to_be_clickable(css)
         return self.scroll_to_element_and_click(element)
 
-    def become_user(self, user_id):
-        self.wait_for_css("body").send_keys(Keys.CONTROL + "t")
-        self.get(f'/become_user/{user_id}')
-        self.wait_for_css("body").send_keys(Keys.CONTROL + "w")
-
-        self.execute_script(f"window.open('{self.server_url + '/become_user/{user_id}'}', 'new_window')")
-        driver.switch_to_window(driver.window_handles[0])
-
-
-        browser.find_element_by_tag_name("body").send_keys(Keys.COMMAND + 
-Keys.NUMPAD2)
-
 
 @pytest.fixture(scope='session')
 def driver(request):
