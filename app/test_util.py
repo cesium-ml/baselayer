@@ -74,8 +74,8 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         element = self.wait_for_xpath_to_be_clickable(xpath)
         return self.scroll_to_element_and_click(element)
 
-    def click_css(self, xpath):
-        element = self.wait_for_css_to_be_clickable(xpath)
+    def click_css(self, css):
+        element = self.wait_for_css_to_be_clickable(css)
         return self.scroll_to_element_and_click(element)
 
     def become_user(self, user_id):
