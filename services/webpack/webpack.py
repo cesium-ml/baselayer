@@ -1,37 +1,41 @@
 # encoding: utf-8
 
-from baselayer.app.env import load_env
 import subprocess
 import sys
 import time
 import os
 from pathlib import Path
 
+from baselayer.app.env import load_env
+from baselayer.log import make_log
+
 env, cfg = load_env()
 
 bundle = Path(os.path.dirname(__file__))/'../../static/build/main.bundle.js'
 
+log = make_log('service/webpack')
+
+
 def run(cmd):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     for line in p.stdout:
-        print(f'[service/webpack] {line.decode()}', end="")
-        sys.stdout.flush()
+        log(f'{line.decode().strip()}')
     return p
 
 if env.debug:
-    print("[service/webpack]: debug mode detected, launching webpack monitor")
+    log("debug mode detected, launching webpack monitor")
     p = run(['npx', 'webpack', '--watch'])
     sys.exit(p.returncode)
 
 elif bundle.is_file():
-    print("[service/webpack]: main.bundle.js already built, exiting")
+    log("main.bundle.js already built, exiting")
     # Run for a few seconds so that supervisor knows the service was
     # successful
     time.sleep(3)
     sys.exit(0)
 
 else:
-    print("[service/webpack]: main.bundle.js not found, building")
+    log("main.bundle.js not found, building")
     p = run(['npx', 'webpack'])
     time.sleep(1)
     sys.exit(p.returncode)

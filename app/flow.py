@@ -1,9 +1,10 @@
 import zmq
 from .json_util import to_json
 from .env import load_env
-
+from ..log import make_log
 
 env, cfg = load_env()
+log = make_log('flow')
 
 
 class Flow(object):
@@ -33,7 +34,7 @@ class Flow(object):
             an API call.
 
         """
-        print('[Flow] Pushing action {} to {}'.format(action_type, username))
+        log('Pushing action {} to {}'.format(action_type, username))
         message = [username,
                    to_json({'username': username,
                             'actionType': action_type,
