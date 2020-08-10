@@ -9,6 +9,7 @@ import sys
 import collections
 
 from baselayer.app.env import load_env
+from baselayer.log import make_log
 
 env, cfg = load_env()
 secret = cfg['app.secret_key']
@@ -17,6 +18,8 @@ if secret is None:
     raise RuntimeError('We need a secret key to communicate with the server!')
 
 ctx = zmq.Context()
+
+log = make_log('websocket_server')
 
 
 class WebSocket(websocket.WebSocketHandler):
@@ -101,8 +104,11 @@ class WebSocket(websocket.WebSocketHandler):
 
     def on_message(self, auth_token):
         self.authenticate(auth_token)
-        if not self.authenticated and self.auth_failures < self.max_auth_fails:
-            self.request_auth()
+        if not self.authenticated:
+            if self.auth_failures <= self.max_auth_fails:
+                self.request_auth()
+            else:
+                log('max auth failure count reached')
 
     def request_auth(self):
         self.auth_failures += 1
@@ -145,7 +151,7 @@ class WebSocket(websocket.WebSocketHandler):
         username, payload = [d.decode('utf-8') for d in data]
 
         if username == '*':
-            print('[WebSocket] Forwarding message to all users')
+            log('Forwarding message to all users')
 
             all_sockets = [socket
                            for socket_list in cls.sockets.values()
@@ -157,7 +163,7 @@ class WebSocket(websocket.WebSocketHandler):
         else:
 
             for socket in cls.sockets[username]:
-                print(f'[WebSocket] Forwarding message to {username}')
+                log(f'Forwarding message to {username}')
 
                 socket.write_message(payload)
 
@@ -174,7 +180,7 @@ if __name__ == "__main__":
     sub = ctx.socket(zmq.SUB)
     sub.connect(LOCAL_OUTPUT)
 
-    print('[websocket_server] Broadcasting {} to all websockets'.format(LOCAL_OUTPUT))
+    log('Broadcasting {} to all websockets'.format(LOCAL_OUTPUT))
     stream = zmqstream.ZMQStream(sub)
     WebSocket.install_stream(stream)
     stream.on_recv(WebSocket.broadcast)
@@ -191,5 +197,5 @@ if __name__ == "__main__":
     # proxy does not time out and close the connection
     ioloop.PeriodicCallback(WebSocket.heartbeat, 45000).start()
 
-    print('[websocket_server] Listening for incoming websocket connections on port {}'.format(PORT))
+    log('Listening for incoming websocket connections on port {}'.format(PORT))
     ioloop.IOLoop.instance().start()
