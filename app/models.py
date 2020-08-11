@@ -33,9 +33,12 @@ def init_db(user, database, password=None, host=None, port=None):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
-    conn = sa.create_engine(url, client_encoding='utf8',
-                            executemany_mode='values',
-                            executemany_values_page_size=EXECUTEMANY_PAGESIZE)
+    conn = sa.create_engine(
+        url,
+        client_encoding='utf8',
+        executemany_mode='values',
+        executemany_values_page_size=EXECUTEMANY_PAGESIZE,
+    )
 
     DBSession.configure(bind=conn)
     Base.metadata.bind = conn
@@ -43,13 +46,11 @@ def init_db(user, database, password=None, host=None, port=None):
     return conn
 
 
-
 class BaseMixin(object):
     query = DBSession.query_property()
     id = sa.Column(sa.Integer, primary_key=True)
     created_at = sa.Column(sa.DateTime, nullable=False, default=utcnow)
-    modified = sa.Column(sa.DateTime, default=utcnow, onupdate=utcnow,
-                         nullable=False)
+    modified = sa.Column(sa.DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
     @declared_attr
     def __tablename__(cls):
@@ -61,8 +62,9 @@ class BaseMixin(object):
         return to_json(self)
 
     def __repr__(self):
-        attr_list = [f"{c.name}={getattr(self, c.name)}"
-                     for c in self.__table__.columns]
+        attr_list = [
+            f"{c.name}={getattr(self, c.name)}" for c in self.__table__.columns
+        ]
         return f"<{type(self).__name__}({', '.join(attr_list)})>"
 
     def to_dict(self):
@@ -94,8 +96,16 @@ class BaseMixin(object):
 Base = declarative_base(cls=BaseMixin)
 
 
-def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
-               fk_1='id', fk_2='id', base=Base):
+def join_model(
+    join_table,
+    model_1,
+    model_2,
+    column_1=None,
+    column_2=None,
+    fk_1='id',
+    fk_2='id',
+    base=Base,
+):
     """Helper function to create a join table for a many-to-many relationship.
 
     Parameters
@@ -136,26 +146,35 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
     model_attrs = {
         '__tablename__': join_table,
         'id': None,
-        column_1: sa.Column(column_1, sa.ForeignKey(f'{table_1}.{fk_1}',
-                                                    ondelete='CASCADE'),
-                            primary_key=True),
-        column_2: sa.Column(column_2, sa.ForeignKey(f'{table_2}.{fk_2}',
-                                                    ondelete='CASCADE'),
-                            primary_key=True)
+        column_1: sa.Column(
+            column_1,
+            sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
+            primary_key=True,
+        ),
+        column_2: sa.Column(
+            column_2,
+            sa.ForeignKey(f'{table_2}.{fk_2}', ondelete='CASCADE'),
+            primary_key=True,
+        ),
     }
 
-    model_attrs.update({
-        model_1.__name__.lower(): relationship(
-            model_1, cascade='save-update, merge, refresh-expire, expunge',
-            foreign_keys=[model_attrs[column_1]]),
-        model_2.__name__.lower(): relationship(
-            model_2, cascade='save-update, merge, refresh-expire, expunge',
-            foreign_keys=[model_attrs[column_2]]),
-        reverse_ind_name: sa.Index(reverse_ind_name,
-                                   model_attrs[column_2],
-                                   model_attrs[column_1])
-
-    })
+    model_attrs.update(
+        {
+            model_1.__name__.lower(): relationship(
+                model_1,
+                cascade='save-update, merge, refresh-expire, expunge',
+                foreign_keys=[model_attrs[column_1]],
+            ),
+            model_2.__name__.lower(): relationship(
+                model_2,
+                cascade='save-update, merge, refresh-expire, expunge',
+                foreign_keys=[model_attrs[column_2]],
+            ),
+            reverse_ind_name: sa.Index(
+                reverse_ind_name, model_attrs[column_2], model_attrs[column_1]
+            ),
+        }
+    )
 
     model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
 
@@ -168,10 +187,10 @@ class ACL(Base):
 
 class Role(Base):
     id = sa.Column(sa.String, nullable=False, primary_key=True)
-    acls = relationship('ACL', secondary='role_acls',
-                        passive_deletes=True)
-    users = relationship('User', secondary='user_roles', back_populates='roles',
-                         passive_deletes=True)
+    acls = relationship('ACL', secondary='role_acls', passive_deletes=True)
+    users = relationship(
+        'User', secondary='user_roles', back_populates='roles', passive_deletes=True
+    )
 
 
 RoleACL = join_model('role_acls', Role, ACL)
@@ -185,17 +204,21 @@ class User(Base):
     contact_email = sa.Column(EmailType(), nullable=True)
     contact_phone = sa.Column(PhoneNumberType(), nullable=True)
 
-    roles = relationship('Role', secondary='user_roles', back_populates='users',
-                         passive_deletes=True)
+    roles = relationship(
+        'Role', secondary='user_roles', back_populates='users', passive_deletes=True
+    )
     role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
-    tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
-                          back_populates='created_by', passive_deletes=True)
+    tokens = relationship(
+        'Token',
+        cascade='save-update, merge, refresh-expire, expunge',
+        back_populates='created_by',
+        passive_deletes=True,
+    )
     preferences = sa.Column(JSONB, nullable=True)
 
     @property
     def gravatar_url(self):
-        email = self.contact_email if \
-                self.contact_email is not None else self.username
+        email = self.contact_email if self.contact_email is not None else self.username
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
         # return a 404 status code if not found on gravatar
@@ -221,21 +244,22 @@ class User(Base):
 
 
 class Token(Base):
-    id = sa.Column(sa.String, nullable=False, primary_key=True,
-                   default=lambda: str(uuid.uuid4()))
-    created_by_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
-                              nullable=True)
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    created_by_id = sa.Column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=True
+    )
     created_by = relationship('User', back_populates='tokens')
-    acls = relationship('ACL', secondary='token_acls',
-                        passive_deletes=True)
-    acl_ids = association_proxy('acls', 'id',
-                                creator=lambda acl: ACL.query.get(acl))
+    acls = relationship('ACL', secondary='token_acls', passive_deletes=True)
+    acl_ids = association_proxy('acls', 'id', creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
-    name = sa.Column(sa.String, nullable=False, unique=True,
-                     default=lambda: str(uuid.uuid4()))
+    name = sa.Column(
+        sa.String, nullable=False, unique=True, default=lambda: str(uuid.uuid4())
+    )
 
     def is_owned_by(self, user_or_token):
-        return (user_or_token.id in [self.created_by_id, self.id])
+        return user_or_token.id in [self.created_by_id, self.id]
 
 
 TokenACL = join_model('token_acls', Token, ACL)

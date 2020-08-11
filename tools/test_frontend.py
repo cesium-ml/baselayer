@@ -16,12 +16,12 @@ from baselayer.app.model_util import clear_tables
 from baselayer.log import make_log
 
 
-
 log = make_log('test_frontend')
 
 
 try:
     import pytest_randomly  # noqa
+
     RAND_ARGS = '--randomly-seed=1'
 except ImportError:
     RAND_ARGS = ''
@@ -38,8 +38,9 @@ def all_services_running():
     """
     valid_states = ('RUNNING', 'EXITED')
     supervisor_output, return_code = supervisor_status()
-    running = all([any(state in line for state in valid_states)
-                   for line in supervisor_output])
+    running = all(
+        [any(state in line for state in valid_states) for line in supervisor_output]
+    )
 
     # Return 3 is associated with a service exiting normally
     return running if return_code in (0, 3) else False
@@ -51,15 +52,17 @@ def verify_server_availability(url, timeout=60):
     """
     for i in range(timeout):
         try:
-            assert all_services_running(), ("Webservice(s) failed to launch:\n"
-                                            + '\n'.join(supervisor_status()))
+            assert (
+                all_services_running()
+            ), "Webservice(s) failed to launch:\n" + '\n'.join(supervisor_status())
             response = requests.get(url)
-            assert response.status_code == 200, ("Expected status 200, got"
-                                                 f" {response.status_code}"
-                                                 f" for URL {url}.")
+            assert response.status_code == 200, (
+                "Expected status 200, got" f" {response.status_code}" f" for URL {url}."
+            )
             response = requests.get(url + '/static/build/main.bundle.js')
-            assert response.status_code == 200, ("Javascript bundle not found,"
-                                                 " did Webpack fail?")
+            assert response.status_code == 200, (
+                "Javascript bundle not found," " did Webpack fail?"
+            )
             return  # all checks passed
         except Exception as e:
             if i == timeout - 1:  # last iteration
@@ -70,11 +73,16 @@ def verify_server_availability(url, timeout=60):
 if __name__ == '__main__':
 
     from argparse import ArgumentParser
+
     parser = ArgumentParser()
-    parser.add_argument('test_spec', nargs='?', default=None,
-                        help='''Test spec. Example:
+    parser.add_argument(
+        'test_spec',
+        nargs='?',
+        default=None,
+        help='''Test spec. Example:
     test_frontend.py skyportal/tests/api
-''')
+''',
+    )
     parser.add_argument('--xml', action='store_true')
     args = parser.parse_args()
 
@@ -82,18 +90,19 @@ if __name__ == '__main__':
     log('Initializing test database')
     from baselayer.app.models import init_db
     from baselayer.app.config import load_config
-    basedir = pathlib.Path(os.path.dirname(__file__))/'..'/'..'
-    cfg = load_config([basedir/TEST_CONFIG])
+
+    basedir = pathlib.Path(os.path.dirname(__file__)) / '..' / '..'
+    cfg = load_config([basedir / TEST_CONFIG])
     app_name = cfg['app.factory'].split('.')[0]
     init_db(**cfg['database'])
 
     if args.test_spec is not None:
         test_spec = args.test_spec
     else:
-        test_spec = basedir/app_name/'tests'
+        test_spec = basedir / app_name / 'tests'
 
     if args.xml:
-        test_outdir = basedir/'test-results'
+        test_outdir = basedir / 'test-results'
         if not test_outdir.exists():
             test_outdir.mkdir()
         xml = f'--junitxml={test_outdir}/junit.xml'
@@ -102,21 +111,22 @@ if __name__ == '__main__':
 
     clear_tables()
 
-    web_client = subprocess.Popen(['make', 'run_testing'],
-                                  cwd=basedir, preexec_fn=os.setsid)
+    web_client = subprocess.Popen(
+        ['make', 'run_testing'], cwd=basedir, preexec_fn=os.setsid
+    )
 
     server_url = f"http://localhost:{cfg['ports.app']}"
     print()
     log(f'Waiting for server to appear at {server_url}...')
 
-
-
     try:
         verify_server_availability(server_url)
         log(f'Launching pytest on {test_spec}...\n')
-        status = subprocess.run(f'python -m pytest -s -v {xml} {test_spec} '
-                                f'{RAND_ARGS}',
-                                shell=True, check=True)
+        status = subprocess.run(
+            f'python -m pytest -s -v {xml} {test_spec} ' f'{RAND_ARGS}',
+            shell=True,
+            check=True,
+        )
     except Exception as e:
         log('Could not launch server processes; terminating')
         print(e)

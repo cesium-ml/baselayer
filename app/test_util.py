@@ -5,8 +5,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
-from selenium.common.exceptions import (TimeoutException,
-                                        ElementClickInterceptedException)
+from selenium.common.exceptions import (
+    TimeoutException,
+    ElementClickInterceptedException,
+)
 from seleniumrequests.request import RequestMixin
 import os
 from baselayer.app import models
@@ -25,8 +27,9 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     @property
     def server_url(self):
         if not hasattr(self, '_server_url'):
-            raise NotImplementedError("Please first set the web driver URL"
-                                      " using `set_server_url`")
+            raise NotImplementedError(
+                "Please first set the web driver URL" " using `set_server_url`"
+            )
         return self._server_url
 
     @server_url.setter
@@ -82,15 +85,21 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 @pytest.fixture(scope='session')
 def driver(request):
     from selenium import webdriver
+
     profile = webdriver.FirefoxProfile()
 
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.folderList", 2)
-    profile.set_preference("browser.download.dir",
-                           os.path.abspath(cfg['paths.downloads_folder']))
-    profile.set_preference("browser.helperApps.neverAsk.saveToDisk",
-                           ("text/csv,text/plain,application/octet-stream,"
-                            "text/comma-separated-values,text/html"))
+    profile.set_preference(
+        "browser.download.dir", os.path.abspath(cfg['paths.downloads_folder'])
+    )
+    profile.set_preference(
+        "browser.helperApps.neverAsk.saveToDisk",
+        (
+            "text/csv,text/plain,application/octet-stream,"
+            "text/comma-separated-values,text/html"
+        ),
+    )
 
     driver = MyCustomWebDriver(firefox_profile=profile)
     driver.set_window_size(1920, 1200)
@@ -112,7 +121,9 @@ def login(driver):
         pass
 
     try:
-        element = driver.wait_for_xpath('//a[contains(@href,"/login/google-oauth2")]', 5)
+        element = driver.wait_for_xpath(
+            '//a[contains(@href,"/login/google-oauth2")]', 5
+        )
         element.click()
     except TimeoutException:
         pass
@@ -127,4 +138,5 @@ def login(driver):
 def reset_state(request):
     def teardown():
         models.DBSession().rollback()
+
     request.addfinalizer(teardown)

@@ -11,7 +11,7 @@ from baselayer.log import make_log
 
 env, cfg = load_env()
 
-bundle = Path(os.path.dirname(__file__))/'../../static/build/main.bundle.js'
+bundle = Path(os.path.dirname(__file__)) / '../../static/build/main.bundle.js'
 
 log = make_log('service/webpack')
 
@@ -21,6 +21,7 @@ def run(cmd):
     for line in p.stdout:
         log(f'{line.decode().strip()}')
     return p
+
 
 if env.debug:
     log("debug mode detected, launching webpack monitor")

@@ -52,6 +52,7 @@ class WebSocket(websocket.WebSocketHandler):
     +---------------------------------------------------------+
 
     """
+
     sockets = collections.defaultdict(set)
     _zmq_stream = None
 
@@ -59,8 +60,9 @@ class WebSocket(websocket.WebSocketHandler):
         websocket.WebSocketHandler.__init__(self, *args, **kwargs)
 
         if WebSocket._zmq_stream is None:
-            raise RuntimeError("Please install a stream before instantiating "
-                               "any websockets")
+            raise RuntimeError(
+                "Please install a stream before instantiating " "any websockets"
+            )
 
         self.authenticated = False
         self.auth_failures = 0
@@ -74,13 +76,11 @@ class WebSocket(websocket.WebSocketHandler):
 
     @classmethod
     def subscribe(cls, username):
-        cls._zmq_stream.socket.setsockopt(zmq.SUBSCRIBE,
-                                          username.encode('utf-8'))
+        cls._zmq_stream.socket.setsockopt(zmq.SUBSCRIBE, username.encode('utf-8'))
 
     @classmethod
     def unsubscribe(cls, username):
-        cls._zmq_stream.socket.setsockopt(zmq.UNSUBSCRIBE,
-                                          username.encode('utf-8'))
+        cls._zmq_stream.socket.setsockopt(zmq.UNSUBSCRIBE, username.encode('utf-8'))
 
     def check_origin(self, origin):
         return True
@@ -153,9 +153,9 @@ class WebSocket(websocket.WebSocketHandler):
         if username == '*':
             log('Forwarding message to all users')
 
-            all_sockets = [socket
-                           for socket_list in cls.sockets.values()
-                           for socket in socket_list]
+            all_sockets = [
+                socket for socket_list in cls.sockets.values() for socket in socket_list
+            ]
 
             for socket in all_sockets:
                 socket.write_message(payload)
@@ -185,11 +185,8 @@ if __name__ == "__main__":
     WebSocket.install_stream(stream)
     stream.on_recv(WebSocket.broadcast)
 
-    server = web.Application([
-        (r'/websocket', WebSocket),
-    ])
+    server = web.Application([(r'/websocket', WebSocket),])
     server.listen(PORT)
-
 
     io_loop = ioloop.IOLoop.current()
 

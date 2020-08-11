@@ -78,8 +78,9 @@ while True:
             log(f'Executing {script}')
             tc.reset(key)
             try:
-                subprocess.Popen(script, stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT)
+                subprocess.Popen(
+                    script, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                )
             except Exception as e:
                 log(f'Error executing {script}: {e}')
 

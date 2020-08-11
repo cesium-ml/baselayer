@@ -35,8 +35,6 @@ def load_env():
         env, unknown = parser.parse_known_args()
         cfg = load_config(config_files=env.config or [])
 
-        _cache.update({'file': env.config,
-                       'env': env,
-                       'cfg': cfg})
+        _cache.update({'file': env.config, 'env': env, 'cfg': cfg})
 
     return _cache['env'], _cache['cfg']

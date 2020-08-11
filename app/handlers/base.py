@@ -24,10 +24,10 @@ class BaseHandler(PSABaseHandler):
 
         # Remove slash prefixes from arguments
         if self.path_args:
-            self.path_args = [arg.lstrip('/') if arg is not None else None
-                              for arg in self.path_args]
-            self.path_args = [arg if (arg != '') else None
-                              for arg in self.path_args]
+            self.path_args = [
+                arg.lstrip('/') if arg is not None else None for arg in self.path_args
+            ]
+            self.path_args = [arg if (arg != '') else None for arg in self.path_args]
 
         # If there are no arguments, make it explicit, otherwise
         # get / post / put / delete all have to accept an optional kwd argument
@@ -40,7 +40,7 @@ class BaseHandler(PSABaseHandler):
             try:
                 assert DBSession.session_factory.kw['bind'] is not None
             except Exception as e:
-                if (i == N):
+                if i == N:
                     raise e
                 else:
                     print('Error connecting to database, sleeping for a while')
@@ -114,7 +114,8 @@ class BaseHandler(PSABaseHandler):
         except JSONDecodeError:
             raise Exception(
                 f'JSON decode of request body failed on {self.request.uri}.'
-                ' Please ensure all requests are of type application/json.')
+                ' Please ensure all requests are of type application/json.'
+            )
 
     def on_finish(self):
         DBSession.remove()
@@ -147,12 +148,7 @@ class BaseHandler(PSABaseHandler):
         print(f'[!] Error in `{self.request.path}`: {message}')
 
         self.set_status(status)
-        self.write({
-            "status": "error",
-            "message": message,
-            "data": data,
-            **extra
-        })
+        self.write({"status": "error", "message": message, "data": data, **extra})
 
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
@@ -168,8 +164,7 @@ class BaseHandler(PSABaseHandler):
         """
         self.push(action, payload)
 
-    def success(self, data={}, action=None, payload={}, status=200,
-                extra={}):
+    def success(self, data={}, action=None, payload={}, status=200, extra={}):
         """Write data and send actions on API success.
 
         The return JSON has the following format::
@@ -201,12 +196,7 @@ class BaseHandler(PSABaseHandler):
             self.action(action, payload)
 
         self.set_status(status)
-        self.write(to_json(
-            {
-                "status": "success",
-                "data": data,
-                **extra
-            }))
+        self.write(to_json({"status": "success", "data": data, **extra}))
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
@@ -221,12 +211,13 @@ class BaseHandler(PSABaseHandler):
         PORT_SCHEDULER = self.cfg['ports.dask']
 
         from distributed import Client
-        client = await Client('{}:{}'.format(IP, PORT_SCHEDULER),
-                              asynchronous=True)
+
+        client = await Client('{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True)
 
         return client
 
     def push_notification(self, note, notification_type='info'):
-        self.push(action='baselayer/SHOW_NOTIFICATION',
-                  payload={'note': note,
-                           'type': notification_type})
+        self.push(
+            action='baselayer/SHOW_NOTIFICATION',
+            payload={'note': note, 'type': notification_type},
+        )

@@ -9,11 +9,13 @@ from baselayer.app.env import load_env
 from status import status
 
 
-parser = argparse.ArgumentParser(
-    description='Create or re-create the database.'
+parser = argparse.ArgumentParser(description='Create or re-create the database.')
+parser.add_argument(
+    '-f',
+    '--force',
+    action='store_true',
+    help='recreate the db, even if it already exists',
 )
-parser.add_argument('-f', '--force', action='store_true',
-                    help='recreate the db, even if it already exists')
 args, unknown = parser.parse_known_args()
 
 env, cfg = load_env()
@@ -41,10 +43,9 @@ if port:
 
 
 def run(cmd):
-    return subprocess.run(cmd,
-                          stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE,
-                          shell=True)
+    return subprocess.run(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+    )
 
 
 def test_db(database):
@@ -56,8 +57,9 @@ def test_db(database):
             if not p.returncode == 0:
                 raise RuntimeError()
     except:
-        print(textwrap.dedent(
-            f'''
+        print(
+            textwrap.dedent(
+                f'''
              !!! Error accessing database:
 
              The most common cause of database connection errors is a
@@ -80,7 +82,9 @@ def test_db(database):
              check your connection:
 
                {test_cmd}
-            '''))
+            '''
+            )
+        )
 
         sys.exit(1)
 
@@ -108,16 +112,20 @@ if args.force:
                 if p.returncode != 0:
                     raise RuntimeError()
     except:
-        print('Could not delete database: \n\n'
-              f'{textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  ")}\n')
+        print(
+            'Could not delete database: \n\n'
+            f'{textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  ")}\n'
+        )
         sys.exit(1)
 
 with status(f'Creating databases'):
     for current_db in all_dbs:
         run(f'{sudo} createdb -w {current_db}')
         run(f'{sudo} createdb -w {current_db}')
-        run(f'psql {flags}\
+        run(
+            f'psql {flags}\
               -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"\
-              {current_db}')
+              {current_db}'
+        )
 
 test_db(db)

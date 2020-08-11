@@ -16,6 +16,7 @@ def auth_or_token(method):
       $ curl -v -H "Authorization: token 123efghj" http://localhost:5000/api/endpoint
 
     """
+
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         token_header = self.request.headers.get('Authorization', None)
@@ -29,6 +30,7 @@ def auth_or_token(method):
             return method(self, *args, **kwargs)
         else:
             return tornado.web.authenticated(method)(self, *args, **kwargs)
+
     return wrapper
 
 
@@ -36,13 +38,18 @@ def permissions(acl_list):
     """Decorate methods with this to require that the current user have all the
     specified ACLs.
     """
+
     def check_acls(method):
         @auth_or_token
         @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
-            if not (set(acl_list).issubset(self.current_user.permissions)
-                    or "System admin" in self.current_user.permissions):
+            if not (
+                set(acl_list).issubset(self.current_user.permissions)
+                or "System admin" in self.current_user.permissions
+            ):
                 raise tornado.web.HTTPError(403)
             return method(self, *args, **kwargs)
+
         return wrapper
+
     return check_acls
