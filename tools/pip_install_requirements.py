@@ -7,7 +7,9 @@ from status import status
 
 
 if len(sys.argv) < 2:
-    print('Usage: pip_install_requirements.py requirements.txt [requirements_other.txt]')
+    print(
+        'Usage: pip_install_requirements.py requirements.txt [requirements_other.txt]'
+    )
     sys.exit(0)
 
 requirements = []
@@ -18,8 +20,11 @@ for req_file in all_req_files:
 
 
 def pip(req_file):
-    p = subprocess.Popen(['pip', 'install', '-r', req_file],
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(
+        ['pip', 'install', '-r', req_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
     for line in iter(p.stdout.readline, b''):
         line = line.decode('utf-8')
         if line.startswith('Requirement already satisfied'):

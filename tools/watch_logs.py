@@ -10,6 +10,7 @@ import time
 import threading
 from baselayer.log import colorize
 
+
 @contextlib.contextmanager
 def nostdout():
     save_stdout = sys.stdout

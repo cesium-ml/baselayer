@@ -6,8 +6,17 @@ BOLD = "\033[1m"
 NORMAL = "\033[0;0m"
 
 
-COLOR_TABLE = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
-               'white', 'default']
+COLOR_TABLE = [
+    'black',
+    'red',
+    'green',
+    'yellow',
+    'blue',
+    'magenta',
+    'cyan',
+    'white',
+    'default',
+]
 
 
 def colorize(s, fg=None, bg=None, bold=False, underline=False, reverse=False):

@@ -1,6 +1,9 @@
 /* Handle incoming websocket messages */
 
-import { SHOW_NOTIFICATION, showNotification } from './components/Notifications';
+import {
+  SHOW_NOTIFICATION,
+  showNotification,
+} from "./components/Notifications";
 
 class MessageHandler {
   /* You have to run `init` before the messageHandler can be used */
@@ -34,7 +37,6 @@ const notificationHandler = (actionType, payload, dispatch) => {
     dispatch(showNotification(note, type));
   }
 };
-
 
 const messageHandler = new MessageHandler();
 messageHandler.add(notificationHandler);

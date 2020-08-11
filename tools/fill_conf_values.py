@@ -11,6 +11,7 @@ import jinja2
 
 log = make_log('baselayer')
 
+
 def fill_config_file_values(template_paths):
     log('Compiling configuration templates')
     env, cfg = load_env()
@@ -30,6 +31,7 @@ def fill_config_file_values(template_paths):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+
     parser = ArgumentParser(description='Fill config file templates')
     parser.add_argument('template_paths', nargs='+')
     args, _ = parser.parse_known_args()

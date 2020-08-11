@@ -85,18 +85,22 @@ class Config(dict):
 
 
 def load_config(config_files=[]):
-    basedir = Path(os.path.dirname(__file__))/'..'
+    basedir = Path(os.path.dirname(__file__)) / '..'
     missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
     for f in missing:
         log(f'Missing config files: {", ".join(missing)}; continuing.')
     if 'config.yaml' in missing:
-        log("Warning: You are running on the default configuration. To configure your system, "
-            "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit.")
+        log(
+            "Warning: You are running on the default configuration. To configure your system, "
+            "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit."
+        )
 
     # Always load the default configuration values first, and override
     # with values in user configuration files
-    all_configs = [Path(basedir/'config.yaml.defaults'),
-                   Path(basedir/'../config.yaml.defaults')] + config_files
+    all_configs = [
+        Path(basedir / 'config.yaml.defaults'),
+        Path(basedir / '../config.yaml.defaults'),
+    ] + config_files
     all_configs = [cfg for cfg in all_configs if os.path.isfile(cfg)]
     all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
 

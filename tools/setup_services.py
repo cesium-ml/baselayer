@@ -16,8 +16,9 @@ def copy_supervisor_configs():
     services = {}
     for path in cfg['services.paths']:
         if os.path.exists(path):
-            path_services = [d for d in os.listdir(path)
-                             if os.path.isdir(pjoin(path, d))]
+            path_services = [
+                d for d in os.listdir(path) if os.path.isdir(pjoin(path, d))
+            ]
             services.update({s: pjoin(path, s) for s in path_services})
 
     duplicates = [k for k, v in Counter(services.keys()).items() if v > 1]
