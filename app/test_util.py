@@ -36,7 +36,6 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         self._server_url = value
 
     def get(self, uri):
-        return webdriver.Firefox.get(self, self.server_url + uri)
         webdriver.Firefox.get(self, self.server_url + uri)
         try:
             self.find_element_by_id('websocketStatus')
