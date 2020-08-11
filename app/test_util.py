@@ -1,13 +1,12 @@
 import pytest
-import distutils.spawn
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import (
-    TimeoutException,
-    ElementClickInterceptedException,
+    NoSuchElementException,
+    TimeoutException
 )
 from seleniumrequests.request import RequestMixin
 import os
@@ -38,6 +37,12 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def get(self, uri):
         return webdriver.Firefox.get(self, self.server_url + uri)
+        webdriver.Firefox.get(self, self.server_url + uri)
+        try:
+            self.find_element_by_id('websocketStatus')
+            self.wait_for_xpath("//*[@id='websocketStatus' and contains(@title,'connected')]")
+        except NoSuchElementException:
+            pass
 
     def wait_for_xpath(self, xpath, timeout=5):
         return WebDriverWait(self, timeout).until(
