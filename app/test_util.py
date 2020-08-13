@@ -41,47 +41,47 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     def get(self, uri):
         return webdriver.Firefox.get(self, self.server_url + uri)
 
-    def wait_for_xpath(self, xpath, timeout=5):
+    def wait_for_xpath(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.presence_of_element_located((By.XPATH, xpath))
         )
 
-    def wait_for_css(self, css, timeout=5):
+    def wait_for_css(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.presence_of_element_located((By.CSS, css))
         )
 
-    def wait_for_xpath_to_appear(self, xpath, timeout=5):
+    def wait_for_xpath_to_appear(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.invisibility_of_element((By.XPATH, xpath))
         )
 
-    def wait_for_xpath_to_disappear(self, xpath, timeout=5):
+    def wait_for_xpath_to_disappear(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.invisibility_of_element((By.XPATH, xpath))
         )
 
-    def wait_for_css_to_disappear(self, css, timeout=5):
+    def wait_for_css_to_disappear(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.invisibility_of_element((By.CSS, css))
         )
 
-    def wait_for_xpath_to_be_clickable(self, xpath, timeout=5):
+    def wait_for_xpath_to_be_clickable(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.element_to_be_clickable((By.XPATH, xpath))
         )
 
-    def wait_for_xpath_to_be_unclickable(self, xpath, timeout=5):
+    def wait_for_xpath_to_be_unclickable(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.element_to_be_clickable((By.XPATH, xpath))
         )
 
-    def wait_for_css_to_be_clickable(self, css, timeout=5):
+    def wait_for_css_to_be_clickable(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.element_to_be_clickable((By.CSS, css))
         )
 
-    def wait_for_css_to_be_unclickable(self, css, timeout=5):
+    def wait_for_css_to_be_unclickable(self, css, timeout=10):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.element_to_be_clickable((By.CSS, css))
         )
@@ -89,7 +89,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     def scroll_to_element(self, element):
         self.execute_script("arguments[0].scrollIntoView(true);", element)
 
-    def scroll_to_element_and_click(self, element, timeout=5):
+    def scroll_to_element_and_click(self, element, timeout=10):
         self.scroll_to_element(element)
 
         try:
