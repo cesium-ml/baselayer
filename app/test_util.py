@@ -48,7 +48,9 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_css(self, css, timeout=5):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.presence_of_element_located((By.CSS, css))
+            expected_conditions.presence_of_element_located(
+                (By.CSS_SELECTOR , css)
+            )
         )
 
     def wait_for_xpath_to_appear(self, xpath, timeout=5):
@@ -63,7 +65,9 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_css_to_disappear(self, css, timeout=5):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.invisibility_of_element((By.CSS, css))
+            expected_conditions.invisibility_of_element(
+                (By.CSS_SELECTOR , css)
+            )
         )
 
     def wait_for_xpath_to_be_clickable(self, xpath, timeout=5):
@@ -78,12 +82,16 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_css_to_be_clickable(self, css, timeout=5):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.element_to_be_clickable((By.CSS, css))
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR , css)
+            )
         )
 
     def wait_for_css_to_be_unclickable(self, css, timeout=5):
         return WebDriverWait(self, timeout).until_not(
-            expected_conditions.element_to_be_clickable((By.CSS, css))
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR , css)
+            )
         )
 
     def scroll_to_element(self, element):
