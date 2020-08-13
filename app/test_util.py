@@ -127,8 +127,11 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 def driver(request):
     from selenium import webdriver
 
-    profile = webdriver.FirefoxProfile()
+    options = webdriver.FirefoxOptions()
+    if 'BASELAYER_TEST_HEADLESS' in os.environ:
+        options.headless = True
 
+    profile = webdriver.FirefoxProfile()
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.folderList", 2)
     profile.set_preference(
@@ -142,7 +145,10 @@ def driver(request):
         ),
     )
 
-    driver = MyCustomWebDriver(firefox_profile=profile)
+    driver = MyCustomWebDriver(
+        firefox_profile=profile,
+        options=options
+    )
     driver.set_window_size(1920, 1200)
     login(driver)
 
