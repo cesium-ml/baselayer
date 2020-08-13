@@ -49,7 +49,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     def wait_for_css(self, css, timeout=5):
         return WebDriverWait(self, timeout).until(
             expected_conditions.presence_of_element_located(
-                (By.CSS_SELECTOR , css)
+                (By.CSS_SELECTOR, css)
             )
         )
 
@@ -66,7 +66,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     def wait_for_css_to_disappear(self, css, timeout=5):
         return WebDriverWait(self, timeout).until(
             expected_conditions.invisibility_of_element(
-                (By.CSS_SELECTOR , css)
+                (By.CSS_SELECTOR, css)
             )
         )
 
@@ -83,14 +83,14 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     def wait_for_css_to_be_clickable(self, css, timeout=5):
         return WebDriverWait(self, timeout).until(
             expected_conditions.element_to_be_clickable(
-                (By.CSS_SELECTOR , css)
+                (By.CSS_SELECTOR, css)
             )
         )
 
     def wait_for_css_to_be_unclickable(self, css, timeout=5):
         return WebDriverWait(self, timeout).until_not(
             expected_conditions.element_to_be_clickable(
-                (By.CSS_SELECTOR , css)
+                (By.CSS_SELECTOR, css)
             )
         )
 
