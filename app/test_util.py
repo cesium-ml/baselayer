@@ -114,12 +114,15 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         # a mouse click to that coordinate
         ActionChains(self).move_to_element(element).click().perform()
 
-    def click_xpath(self, xpath):
-        element = self.wait_for_xpath_to_be_clickable(xpath)
+    def click_xpath(self, xpath, timeout=10):
+        try:
+            element = self.wait_for_xpath_to_be_clickable(xpath, timeout=timeout)
+        except TimeoutException:
+            element = self.wait_for_xpath(xpath)
         return self.scroll_to_element_and_click(element)
 
-    def click_css(self, css):
-        element = self.wait_for_css_to_be_clickable(css)
+    def click_css(self, css, timeout=10):
+        element = self.wait_for_css_to_be_clickable(css, timeout=timeout)
         return self.scroll_to_element_and_click(element)
 
 
