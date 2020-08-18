@@ -115,7 +115,10 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         ActionChains(self).move_to_element(element).click().perform()
 
     def click_xpath(self, xpath, timeout=10):
-        element = self.wait_for_xpath_to_be_clickable(xpath, timeout=timeout)
+        try:
+            element = self.wait_for_xpath_to_be_clickable(xpath, timeout=timeout)
+        except TimeoutException:
+            element = self.wait_for_xpath(xpath)
         return self.scroll_to_element_and_click(element)
 
     def click_css(self, css, timeout=10):
