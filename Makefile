@@ -130,9 +130,9 @@ stop: ## Stop all running services.
 status:
 	@PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
 
-test_headless: ## Run tests headlessly with xvfb (Linux only).
+test_headless: ## Run tests headlessly
 test_headless: system_setup
-	@PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
+	@PYTHONPATH='.' baselayer/tools/test_frontend.py --headless
 
 test: ## Run tests.
 test: system_setup

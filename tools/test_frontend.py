@@ -83,7 +83,8 @@ if __name__ == '__main__':
     test_frontend.py skyportal/tests/api
 ''',
     )
-    parser.add_argument('--xml', action='store_true')
+    parser.add_argument('--xml', action='store_true', help='Save JUnit xml output to `test-results/junit.xml`')
+    parser.add_argument('--headless', action='store_true', help='Run browser headlessly')
     args = parser.parse_args()
 
     # Initialize the test database connection
@@ -108,6 +109,9 @@ if __name__ == '__main__':
         xml = f'--junitxml={test_outdir}/junit.xml'
     else:
         xml = ''
+
+    if args.headless:
+        os.environ['BASELAYER_TEST_HEADLESS'] = '1'
 
     clear_tables()
 

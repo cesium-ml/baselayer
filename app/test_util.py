@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -6,10 +8,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import (
     NoSuchElementException,
-    TimeoutException
+    ElementClickInterceptedException,
+    TimeoutException,
+    JavascriptException
 )
 from seleniumrequests.request import RequestMixin
-import os
+
 from baselayer.app import models
 from baselayer.app.config import load_config
 
@@ -43,46 +47,88 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         except NoSuchElementException:
             pass
 
-    def wait_for_xpath(self, xpath, timeout=5):
+    def wait_for_xpath(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.presence_of_element_located((By.XPATH, xpath))
         )
 
-    def wait_for_css(self, css, timeout=5):
+    def wait_for_css(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.presence_of_element_located((By.CSS, css))
+            expected_conditions.presence_of_element_located(
+                (By.CSS_SELECTOR, css)
+            )
         )
 
-    def wait_for_xpath_to_disappear(self, xpath, timeout=5):
+    def wait_for_xpath_to_appear(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until_not(
-            expected_conditions.presence_of_element_located((By.XPATH, xpath))
+            expected_conditions.invisibility_of_element((By.XPATH, xpath))
         )
 
-    def wait_for_css_to_disappear(self, css, timeout=5):
-        return WebDriverWait(self, timeout).until_not(
-            expected_conditions.presence_of_element_located((By.CSS, css))
+    def wait_for_xpath_to_disappear(self, xpath, timeout=10):
+        return WebDriverWait(self, timeout).until(
+            expected_conditions.invisibility_of_element((By.XPATH, xpath))
         )
 
-    def wait_for_xpath_to_be_clickable(self, xpath, timeout=5):
+    def wait_for_css_to_disappear(self, css, timeout=10):
+        return WebDriverWait(self, timeout).until(
+            expected_conditions.invisibility_of_element(
+                (By.CSS_SELECTOR, css)
+            )
+        )
+
+    def wait_for_xpath_to_be_clickable(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until(
             expected_conditions.element_to_be_clickable((By.XPATH, xpath))
         )
 
-    def wait_for_css_to_be_clickable(self, css, timeout=5):
-        return WebDriverWait(self, timeout).until(
-            expected_conditions.element_to_be_clickable((By.CSS, css))
+    def wait_for_xpath_to_be_unclickable(self, xpath, timeout=10):
+        return WebDriverWait(self, timeout).until_not(
+            expected_conditions.element_to_be_clickable((By.XPATH, xpath))
         )
 
-    def scroll_to_element_and_click(self, element):
-        self.execute_script("arguments[0].scrollIntoView();", element)
-        return element.click()
+    def wait_for_css_to_be_clickable(self, css, timeout=10):
+        return WebDriverWait(self, timeout).until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, css)
+            )
+        )
 
-    def click_xpath(self, xpath):
-        element = self.wait_for_xpath_to_be_clickable(xpath)
+    def wait_for_css_to_be_unclickable(self, css, timeout=10):
+        return WebDriverWait(self, timeout).until_not(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, css)
+            )
+        )
+
+    def scroll_to_element(self, element):
+        self.execute_script("arguments[0].scrollIntoView(true);", element)
+
+    def scroll_to_element_and_click(self, element, timeout=10):
+        self.scroll_to_element(element)
+
+        try:
+            return element.click()
+        except ElementClickInterceptedException:
+            pass
+
+        try:
+            return self.execute_script("arguments[0].click();", element)
+        except JavascriptException:
+            pass
+
+        # Tried to click something that's not a button, try sending
+        # a mouse click to that coordinate
+        ActionChains(self).move_to_element(element).click().perform()
+
+    def click_xpath(self, xpath, wait_clickable=True, timeout=10):
+        if wait_clickable:
+            element = self.wait_for_xpath_to_be_clickable(xpath, timeout=timeout)
+        else:
+            element = self.wait_for_xpath(xpath)
         return self.scroll_to_element_and_click(element)
 
-    def click_css(self, css):
-        element = self.wait_for_css_to_be_clickable(css)
+    def click_css(self, css, timeout=10):
+        element = self.wait_for_css_to_be_clickable(css, timeout=timeout)
         return self.scroll_to_element_and_click(element)
 
 
@@ -90,8 +136,11 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 def driver(request):
     from selenium import webdriver
 
-    profile = webdriver.FirefoxProfile()
+    options = webdriver.FirefoxOptions()
+    if 'BASELAYER_TEST_HEADLESS' in os.environ:
+        options.headless = True
 
+    profile = webdriver.FirefoxProfile()
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.folderList", 2)
     profile.set_preference(
@@ -105,7 +154,10 @@ def driver(request):
         ),
     )
 
-    driver = MyCustomWebDriver(firefox_profile=profile)
+    driver = MyCustomWebDriver(
+        firefox_profile=profile,
+        options=options
+    )
     driver.set_window_size(1920, 1200)
     login(driver)
 
