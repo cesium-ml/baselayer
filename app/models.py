@@ -305,7 +305,6 @@ class User(Base):
         'roles',
         'id',
         creator=lambda r: Role.query.get(r),
-        doc="The primary keys of the roles assumed by " "this user.",
     )
     tokens = relationship(
         'Token',
@@ -387,8 +386,7 @@ class Token(Base):
     acl_ids = association_proxy(
         'acls',
         'id',
-        creator=lambda acl: ACL.query.get(acl),
-        doc="The names of the ACLs granted to the token.",
+        creator=lambda acl: ACL.query.get(acl)
     )
     permissions = acl_ids
     name = sa.Column(
