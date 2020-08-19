@@ -7,6 +7,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import (
+    NoSuchElementException,
     ElementClickInterceptedException,
     TimeoutException,
     JavascriptException
@@ -39,7 +40,12 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         self._server_url = value
 
     def get(self, uri):
-        return webdriver.Firefox.get(self, self.server_url + uri)
+        webdriver.Firefox.get(self, self.server_url + uri)
+        try:
+            self.find_element_by_id('websocketStatus')
+            self.wait_for_xpath("//*[@id='websocketStatus' and contains(@title,'connected')]")
+        except NoSuchElementException:
+            pass
 
     def wait_for_xpath(self, xpath, timeout=10):
         return WebDriverWait(self, timeout).until(
