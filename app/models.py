@@ -90,17 +90,17 @@ class BaseMixin(object):
         }
 
     @classmethod
-    def get_if_owned_by(cls, ident, user, options=[]):
-        """Return an object from the database if the requesting user has access
-        to read the object. If the requesting user does not have access, raise
-        an AccessError.
+    def get_if_owned_by(cls, ident, user_or_token, options=[]):
+        """Return an object from the database if the requesting User or Token
+        has access to read the object. If the requesting User or Token does not
+        have access, raise an AccessError.
 
         Parameters
         ----------
         ident : integer or string
            Primary key of the requested object.
-        user : `baselayer.app.models.User`
-           The requesting `User` object.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The requesting `User` or `Token` object.
         options : list of `sqlalchemy.orm.MapperOption`s
            Options that wil be passed to `options()` in the loader query.
 
@@ -111,19 +111,19 @@ class BaseMixin(object):
         """
         obj = cls.query.options(options).get(ident)
 
-        if obj is not None and not obj.is_owned_by(user):
+        if obj is not None and not obj.is_owned_by(user_or_token):
             raise AccessError('Insufficient permissions.')
 
         return obj
 
-    def is_owned_by(self, user):
-        """Return a boolean indicating whether a User has read access to this
-        object.
+    def is_owned_by(self, user_or_token):
+        """Return a boolean indicating whether a User or Token has read access
+        to this object.
 
         Parameters
         ----------
-        user : `baselayer.app.models.User`
-           The User to check.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The User or Token to check.
 
         Returns
         -------
@@ -398,8 +398,8 @@ class Token(Base):
     )
 
     def is_owned_by(self, user_or_token):
-        """Return a boolean indicating whether a User (or Token) has read access
-        to this object.
+        """Return a boolean indicating whether this Token is owned by the
+        specified User (or Token instance, if a token is passed).
 
         Parameters
         ----------
@@ -409,7 +409,7 @@ class Token(Base):
         Returns
         -------
         owned : bool
-           Whether this object is readable by the User or Token.
+           Whether this Token instance is owned by the User or Token.
         """
         return user_or_token.id in [self.created_by_id, self.id]
 
