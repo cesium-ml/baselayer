@@ -48,7 +48,9 @@ def init_db(user, database, password=None, host=None, port=None):
 
 class BaseMixin(object):
     query = DBSession.query_property()
-    id = sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.')
+    id = sa.Column(
+        sa.Integer, primary_key=True, doc='Unique object identifier.'
+    )
     created_at = sa.Column(
         sa.DateTime,
         nullable=False,
@@ -83,7 +85,9 @@ class BaseMixin(object):
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
             DBSession().refresh(self)
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        return {
+            k: v for k, v in self.__dict__.items() if not k.startswith('_')
+        }
 
     @classmethod
     def get_if_owned_by(cls, ident, user, options=[]):
@@ -233,14 +237,18 @@ class ACL(Base):
     and `Manage Groups`.
     """
 
-    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='ACL name.')
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc='ACL name.'
+    )
 
 
 class Role(Base):
     """A collection of ACLs. Roles map Users to ACLs. One User may assume
     multiple Roles."""
 
-    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='Role name.')
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc='Role name.'
+    )
     acls = relationship(
         'ACL',
         secondary='role_acls',
@@ -267,17 +275,23 @@ class User(Base):
         sa.String, nullable=False, unique=True, doc="The user's username."
     )
 
-    first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
-    last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
+    first_name = sa.Column(
+        sa.String, nullable=True, doc="The User's first name."
+    )
+    last_name = sa.Column(
+        sa.String, nullable=True, doc="The User's last name."
+    )
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
-        doc="The phone number at which the user prefers to receive " "communications.",
+        doc="The phone number at which the user prefers to receive "
+        "communications.",
     )
     contact_phone = sa.Column(
         PhoneNumberType(),
         nullable=True,
-        doc="The email at which the user prefers to receive " "communications.",
+        doc="The email at which the user prefers to receive "
+        "communications.",
     )
 
     roles = relationship(
@@ -308,7 +322,11 @@ class User(Base):
     def gravatar_url(self):
         """The Gravatar URL inferred from the user's contact email, or, if the
         contact email is null, the username."""
-        email = self.contact_email if self.contact_email is not None else self.username
+        email = (
+            self.contact_email
+            if self.contact_email is not None
+            else self.username
+        )
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
         # return a 404 status code if not found on gravatar
