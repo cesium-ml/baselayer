@@ -49,7 +49,7 @@ def create_tables(retry=5):
             return
 
         except Exception as e:
-            if (i == retry):
+            if i == retry:
                 raise e
             else:
                 print('Could not connect to database...sleeping 3')

@@ -15,8 +15,7 @@ tag = 'Silently executing: {}'.format(cmd)
 print('[·] {}'.format(tag), end='')
 sys.stdout.flush()
 
-p = subprocess.Popen(shlex.split(cmd),
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 err = p.wait()
 stdout, stderr = p.stderr.read().strip(), p.stdout.read().strip()

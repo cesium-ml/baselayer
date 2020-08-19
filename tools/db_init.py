@@ -9,11 +9,13 @@ from baselayer.app.env import load_env
 from status import status
 
 
-parser = argparse.ArgumentParser(
-    description='Create or re-create the database.'
+parser = argparse.ArgumentParser(description='Create or re-create the database.')
+parser.add_argument(
+    '-f',
+    '--force',
+    action='store_true',
+    help='recreate the db, even if it already exists',
 )
-parser.add_argument('-f', '--force', action='store_true',
-                    help='recreate the db, even if it already exists')
 args, unknown = parser.parse_known_args()
 
 env, cfg = load_env()

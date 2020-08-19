@@ -3,8 +3,10 @@ import argparse
 
 from zmq.eventloop import ioloop
 
-from baselayer.app.app_server import (handlers as baselayer_handlers,
-                                      settings as baselayer_settings)
+from baselayer.app.app_server import (
+    handlers as baselayer_handlers,
+    settings as baselayer_settings,
+)
 from baselayer.app.env import load_env
 
 import tornado.log

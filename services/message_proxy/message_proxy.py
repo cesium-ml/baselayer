@@ -3,8 +3,11 @@
 import zmq
 
 from baselayer.app.env import load_env
+from baselayer.log import make_log
 
 env, cfg = load_env()
+
+log = make_log('message_proxy')
 
 IN = cfg['ports.websocket_path_in']
 OUT = cfg['ports.websocket_path_out']
@@ -17,5 +20,5 @@ feed_in.bind(IN)
 feed_out = context.socket(zmq.PUB)
 feed_out.bind(OUT)
 
-print('[message_proxy] Forwarding messages between {} and {}'.format(IN, OUT))
+log('Forwarding messages between {} and {}'.format(IN, OUT))
 zmq.proxy(feed_in, feed_out)
