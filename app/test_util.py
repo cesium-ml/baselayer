@@ -60,8 +60,8 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         )
 
     def wait_for_xpath_to_appear(self, xpath, timeout=10):
-        return WebDriverWait(self, timeout).until_not(
-            expected_conditions.invisibility_of_element((By.XPATH, xpath))
+        return WebDriverWait(self, timeout).until(
+            expected_conditions.visibility_of((By.XPATH, xpath))
         )
 
     def wait_for_xpath_to_disappear(self, xpath, timeout=10):
