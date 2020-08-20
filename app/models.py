@@ -134,7 +134,8 @@ class BaseMixin(object):
 
     @classmethod
     def create_or_get(cls, id):
-        """Return """
+        """Return a new `cls` if an instance with the specified primary key 
+        does not exist, else return the existing instance."""
         obj = cls.query.get(id)
         if obj is not None:
             return obj
