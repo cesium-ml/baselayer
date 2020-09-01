@@ -134,7 +134,7 @@ class BaseMixin(object):
 
     @classmethod
     def create_or_get(cls, id):
-        """Return a new `cls` if an instance with the specified primary key 
+        """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
         obj = cls.query.get(id)
         if obj is not None:
@@ -330,7 +330,7 @@ class User(Base):
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
         # return a 404 status code if not found on gravatar
-        return f'https://www.gravatar.com/avatar/{digest}?d=404'
+        return f'https://secure.gravatar.com/avatar/{digest}?d=404'
 
     @property
     def acls(self):
