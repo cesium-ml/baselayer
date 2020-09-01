@@ -26,12 +26,11 @@ server:
     # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
     #
     # You need to have Google+ API enabled; it takes a few minutes to activate.
-
+    ssl: False
     auth:
         debug_login: False
         google_oauth2_key:
         google_oauth2_secret:
-        ssl: False
 
 services:
     paths:
