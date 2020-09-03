@@ -1,18 +1,28 @@
 import importlib
-import argparse
 
-from zmq.eventloop import ioloop
-
-from baselayer.app.app_server import (
-    handlers as baselayer_handlers,
-    settings as baselayer_settings,
-)
-from baselayer.app.env import load_env
+from baselayer.app.env import load_env, parser
+from baselayer.log import make_log
 
 import tornado.log
 import tornado.ioloop
 
+
+parser.description = 'Launch app microservice'
+parser.add_argument('-p', '--process', type=int,
+                    help='Process number, when multiple server processes are used.'
+                         ' This number gets added to the app port.')
 env, cfg = load_env()
+
+
+log = make_log(f'app_{env.process or 0}')
+
+# We import these later, otherwise them calling load_env interferes
+# with argument parsing
+from baselayer.app.app_server import (
+    handlers as baselayer_handlers,
+    settings as baselayer_settings,
+)  # noqa: E402
+
 
 app_factory = cfg['app.factory']
 baselayer_settings['cookie_secret'] = cfg['app.secret_key']
@@ -28,6 +38,8 @@ app_factory = getattr(importlib.import_module(module), app_factory)
 app = app_factory(cfg, baselayer_handlers, baselayer_settings)
 app.cfg = cfg
 
-app.listen(cfg['ports.app_internal'])
+port = cfg['ports.app_internal'] + (env.process or 0)
+app.listen(port)
 
+log(f'Listening on port {port}')
 tornado.ioloop.IOLoop.current().start()
