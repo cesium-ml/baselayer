@@ -294,6 +294,9 @@ class User(Base):
         doc="The email at which the user prefers to receive "
         "communications.",
     )
+    oauth_uid = sa.Column(
+        sa.String, unique=True, doc="The user's OAuth UID."
+    )
 
     roles = relationship(
         'Role',
