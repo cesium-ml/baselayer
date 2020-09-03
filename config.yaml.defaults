@@ -19,6 +19,9 @@ paths:
     downloads_folder: '/tmp'
 
 server:
+    ssl: False
+    processes: 1
+
     # From https://console.developers.google.com/
     #
     # - Create Client ID
@@ -26,11 +29,11 @@ server:
     # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
     #
     # You need to have Google+ API enabled; it takes a few minutes to activate.
-    ssl: False
     auth:
         debug_login: False
         google_oauth2_key:
         google_oauth2_secret:
+
 
 services:
     paths:

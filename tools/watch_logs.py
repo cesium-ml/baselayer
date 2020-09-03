@@ -3,6 +3,7 @@
 
 import os
 import sys
+import glob
 from os.path import join as pjoin
 import contextlib
 import io
@@ -26,7 +27,10 @@ def logs_from_config(supervisor_conf):
         for line in f:
             if '_logfile=' in line:
                 _, logfile = line.strip().split('=')
-                watched.append(logfile)
+                if '%' in logfile:
+                    watched.extend(glob.glob(logfile.split('%')[0] + '*'))
+                else:
+                    watched.append(logfile)
 
     return watched
 
