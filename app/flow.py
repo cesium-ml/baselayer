@@ -18,13 +18,13 @@ class Flow(object):
         self._bus = self._ctx.socket(zmq.PUSH)
         self._bus.connect(self._socket_path)
 
-    def push(self, username, action_type, payload={}):
+    def push(self, user_id, action_type, payload={}):
         """Push action to specified user over websocket.
 
         Parameters
         ----------
-        username : str
-            Username to push websocket message to.  If '*', target all users.
+        user_id : int or str
+            User to push websocket message to.  If '*', target all users.
         action_type : str
             Action label for the message; a string identifier used by
             the frontend to distinguish between different types of
@@ -35,11 +35,11 @@ class Flow(object):
             an API call.
 
         """
-        log('Pushing action {} to {}'.format(action_type, username))
+        log('Pushing action {} to user {}'.format(action_type, user_id))
         message = [
-            username,
+            str(user_id),
             to_json(
-                {'username': username, 'actionType': action_type, 'payload': payload}
+                {'user_id': user_id, 'actionType': action_type, 'payload': payload}
             ),
         ]
         self._bus.send_multipart([m.encode('utf-8') for m in message])

@@ -25,7 +25,7 @@ class SocketAuthTokenHandler(BaseHandler):
         token = jwt.encode(
             {
                 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=15),
-                'username': user.username,
+                'user_id': str(user.id),
             },
             secret,
         )
