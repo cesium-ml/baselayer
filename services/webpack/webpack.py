@@ -6,12 +6,12 @@ import time
 import os
 from pathlib import Path
 
-from baselayer.app.env import load_env
+from baselayer.app.env import load_env, parser
 from baselayer.log import make_log
 
-env, cfg = load_env()
+parser.description = 'Launch webpack microservice'
 
-bundle = Path(os.path.dirname(__file__)) / '../../static/build/main.bundle.js'
+env, cfg = load_env()
 
 log = make_log('service/webpack')
 
@@ -27,16 +27,7 @@ if env.debug:
     log("debug mode detected, launching webpack monitor")
     p = run(['npx', 'webpack', '--watch'])
     sys.exit(p.returncode)
-
-elif bundle.is_file():
-    log("main.bundle.js already built, exiting")
-    # Run for a few seconds so that supervisor knows the service was
-    # successful
-    time.sleep(3)
-    sys.exit(0)
-
 else:
-    log("main.bundle.js not found, building")
-    p = run(['npx', 'webpack'])
-    time.sleep(1)
+    log("Rebuilding main JavaScript bundle")
+    p = run(['npx', 'webpack', '--mode=production', '--devtool=none'])
     sys.exit(p.returncode)
