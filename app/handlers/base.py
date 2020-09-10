@@ -1,3 +1,4 @@
+import time
 import tornado.escape
 from sqlalchemy.orm import joinedload
 from json.decoder import JSONDecodeError
@@ -13,8 +14,10 @@ from social_tornado.handlers import BaseHandler as PSABaseHandler
 from ..models import DBSession, User
 from ..json_util import to_json
 from ..flow import Flow
+from ..env import load_env
 
-import time
+
+env, cfg = load_env()
 
 
 class BaseHandler(PSABaseHandler):
@@ -221,3 +224,14 @@ class BaseHandler(PSABaseHandler):
             action='baselayer/SHOW_NOTIFICATION',
             payload={'note': note, 'type': notification_type},
         )
+
+
+def write_error(self, status_code, exc_info=None):
+    if exc_info is not None:
+        err_cls, err, traceback = exc_info
+    else:
+        err = "An unknown error occurred"
+    self.render("loginerror.html", app=cfg["app"], error_message=str(err))
+
+
+PSABaseHandler.write_error = write_error
