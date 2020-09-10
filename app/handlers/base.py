@@ -1,6 +1,7 @@
 import time
+import inspect
 import tornado.escape
-from sqlalchemy.orm import joinedload
+from tornado.web import RequestHandler
 from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
@@ -9,7 +10,10 @@ from json.decoder import JSONDecodeError
 # `get_current_user` is needed by tornado.authentication,
 # and provides a cached version, `current_user`, that should
 # be used to look up the logged in user.
-from social_tornado.handlers import BaseHandler as PSABaseHandler
+import social_tornado.handlers as psa_handlers
+
+# Initialize PSA tornado models
+from .. import psa  # noqa
 
 from ..models import DBSession, User
 from ..json_util import to_json
@@ -18,6 +22,51 @@ from ..env import load_env
 
 
 env, cfg = load_env()
+
+
+# Monkey-patch Python Social Auth's base handler
+#
+# See
+# https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
+# for the original
+#
+# Python Social Auth documentation:
+# https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+
+class PSABaseHandler(RequestHandler):
+    """
+    Mixin used by Python Social Auth
+    """
+    def user_id(self):
+        return self.get_secure_cookie('user_id')
+
+    def get_current_user(self):
+        user_id = self.user_id()
+        oauth_uid = self.get_secure_cookie('user_oauth_uid')
+        if user_id and oauth_uid:
+            user = User.query.get(int(user_id))
+            sa = user.social_auth.first()
+            if (sa.uid.encode('utf-8') == oauth_uid):
+                return user
+
+    def login_user(self, user):
+        sa = user.social_auth.first()
+        self.set_secure_cookie('user_id', str(user.id))
+        self.set_secure_cookie('user_oauth_uid', sa.uid)
+
+    def write_error(self, status_code, exc_info=None):
+        if exc_info is not None:
+            err_cls, err, traceback = exc_info
+        else:
+            err = "An unknown error occurred"
+        self.render("loginerror.html", app=cfg["app"], error_message=str(err))
+
+
+# Monkey-patch in each method of social_tornado.handlers.BaseHandler
+for (name, fn) in inspect.getmembers(
+        PSABaseHandler, predicate=inspect.isfunction
+):
+    setattr(psa_handlers.BaseHandler, name, fn)
 
 
 class BaseHandler(PSABaseHandler):
@@ -50,21 +99,6 @@ class BaseHandler(PSABaseHandler):
                     time.sleep(5)
 
         return super(BaseHandler, self).prepare()
-
-    def get_current_user(self):
-        """Get currently logged in user.
-
-        The currently logged in user_id is stored in a secure cookie
-        by Python Social Auth.
-        """
-        # This cookie is set by Python Social Auth's
-        # BaseHandler:
-        # https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
-        user_id = self.get_secure_cookie('user_id')
-        if user_id is None:
-            return None
-        else:
-            return User.query.get(int(user_id))
 
     def push(self, action, payload={}):
         """Broadcast a message to current frontend user.
@@ -224,14 +258,3 @@ class BaseHandler(PSABaseHandler):
             action='baselayer/SHOW_NOTIFICATION',
             payload={'note': note, 'type': notification_type},
         )
-
-
-def write_error(self, status_code, exc_info=None):
-    if exc_info is not None:
-        err_cls, err, traceback = exc_info
-    else:
-        err = "An unknown error occurred"
-    self.render("loginerror.html", app=cfg["app"], error_message=str(err))
-
-
-PSABaseHandler.write_error = write_error

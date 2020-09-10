@@ -41,6 +41,8 @@ class FakeGoogleOAuth2(GoogleOAuth2):
     def user_data(self, access_token, *args, **kwargs):
         return {'id': 'testuser@cesium-ml.org', 'email': 'testuser@cesium-ml.org'}
 
+    def get_user_id(self, *args, **kwargs):
+        return 'testuser@cesium-ml.org'
 
 # Set up TornadoStorage
 init_social(Base, DBSession, {'SOCIAL_AUTH_USER_MODEL': 'baselayer.app.models.User'})
