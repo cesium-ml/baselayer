@@ -46,13 +46,17 @@ class PSABaseHandler(RequestHandler):
         if user_id and oauth_uid:
             user = User.query.get(int(user_id))
             sa = user.social_auth.first()
+            if sa is None:
+                # No SocialAuth entry; probably machine generated user
+                return user
             if (sa.uid.encode('utf-8') == oauth_uid):
                 return user
 
     def login_user(self, user):
-        sa = user.social_auth.first()
         self.set_secure_cookie('user_id', str(user.id))
-        self.set_secure_cookie('user_oauth_uid', sa.uid)
+        sa = user.social_auth.first()
+        if sa is not None:
+            self.set_secure_cookie('user_oauth_uid', sa.uid)
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
