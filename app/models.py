@@ -332,8 +332,8 @@ class User(Base):
         )
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
-        # return a 404 status code if not found on gravatar
-        return f'https://secure.gravatar.com/avatar/{digest}?d=404'
+        # return a transparent png if not found on gravatar
+        return f'https://secure.gravatar.com/avatar/{digest}?d=blank'
 
     @property
     def acls(self):
