@@ -92,7 +92,7 @@ with status(f'Creating databases'):
 
         p = run(f'{sudo} createdb -w {current_db}')
         if p.returncode == 0:
-            run(f'psql {flags}\
+            run(f'{psql_cmd} {flags}\
               -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"\
               {current_db}')
         else:
@@ -104,7 +104,7 @@ with status(f'Creating databases'):
             print('  You should create it manually by invoking `createdb`.')
             print('  Then, execute:')
             print()
-            print(f'    psql {flags}'
+            print(f'    {psql_cmd} {flags}'
                   f' -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"'
                   f' {current_db}')
             print()
