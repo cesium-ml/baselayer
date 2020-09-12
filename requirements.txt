@@ -19,3 +19,4 @@ arrow==0.15.4
 jinja2
 python-dateutil
 phonenumbers
+python-slugify>=4.0.1
