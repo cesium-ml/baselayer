@@ -37,6 +37,7 @@ class PSABaseHandler(RequestHandler):
     """
     Mixin used by Python Social Auth
     """
+
     def user_id(self):
         return self.get_secure_cookie('user_id')
 
@@ -45,6 +46,8 @@ class PSABaseHandler(RequestHandler):
         oauth_uid = self.get_secure_cookie('user_oauth_uid')
         if user_id and oauth_uid:
             user = User.query.get(int(user_id))
+            if user is None:
+                return
             sa = user.social_auth.first()
             if sa is None:
                 # No SocialAuth entry; probably machine generated user
