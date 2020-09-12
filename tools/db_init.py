@@ -137,6 +137,6 @@ except RuntimeError:
          Please modify your `pg_hba.conf`, and use the following command to
          check your connection:
 
-           {test_cmd + database}
+           {test_cmd + db}
         '''))
     sys.exit(1)
