@@ -5,7 +5,7 @@ ESLINT=npx eslint
 
 # Use `config.yaml` by default, unless overridden by user
 # through setting FLAGS environment variable
-FLAGS:=$(if $(FLAGS),$(FLAGS),--config=config.yaml)
+FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
 
 PYTHON=PYTHONPATH=. python
 ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
@@ -100,7 +100,6 @@ run_production: ## Run the web application in production mode (no dependency che
 run_production: system_setup
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	@export FLAGS="$(FLAGS) --production" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
