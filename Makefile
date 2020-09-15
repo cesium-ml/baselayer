@@ -101,7 +101,7 @@ run_production: system_setup
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
 	@export FLAGS=$(FLAGS) && \
-        $(ENV_SUMMARY) && \
+	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
 run_testing: FLAGS = --config=test_config.yaml  # both this and the next FLAGS definition are needed
