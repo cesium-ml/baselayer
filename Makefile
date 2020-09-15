@@ -100,6 +100,7 @@ run_production: ## Run the web application in production mode (no dependency che
 run_production: system_setup
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
+	@export FLAGS=$(FLAGS) && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
