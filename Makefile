@@ -100,7 +100,8 @@ run_production: ## Run the web application in production mode (no dependency che
 run_production: system_setup
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	$(ENV_SUMMARY) && \
+	@export FLAGS=$(FLAGS) && \
+        $(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
 run_testing: FLAGS = --config=test_config.yaml  # both this and the next FLAGS definition are needed
