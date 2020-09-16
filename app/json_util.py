@@ -42,6 +42,9 @@ class Encoder(json.JSONEncoder):
             o.columns = o.columns.droplevel('channel')  # flatten MultiIndex
             return o.to_dict(orient='index')
 
+        elif type(o).__name__ == 'PhoneNumber': # avoid sqlalchemy_utils import
+            return o.e164
+
         elif type(o) is type and o in data_types:
             return data_types[o]
 
