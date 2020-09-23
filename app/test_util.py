@@ -101,7 +101,12 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         )
 
     def scroll_to_element(self, element):
-        self.execute_script("arguments[0].scrollIntoView(true);", element)
+        scroll_element_to_middle = '''
+            const viewPortHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+            const elementTop = arguments[0].getBoundingClientRect().top;
+            window.scrollBy(0, elementTop - (viewPortHeight / 2));
+        '''
+        self.execute_script(scroll_element_to_middle, element)
 
     def scroll_to_element_and_click(self, element, timeout=10):
         self.scroll_to_element(element)
