@@ -1,13 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import sys
-import glob
-from os.path import join as pjoin
-import contextlib
-import io
-import time
 import threading
 import logging
 import socket
@@ -16,7 +9,7 @@ from logging.handlers import SysLogHandler
 from baselayer.log import make_log
 from baselayer.app.env import load_env
 from baselayer.tools.watch_logs import (
-    print_log, nostdout, logs_from_config, basedir, watched, tail_f
+    basedir, watched, tail_f
 )
 
 env, cfg = load_env()
