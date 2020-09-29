@@ -2,6 +2,7 @@ from datetime import datetime
 import uuid
 from hashlib import md5
 
+from slugify import slugify
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
@@ -44,6 +45,20 @@ def init_db(user, database, password=None, host=None, port=None):
     Base.metadata.bind = conn
 
     return conn
+
+
+class SlugifiedStr(sa.types.TypeDecorator):
+    """Slugified string"""
+
+    impl = sa.String
+
+    # Used with INSERT
+    def process_bind_param(self, value, dialect):
+        return slugify(value)
+
+    # Used with SELECT
+    def process_result_value(self, value, dialect):
+        return value
 
 
 class BaseMixin(object):
@@ -273,7 +288,7 @@ class User(Base):
     """An application user."""
 
     username = sa.Column(
-        sa.String, nullable=False, unique=True, doc="The user's username."
+        SlugifiedStr, nullable=False, unique=True, doc="The user's username."
     )
 
     first_name = sa.Column(
