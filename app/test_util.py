@@ -172,7 +172,7 @@ def driver(request):
 
 
 def login(driver):
-    username_xpath = '//*[contains(string(),"testuser@cesium-ml.org")]'
+    username_xpath = '//*[contains(string(),"testuser-cesium-ml-org")]'
 
     driver.get('/')
     try:
