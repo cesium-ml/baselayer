@@ -82,13 +82,14 @@ def print_log(filename, color):
         print_col(line)
 
 
-colors = ['default', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'red']
-threads = [
-    threading.Thread(target=print_log, args=(logfile, colors[n % len(colors)]))
-    for (n, logfile) in enumerate(watched)
-]
+if __name__ == "__main__":
+    colors = ['default', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'red']
+    threads = [
+        threading.Thread(target=print_log, args=(logfile, colors[n % len(colors)]))
+        for (n, logfile) in enumerate(watched)
+    ]
 
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
