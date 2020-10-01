@@ -62,17 +62,15 @@ ports:
 
 
 external_logging:
-    enabled: False
-    services:
-        papertrail:
-           # get an account at https://papertrailapp.com
-           enabled: False
-           # change url to the correct subdomain for your account
-           # and change the port as well
-           url: logX.papertrailapp.com
-           port: XX
-           # which log files, if any do you not want to send over to the 3rd party?
-           excluded_log_files: []
+    papertrail:
+       # get an account at https://papertrailapp.com
+       enabled: False
+       # change url to the correct subdomain for your account
+       # and change the port as well
+       url: logX.papertrailapp.com
+       port: XX
+       # which log files, if any do you not want to send over to the 3rd party?
+       excluded_log_files: [""]
 
 # You can schedule jobs to run at a certain time interval (given in minutes).
 #

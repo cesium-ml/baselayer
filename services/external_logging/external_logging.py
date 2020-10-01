@@ -16,48 +16,70 @@ env, cfg = load_env()
 log = make_log("external_logging")
 
 
-def check_external_logging():
-    """
-    Check 3rd party logging, if enabled, and make sure that
-    it is set up properly
+def is_int(x):
+    try:
+        int(x)
+    except (ValueError, TypeError):
+        return False
+    else:
+        return True
+
+
+def check_config(config, service):
+    if not config.get("enabled", True):
+        log(f"Logging service {service} disabled")
+        return False
+
+    conditions = [
+        (False, f'Unknown logging service: {service}')
+    ]
+
+    if service == 'papertrail':
+        conditions = [
+            (
+                "url" not in config,
+                "Warning: missing URL for papertrail logging."
+            ),
+            (
+                "port" not in config,
+                "Warning: missing port for papertrail logging."
+            ),
+            (
+                config.get("url", "").find("papertrailapp.com") == -1,
+                "Warning: incorrect URL for papertrail logging."
+            ),
+            (
+                not is_int(config["port"]),
+                f"Warning: bad port [{config['port']}] for papertrail logging. Should be an integer."
+            )
+        ]
+
+    for (cond, msg) in conditions:
+        if cond:
+            log(msg)
+
+    valid = not any(check for (check, msg) in conditions)
+    return valid
+
+
+def external_logging_services():
+    """Check 3rd party logging and make sure that it is set up properly
 
     TODO: This could eventually be done with a JSONschema
+
     """
-    enabled_services = []
-    external_logging_enabled = False
+    service_configs = cfg.get('external_logging', [])
 
-    if not cfg.get('external_logging'):
-        return external_logging_enabled, enabled_services
+    enabled_services = list(service for service in service_configs
+                            if check_config(service_configs[service], service))
 
-    external_logging_enabled = cfg['external_logging']["enabled"]
-    if not external_logging_enabled:
-        return external_logging_enabled, enabled_services
-
-    print(cfg['external_logging'])
-    for service, config in cfg['external_logging']["services"].items():
-        if service == 'papertrail':
-            if not config["enabled"]:
-                break
-            try:
-                if config["url"].find("papertrailapp.com") == -1:
-                    log("Warning: incorrect URL for papertrail logging.")
-                    break
-            except AttributeError:
-                log("Warning: missing URL for papertrail logging.")
-                break
-            try:
-                int(config["port"])
-            except (ValueError, TypeError):
-                log(
-                    "Warning: bad port"
-                    f" ({config['port']}) for papertrail logging."
-                    " Should be an integer."
-                )
-                break
+    for service in enabled_services:
         log(f"Enabling external logging to {service}.")
-        enabled_services.append(service)
 
-    return external_logging_enabled, enabled_services
+    if not enabled_services:
+        log(f"No external logging services configured")
+
+    return enabled_services
 
 
 def get_papertrail_stream_logger():
@@ -70,8 +92,8 @@ def get_papertrail_stream_logger():
             return True
 
     syslog = SysLogHandler(address=(
-        cfg['external_logging']["services"]["papertrail"]["url"],
-        cfg['external_logging']["services"]["papertrail"]["port"]
+        cfg['external_logging.papertrail.url'],
+        cfg['external_logging.papertrail.port']
     ))
     syslog.addFilter(ContextFilter())
     title = cfg['app'].get("title", basedir.split("/")[-1])
@@ -90,22 +112,26 @@ def stream_log(filename, stream_logger):
         stream_logger.info(line)
 
 
-external_logging_enabled, enabled_services = check_external_logging()
+enabled_services = external_logging_services()
+threads = []
 
-if external_logging_enabled:
-    # logging set up: see `https://documentation.solarwinds.com/en/
-    #   Success_Center/papertrail/Content/kb/configuration/
-    #   configuring-centralized-logging-from-python-apps.htm`
-    if "papertrail" in enabled_services:
-        stream_logger = get_papertrail_stream_logger()
-        excluded = cfg['external_logging']["services"]["papertrail"]["excluded_log_files"]
-        threads = [
-            threading.Thread(target=stream_log, args=(logfile, stream_logger))
-            for logfile in watched if logfile not in excluded
-        ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-else:
-    log("External logging disabled.")
+if "papertrail" in enabled_services:
+    # logging set up: see
+    # `https://documentation.solarwinds.com/en/Success_Center/papertrail/Content/kb/configuration/configuring-centralized-logging-from-python-apps.htm`
+
+    stream_logger = get_papertrail_stream_logger()
+    excluded = cfg['external_logging.papertrail.excluded_log_files'] or []
+    logs = [logfile for logfile in watched if logfile not in excluded]
+
+    for logfile in logs:
+        log(f"Capturing logs for {logfile}")
+
+    threads.extend([
+        threading.Thread(target=stream_log, args=(logfile, stream_logger))
+        for logfile in logs
+    ])
+
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
