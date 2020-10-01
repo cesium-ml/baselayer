@@ -67,8 +67,8 @@ external_logging:
        enabled: False
        # change url to the correct subdomain for your account
        # and change the port as well
-       url: logX.papertrailapp.com
-       port: XX
+       url:
+       port:
        # which log files, if any do you not want to send over to the 3rd party?
        excluded_log_files: [""]
 
