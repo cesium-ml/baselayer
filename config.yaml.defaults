@@ -59,7 +59,8 @@ ports:
     dask: 63500
     websocket_path_in: 'ipc://run/message_flow_in'
     websocket_path_out: 'ipc://run/message_flow_out'
-
+    status: 64500
+    migration_manager: 64501
 
 external_logging:
     papertrail:

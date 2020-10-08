@@ -18,6 +18,7 @@ http {
     {% for p in range(server.processes) -%}
       server 127.0.0.1:{{ ports.app_internal + p }};
     {% endfor %}
+    server 127.0.0.1:{{ ports.status }} backup max_fails=0;
   }
 
   # See http://nginx.org/en/docs/http/websocket.html
