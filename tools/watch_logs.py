@@ -2,28 +2,15 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import glob
 from os.path import join as pjoin
-import contextlib
-import io
 import time
 import threading
 from baselayer.log import colorize
 
 
-@contextlib.contextmanager
-def nostdout():
-    save_stdout = sys.stdout
-    sys.stdout = io.StringIO()
-    yield
-    sys.stdout = save_stdout
-
-
 basedir = pjoin(os.path.dirname(__file__), '..')
 logdir = '../log'
-
-sys.path.insert(0, basedir)
 
 
 def tail_f(filename, interval=1.0):
