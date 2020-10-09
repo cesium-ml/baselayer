@@ -37,8 +37,33 @@ class timeout_cache:
         return self.cache
 
 
+def _alembic(*options):
+    path_env = os.environ.copy()
+    path_env['PYTHONPATH'] = '.'
+
+    p = subprocess.Popen(
+        ['alembic'] + conf_flags + list(options),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=path_env
+    )
+
+    output, error = p.communicate()
+    return p, output, error
+
+
 def migrations_exist():
-    return os.path.isdir('./alembic/versions')
+    try:
+        _alembic()
+    except FileNotFoundError:
+        log('`alembic` executable not found; continuing')
+        return False
+
+    if not os.path.isdir('./alembic/versions'):
+        log('No migrations present; continuing')
+        return False
+    else:
+        return True
 
 
 def migrate():
@@ -67,22 +92,22 @@ def migrate():
 def migration_status():
     if not migrations_exist():
         # No migrations present, continue as usual
-        log('No migrations found; proceeding')
         return True
 
-    path_env = os.environ.copy()
-    path_env['PYTHONPATH'] = '.'
+    p, output, error = _alembic('current', '--verbose')
 
-    p = subprocess.Popen(
-        ['alembic'] + conf_flags + ['current'],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=path_env
-    )
-    output, error = p.communicate()
+    if p.returncode != 0:
+        log('Alembic returned an error; aborting')
+        log(output.decode('utf-8'))
+        return False
 
-    status = output.decode('utf-8').strip().split('\n')[-1]
-    if p.returncode == 0 and '(head)' in status:
+    status = output.decode('utf-8').strip().split('\n')
+    status = [line for line in status if line.startswith('Rev: ')]
+    if not status:
+        log('Database not stamped: assuming migrations not in use; continuing')
+        return True
+
+    if status[0].endswith('(head)'):
         log('Database is up to date')
         return True
 
