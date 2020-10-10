@@ -2,50 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import glob
 from os.path import join as pjoin
-import contextlib
-import io
 import time
 import threading
 from baselayer.log import colorize
 
 
-@contextlib.contextmanager
-def nostdout():
-    save_stdout = sys.stdout
-    sys.stdout = io.StringIO()
-    yield
-    sys.stdout = save_stdout
-
-
-def logs_from_config(supervisor_conf):
-    watched = []
-
-    with open(supervisor_conf) as f:
-        for line in f:
-            if '_logfile=' in line:
-                _, logfile = line.strip().split('=')
-                if '%' in logfile:
-                    watched.extend(glob.glob(logfile.split('%')[0] + '*'))
-                else:
-                    watched.append(logfile)
-
-    return watched
-
-
 basedir = pjoin(os.path.dirname(__file__), '..')
 logdir = '../log'
-watched = logs_from_config(pjoin(basedir, 'conf/supervisor/supervisor.conf'))
 
-sys.path.insert(0, basedir)
-
-watched.append('log/error.log')
-watched.append('log/nginx-bad-access.log')
-watched.append('log/nginx-error.log')
-watched.append('log/fake_oauth2.log')
-watched.append('log/app_00.log')
 
 def tail_f(filename, interval=1.0):
     f = None
@@ -72,24 +38,65 @@ def tail_f(filename, interval=1.0):
             yield line.rstrip('\n')
 
 
-def print_log(filename, color):
+def print_log(filename, color='default', stream=None):
+    """
+    Print log to stdout; stream is ignored.
+    """
     def print_col(line):
         print(colorize(line, fg=color))
 
-    print_col('-> ' + filename)
+    print_col(f'-> {filename}')
 
     for line in tail_f(filename):
         print_col(line)
 
 
-if __name__ == "__main__":
-    colors = ['default', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'red']
-    threads = [
-        threading.Thread(target=print_log, args=(logfile, colors[n % len(colors)]))
-        for (n, logfile) in enumerate(watched)
-    ]
+def log_watcher(printers=None):
+    """Watch for new logs, and start following them.
 
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+    Parameters
+    ----------
+    printers : list of callables
+        Functions of form `f(logfile, color=None)` used to print the
+        tailed log file.  By default, logs are sent to stdout.  Note
+        that the printer is also responsible for following (tailing)
+        the log file
+
+    See Also
+    --------
+    print_log : the default stdout printer
+
+    """
+    # Start with a short discovery interval, then back off
+    # until that interval is 60s
+    interval = 1
+
+    if printers is None:
+        printers = [print_log]
+
+    colors = ['default', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'red']
+    watched = set()
+
+    color = 0
+    while True:
+        all_logs = set(glob.glob('log/*.log'))
+        new_logs = all_logs - watched
+
+        for logfile in sorted(new_logs):
+            color = (color + 1) % len(colors)
+            for printer in printers:
+                thread = threading.Thread(
+                    target=printer,
+                    args=(logfile,),
+                    kwargs={'color': colors[color]}
+                )
+                thread.start()
+
+        watched = all_logs
+
+        time.sleep(interval)
+        interval = max(interval * 2, 60)
+
+
+if __name__ == "__main__":
+    log_watcher()

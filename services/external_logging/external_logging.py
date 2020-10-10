@@ -9,7 +9,7 @@ from logging.handlers import SysLogHandler
 from baselayer.log import make_log
 from baselayer.app.env import load_env
 from baselayer.tools.watch_logs import (
-    basedir, watched, tail_f
+    basedir, log_watcher, tail_f
 )
 
 env, cfg = load_env()
@@ -83,7 +83,6 @@ def external_logging_services():
 
 
 def get_papertrail_stream_logger():
-
     class ContextFilter(logging.Filter):
         hostname = socket.gethostname()
 
@@ -106,32 +105,26 @@ def get_papertrail_stream_logger():
     return logger
 
 
-def stream_log(filename, stream_logger):
-    stream_logger.info('-> ' + filename)
-    for line in tail_f(filename):
-        stream_logger.info(line)
-
-
 enabled_services = external_logging_services()
-threads = []
+printers = []
 
 if "papertrail" in enabled_services:
     # logging set up: see
     # `https://documentation.solarwinds.com/en/Success_Center/papertrail/Content/kb/configuration/configuring-centralized-logging-from-python-apps.htm`
 
     stream_logger = get_papertrail_stream_logger()
-    excluded = cfg['external_logging.papertrail.excluded_log_files'] or []
-    logs = [logfile for logfile in watched if logfile not in excluded]
 
-    for logfile in logs:
-        log(f"Capturing logs for {logfile}")
+    def papertrail_printer(logfile, **kwargs):
+        excluded = cfg['external_logging.papertrail.excluded_log_files']
+        if logfile in excluded:
+            return
+        else:
+            log(f'Streaming {logfile} to papertrail')
+            stream_logger.info(f'-> {logfile}')
+            for line in tail_f(logfile):
+                stream_logger.info(line)
 
-    threads.extend([
-        threading.Thread(target=stream_log, args=(logfile, stream_logger))
-        for logfile in logs
-    ])
+    printers.append(papertrail_printer)
 
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
+
+log_watcher(printers)
