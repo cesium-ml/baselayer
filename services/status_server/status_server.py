@@ -9,11 +9,12 @@ env, cfg = load_env()
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
+        self.set_status(503)
         self.write("<h2>SkyPortal is being provisioned</h2>")
 
 def make_app():
     return tornado.web.Application([
-        (r"/", MainHandler),
+        (r".*", MainHandler),
     ])
 
 if __name__ == "__main__":
