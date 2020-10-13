@@ -130,9 +130,12 @@ def make_app():
 
 
 if __name__ == "__main__":
-    if migrations_exist() and not migration_status():
-        # Attempt migration on startup
-        migrate()
+    try:
+        if migrations_exist() and not migration_status():
+            # Attempt migration on startup
+            migrate()
+    except Exception as e:
+        log(f'Uncaught exception: {e}')
 
     app = make_app()
     port = cfg['ports.migration_manager']
