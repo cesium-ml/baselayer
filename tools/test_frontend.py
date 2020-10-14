@@ -123,18 +123,30 @@ if __name__ == '__main__':
     print()
     log(f'Waiting for server to appear at {server_url}...')
 
+    exit_status = (0, 'OK')
     try:
         verify_server_availability(server_url)
+
         log(f'Launching pytest on {test_spec}...\n')
-        status = subprocess.run(
+        p = subprocess.run(
             f'python -m pytest -s -v {xml} {test_spec} ' f'{RAND_ARGS}',
             shell=True,
-            check=True,
         )
+        if p.returncode != 0:
+            exit_status = (-1, 'Test run failed')
+
+            p = subprocess.run(
+                ['make', '-f', 'baselayer/Makefile', 'test_report'], cwd=basedir
+            )
+
     except Exception as e:
         log('Could not launch server processes; terminating')
         print(e)
-        raise
+        exit_status = (-1, 'Failed to launch pytest')
     finally:
         log('Terminating supervisord...')
         os.killpg(os.getpgid(web_client.pid), signal.SIGTERM)
+
+    code, msg = exit_status
+    log(msg)
+    sys.exit(code)

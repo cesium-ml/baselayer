@@ -32,7 +32,7 @@ webpack = npx webpack
 
 .PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
-.PHONY: stop status test_headless test check-js-updates lint-install
+.PHONY: stop status test_headless test test_report check-js-updates lint-install
 .PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
 .PHONY: system_setup service_setup
 .PHONY: $(bundle) bundle bundle-watch
@@ -132,15 +132,15 @@ status:
 
 test_headless: ## Run tests headlessly
 test_headless: system_setup
-	@PYTHONPATH='.' baselayer/tools/test_frontend.py --headless
+	@PYTHONPATH='.' baselayer/tools/test_frontend.py --headless --xml
 
 test: ## Run tests.
 test: system_setup
-	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py
-
-test_xml: ## Run tests and generate JUnit XML output.
-test_xml: paths dependencies fill_conf_values
 	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml
+
+test_report: ## Print report on failed tests
+test_report:
+	@PYTHONPATH='.' baselayer/tools/junitxml_report.py test-results/junit.xml
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
