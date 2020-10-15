@@ -191,6 +191,7 @@ class BaseHandler(PSABaseHandler):
         """
         print(f'[!] Error in `{self.request.path}`: {message}')
 
+        self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write({"status": "error", "message": message, "data": data, **extra})
 
@@ -239,6 +240,7 @@ class BaseHandler(PSABaseHandler):
         if action is not None:
             self.action(action, payload)
 
+        self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write(to_json({"status": "success", "data": data, **extra}))
 
