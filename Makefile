@@ -5,7 +5,7 @@ ESLINT=npx eslint
 
 # Use `config.yaml` by default, unless overridden by user
 # through setting FLAGS environment variable
-FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
+FLAGS:=$(if $(FLAGS),$(FLAGS),--config=config.yaml)
 
 PYTHON=PYTHONPATH=. python
 ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
@@ -79,6 +79,7 @@ log: paths
 	@PYTHONPATH=. PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
 
 run: ## Start the web application.
+run: FLAGS:=$(FLAGS) --debug
 run: system_setup
 	@echo
 	$(call LOG, Starting micro-services)
@@ -90,7 +91,7 @@ run: system_setup
 	@echo
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
-	@export FLAGS="$(FLAGS) --debug" && \
+	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
@@ -100,11 +101,11 @@ run_production: ## Run the web application in production mode (no dependency che
 run_production: system_setup
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
-	@export FLAGS=$(FLAGS) && \
+	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-run_testing: FLAGS = --config=test_config.yaml  # both this and the next FLAGS definition are needed
+run_testing: FLAGS=--config=test_config.yaml  # both this and the next FLAGS definition are needed
 run_testing: system_setup
 	@echo -e "\n$(B)[baselayer] Launch app for testing$(N)"
 	@export FLAGS="$(FLAGS) --debug" && \
