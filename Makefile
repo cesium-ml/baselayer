@@ -98,7 +98,7 @@ run: system_setup
 	$(SUPERVISORD)
 
 run_production: ## Run the web application in production mode (no dependency checking).
-run_production: system_setup
+run_production:
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
 	@export FLAGS="$(FLAGS)" && \
