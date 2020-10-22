@@ -19,9 +19,10 @@ from ..models import DBSession, User
 from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
-
+from ...log import make_log
 
 env, cfg = load_env()
+log = make_log('basehandler')
 
 
 # Monkey-patch Python Social Auth's base handler
@@ -102,7 +103,7 @@ class BaseHandler(PSABaseHandler):
                 if i == N:
                     raise e
                 else:
-                    print('Error connecting to database, sleeping for a while')
+                    log('Error connecting to database, sleeping for a while')
                     time.sleep(5)
 
         return super(BaseHandler, self).prepare()
@@ -189,7 +190,7 @@ class BaseHandler(PSABaseHandler):
         extra : dict
             Extra fields to be included in the response.
         """
-        print(f'[!] Error in `{self.request.path}`: {message}')
+        log(f'Error response returned by [{self.request.path}]: [{message}]')
 
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
