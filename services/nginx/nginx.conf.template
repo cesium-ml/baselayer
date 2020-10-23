@@ -47,6 +47,16 @@ http {
       proxy_set_header        X-Real-IP $remote_addr;
       proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header        X-Forwarded-Proto $scheme;
+
+
+      # Buffer sizes; see
+      # https://www.getpagespeed.com/server-setup/nginx/tuning-proxy_buffer_size-in-nginx
+
+      # Handle uploads up to 64k before buffering to disk
+      client_body_buffer_size 64k;
+
+      # Buffer responses up to 256k
+      proxy_buffers 32 8k;
     }
 
     location /websocket {
