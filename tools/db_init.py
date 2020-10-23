@@ -16,6 +16,11 @@ parser.add_argument(
     action='store_true',
     help='recreate the db, even if it already exists',
 )
+parser.add_argument(
+    '--no-sudo',
+    action='store_true',
+    help='Do not use `sudo -U username` when accessing the database'
+)
 args, unknown = parser.parse_known_args()
 
 env, cfg = load_env()
@@ -55,13 +60,12 @@ def test_db(database):
     return (p.returncode == 0)
 
 
-plat = run('uname').stdout
-if b'Darwin' in plat:
-    print('* Configuring MacOS postgres')
-    sudo = ''
-else:
-    print('* Configuring Linux postgres [may ask for sudo password]')
+if not args.no_sudo:
     sudo = 'sudo -u postgres'
+    print('\nUsing `sudo` by default. You will be prompted for your password.')
+    print('  Run with `--no-sudo` to disable.\n')
+else:
+    sudo = ''
 
 # Ask for sudo password here so that it is printed on its own line
 # (better than inside a `with status` section)
