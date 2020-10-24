@@ -1,5 +1,5 @@
 [supervisord]
-loglevel=warn
+loglevel=info
 logfile=log/supervisord.log
 pidfile=run/supervisord.pid
 nodaemon=true
