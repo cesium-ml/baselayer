@@ -1,7 +1,7 @@
 import functools
 import tornado.web
 from baselayer.app.custom_exceptions import AccessError
-from baselayer.app.models import Role, User, Token
+from baselayer.app.models import User, Token
 
 
 def auth_or_token(method):

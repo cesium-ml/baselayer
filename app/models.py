@@ -248,40 +248,13 @@ def join_model(
 
 class ACL(Base):
     """An access control list item representing a privilege within the
-    application. ACLs are aggregated into collections called Roles which
-    are assumed by Users. Examples of ACLs include `Upload Data`, `Comment`,
+    application. Examples of ACLs include `Upload Data`, `Comment`,
     and `Manage Groups`.
     """
 
     id = sa.Column(
         sa.String, nullable=False, primary_key=True, doc='ACL name.'
     )
-
-
-class Role(Base):
-    """A collection of ACLs. Roles map Users to ACLs. One User may assume
-    multiple Roles."""
-
-    id = sa.Column(
-        sa.String, nullable=False, primary_key=True, doc='Role name.'
-    )
-    acls = relationship(
-        'ACL',
-        secondary='role_acls',
-        passive_deletes=True,
-        doc='ACLs associated with the Role.',
-    )
-    users = relationship(
-        'User',
-        secondary='user_roles',
-        back_populates='roles',
-        passive_deletes=True,
-        doc='Users who have this Role.',
-    )
-
-
-RoleACL = join_model('role_acls', Role, ACL)
-RoleACL.__doc__ = "Join table class mapping Roles to ACLs."
 
 
 class User(Base):
@@ -313,17 +286,11 @@ class User(Base):
         sa.String, unique=True, doc="The user's OAuth UID."
     )
 
-    roles = relationship(
-        'Role',
-        secondary='user_roles',
-        back_populates='users',
+    acls = relationship(
+        'ACL',
+        secondary='user_acls',
         passive_deletes=True,
-        doc='The roles assumed by this user.',
-    )
-    role_ids = association_proxy(
-        'roles',
-        'id',
-        creator=lambda r: Role.query.get(r),
+        doc="The ACLs granted to the User.",
     )
     tokens = relationship(
         'Token',
@@ -351,11 +318,6 @@ class User(Base):
         return f'https://secure.gravatar.com/avatar/{digest}?d=blank'
 
     @property
-    def acls(self):
-        """List of the user's ACLs."""
-        return list({acl for role in self.roles for acl in role.acls})
-
-    @property
     def permissions(self):
         """List of the names of the user's ACLs."""
         return [acl.id for acl in self.acls]
@@ -373,6 +335,10 @@ class User(Base):
     def is_active(self):
         """Boolean flag indicating whether the User is currently active."""
         return True
+
+
+UserACL = join_model('user_acls', User, ACL)
+UserACL.__doc__ = 'Join table mapping Users to ACLs'
 
 
 class Token(Base):
@@ -402,12 +368,6 @@ class Token(Base):
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
     )
-    acl_ids = association_proxy(
-        'acls',
-        'id',
-        creator=lambda acl: ACL.query.get(acl)
-    )
-    permissions = acl_ids
     name = sa.Column(
         sa.String,
         nullable=False,
@@ -415,6 +375,11 @@ class Token(Base):
         default=lambda: str(uuid.uuid4()),
         doc="The name of the token.",
     )
+
+    @property
+    def permissions(self):
+        """List of the names of the token's ACLs."""
+        return [acl.id for acl in self.acls]
 
     def is_owned_by(self, user_or_token):
         """Return a boolean indicating whether this Token is owned by the
@@ -435,5 +400,3 @@ class Token(Base):
 
 TokenACL = join_model('token_acls', Token, ACL)
 TokenACL.__doc__ = 'Join table mapping Tokens to ACLs'
-UserRole = join_model('user_roles', User, Role)
-UserRole.__doc__ = 'Join table mapping Users to Roles.'
