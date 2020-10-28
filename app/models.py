@@ -312,6 +312,9 @@ class User(Base):
     oauth_uid = sa.Column(
         sa.String, unique=True, doc="The user's OAuth UID."
     )
+    preferences = sa.Column(
+        JSONB, nullable=True, doc="The user's application settings."
+    )
 
     roles = relationship(
         'Role',
@@ -332,8 +335,11 @@ class User(Base):
         passive_deletes=True,
         doc="This user's tokens.",
     )
-    preferences = sa.Column(
-        JSONB, nullable=True, doc="The user's application settings."
+    acls = relationship(
+        "ACL",
+        secondary="user_acls",
+        passive_deletes=True,
+        doc="ACLs granted to user, separate from role-level ACLs",
     )
 
     @property
@@ -351,14 +357,17 @@ class User(Base):
         return f'https://secure.gravatar.com/avatar/{digest}?d=blank'
 
     @property
-    def acls(self):
-        """List of the user's ACLs."""
+    def _acls_from_roles(self):
+        """List of the ACLs associated with the user's role(s)."""
         return list({acl for role in self.roles for acl in role.acls})
 
     @property
     def permissions(self):
-        """List of the names of the user's ACLs."""
-        return [acl.id for acl in self.acls]
+        """List of the names of all of the user's ACLs (role-level + individual)."""
+        return list(
+            {acl.id for acl in self.acls}
+            .union({acl.id for acl in self._acls_from_roles})
+        )
 
     @classmethod
     def user_model(cls):
@@ -373,6 +382,10 @@ class User(Base):
     def is_active(self):
         """Boolean flag indicating whether the User is currently active."""
         return True
+
+
+UserACL = join_model('user_acls', User, ACL)
+UserACL.__doc__ = 'Join table mapping Users to ACLs'
 
 
 class Token(Base):
