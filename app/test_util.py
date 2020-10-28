@@ -144,6 +144,7 @@ def driver(request):
     options = webdriver.FirefoxOptions()
     if 'BASELAYER_TEST_HEADLESS' in os.environ:
         options.headless = True
+    options.set_preference('devtools.console.stdout.content', True)
 
     profile = webdriver.FirefoxProfile()
     profile.set_preference("browser.download.manager.showWhenStarting", False)
@@ -161,7 +162,7 @@ def driver(request):
 
     driver = MyCustomWebDriver(
         firefox_profile=profile,
-        options=options
+        options=options,
     )
     driver.set_window_size(1920, 1200)
     login(driver)
