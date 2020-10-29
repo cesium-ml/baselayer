@@ -100,41 +100,52 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
             )
         )
 
-    def scroll_to_element(self, element):
-        scroll_element_to_middle = '''
+    def scroll_to_element(self, element, scroll_parent=False):
+        scroll_script = (
+            """
+                arguments[0].scrollIntoView();
+            """
+            if scroll_parent
+            else """
             const viewPortHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
             const elementTop = arguments[0].getBoundingClientRect().top;
             window.scrollBy(0, elementTop - (viewPortHeight / 2));
-        '''
-        self.execute_script(scroll_element_to_middle, element)
+            """
+        )
+        self.execute_script(scroll_script, element)
 
-    def scroll_to_element_and_click(self, element, timeout=10):
-        self.scroll_to_element(element)
+    def scroll_to_element_and_click(self, element, timeout=10, scroll_parent=False):
+        self.scroll_to_element(element, scroll_parent=scroll_parent)
+        ActionChains(self).move_to_element(element).perform()
 
         try:
             return element.click()
         except ElementClickInterceptedException:
+            pass
+        except StaleElementReferenceException:
             pass
 
         try:
             return self.execute_script("arguments[0].click();", element)
         except JavascriptException:
             pass
+        except StaleElementReferenceException:
+            pass
 
         # Tried to click something that's not a button, try sending
         # a mouse click to that coordinate
-        ActionChains(self).move_to_element(element).click().perform()
+        ActionChains(self).click().perform()
 
-    def click_xpath(self, xpath, wait_clickable=True, timeout=10):
+    def click_xpath(self, xpath, wait_clickable=True, timeout=10, scroll_parent=False):
         if wait_clickable:
             element = self.wait_for_xpath_to_be_clickable(xpath, timeout=timeout)
         else:
             element = self.wait_for_xpath(xpath)
-        return self.scroll_to_element_and_click(element)
+        return self.scroll_to_element_and_click(element, scroll_parent=scroll_parent)
 
-    def click_css(self, css, timeout=10):
+    def click_css(self, css, timeout=10, scroll_parent=False):
         element = self.wait_for_css_to_be_clickable(css, timeout=timeout)
-        return self.scroll_to_element_and_click(element)
+        return self.scroll_to_element_and_click(element, scroll_parent=scroll_parent)
 
 
 @pytest.fixture(scope='session')
