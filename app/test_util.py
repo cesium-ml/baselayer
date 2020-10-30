@@ -57,8 +57,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_css(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.presence_of_element_located(
-                (By.CSS_SELECTOR, css))
+            expected_conditions.presence_of_element_located((By.CSS_SELECTOR, css))
         )
 
     def wait_for_xpath_to_appear(self, xpath, timeout=10):
@@ -110,8 +109,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         )
         self.execute_script(scroll_script, element)
 
-    def scroll_to_element_and_click(self, element, timeout=10,
-                                    scroll_parent=False):
+    def scroll_to_element_and_click(self, element, timeout=10, scroll_parent=False):
         self.scroll_to_element(element, scroll_parent=scroll_parent)
         ActionChains(self).move_to_element(element).perform()
 
@@ -133,20 +131,16 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
         # a mouse click to that coordinate
         ActionChains(self).click().perform()
 
-    def click_xpath(self, xpath, wait_clickable=True, timeout=10,
-                    scroll_parent=False):
+    def click_xpath(self, xpath, wait_clickable=True, timeout=10, scroll_parent=False):
         if wait_clickable:
-            element = self.wait_for_xpath_to_be_clickable(
-                xpath, timeout=timeout)
+            element = self.wait_for_xpath_to_be_clickable(xpath, timeout=timeout)
         else:
             element = self.wait_for_xpath(xpath)
-        return self.scroll_to_element_and_click(element,
-                                                scroll_parent=scroll_parent)
+        return self.scroll_to_element_and_click(element, scroll_parent=scroll_parent)
 
     def click_css(self, css, timeout=10, scroll_parent=False):
         element = self.wait_for_css_to_be_clickable(css, timeout=timeout)
-        return self.scroll_to_element_and_click(element,
-                                                scroll_parent=scroll_parent)
+        return self.scroll_to_element_and_click(element, scroll_parent=scroll_parent)
 
 
 @pytest.fixture(scope="session")
