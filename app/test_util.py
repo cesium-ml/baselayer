@@ -166,7 +166,6 @@ def driver(request):
         ),
     )
 
-
     driver = MyCustomWebDriver(
         firefox_profile=profile,
         options=options,
