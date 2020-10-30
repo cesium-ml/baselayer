@@ -10,7 +10,8 @@ from selenium.common.exceptions import (
     NoSuchElementException,
     ElementClickInterceptedException,
     TimeoutException,
-    JavascriptException
+    JavascriptException,
+    StaleElementReferenceException,
 )
 from seleniumrequests.request import RequestMixin
 
@@ -29,7 +30,7 @@ def set_server_url(server_url):
 class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     @property
     def server_url(self):
-        if not hasattr(self, '_server_url'):
+        if not hasattr(self, "_server_url"):
             raise NotImplementedError(
                 "Please first set the web driver URL" " using `set_server_url`"
             )
@@ -42,8 +43,10 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
     def get(self, uri):
         webdriver.Firefox.get(self, self.server_url + uri)
         try:
-            self.find_element_by_id('websocketStatus')
-            self.wait_for_xpath("//*[@id='websocketStatus' and contains(@title,'connected')]")
+            self.find_element_by_id("websocketStatus")
+            self.wait_for_xpath(
+                "//*[@id='websocketStatus' and contains(@title,'connected')]"
+            )
         except NoSuchElementException:
             pass
 
@@ -54,9 +57,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_css(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.presence_of_element_located(
-                (By.CSS_SELECTOR, css)
-            )
+            expected_conditions.presence_of_element_located((By.CSS_SELECTOR, css))
         )
 
     def wait_for_xpath_to_appear(self, xpath, timeout=10):
@@ -71,9 +72,7 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_css_to_disappear(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.invisibility_of_element(
-                (By.CSS_SELECTOR, css)
-            )
+            expected_conditions.invisibility_of_element((By.CSS_SELECTOR, css))
         )
 
     def wait_for_xpath_to_be_clickable(self, xpath, timeout=10):
@@ -88,68 +87,75 @@ class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
 
     def wait_for_css_to_be_clickable(self, css, timeout=10):
         return WebDriverWait(self, timeout).until(
-            expected_conditions.element_to_be_clickable(
-                (By.CSS_SELECTOR, css)
-            )
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, css))
         )
 
     def wait_for_css_to_be_unclickable(self, css, timeout=10):
         return WebDriverWait(self, timeout).until_not(
-            expected_conditions.element_to_be_clickable(
-                (By.CSS_SELECTOR, css)
-            )
+            expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, css))
         )
 
-    def scroll_to_element(self, element):
-        scroll_element_to_middle = '''
+    def scroll_to_element(self, element, scroll_parent=False):
+        scroll_script = (
+            """
+                arguments[0].scrollIntoView();
+            """
+            if scroll_parent
+            else """
             const viewPortHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
             const elementTop = arguments[0].getBoundingClientRect().top;
             window.scrollBy(0, elementTop - (viewPortHeight / 2));
-        '''
-        self.execute_script(scroll_element_to_middle, element)
+            """
+        )
+        self.execute_script(scroll_script, element)
 
-    def scroll_to_element_and_click(self, element, timeout=10):
-        self.scroll_to_element(element)
+    def scroll_to_element_and_click(self, element, timeout=10, scroll_parent=False):
+        self.scroll_to_element(element, scroll_parent=scroll_parent)
+        ActionChains(self).move_to_element(element).perform()
 
         try:
             return element.click()
         except ElementClickInterceptedException:
+            pass
+        except StaleElementReferenceException:
             pass
 
         try:
             return self.execute_script("arguments[0].click();", element)
         except JavascriptException:
             pass
+        except StaleElementReferenceException:
+            pass
 
         # Tried to click something that's not a button, try sending
         # a mouse click to that coordinate
-        ActionChains(self).move_to_element(element).click().perform()
+        ActionChains(self).click().perform()
 
-    def click_xpath(self, xpath, wait_clickable=True, timeout=10):
+    def click_xpath(self, xpath, wait_clickable=True, timeout=10, scroll_parent=False):
         if wait_clickable:
             element = self.wait_for_xpath_to_be_clickable(xpath, timeout=timeout)
         else:
             element = self.wait_for_xpath(xpath)
-        return self.scroll_to_element_and_click(element)
+        return self.scroll_to_element_and_click(element, scroll_parent=scroll_parent)
 
-    def click_css(self, css, timeout=10):
+    def click_css(self, css, timeout=10, scroll_parent=False):
         element = self.wait_for_css_to_be_clickable(css, timeout=timeout)
-        return self.scroll_to_element_and_click(element)
+        return self.scroll_to_element_and_click(element, scroll_parent=scroll_parent)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def driver(request):
     from selenium import webdriver
 
     options = webdriver.FirefoxOptions()
-    if 'BASELAYER_TEST_HEADLESS' in os.environ:
+    if "BASELAYER_TEST_HEADLESS" in os.environ:
         options.headless = True
 
     profile = webdriver.FirefoxProfile()
     profile.set_preference("browser.download.manager.showWhenStarting", False)
     profile.set_preference("browser.download.folderList", 2)
     profile.set_preference(
-        "browser.download.dir", os.path.abspath(cfg['paths.downloads_folder'])
+        "browser.download.dir", os.path.abspath(cfg["paths.downloads_folder"])
     )
     profile.set_preference(
         "browser.helperApps.neverAsk.saveToDisk",
@@ -159,10 +165,7 @@ def driver(request):
         ),
     )
 
-    driver = MyCustomWebDriver(
-        firefox_profile=profile,
-        options=options
-    )
+    driver = MyCustomWebDriver(firefox_profile=profile, options=options)
     driver.set_window_size(1920, 1200)
     login(driver)
 
@@ -174,7 +177,7 @@ def driver(request):
 def login(driver):
     username_xpath = '//*[contains(string(),"testuser-cesium-ml-org")]'
 
-    driver.get('/')
+    driver.get("/")
     try:
         driver.wait_for_xpath(username_xpath, 0.25)
         return  # Already logged in
@@ -195,7 +198,7 @@ def login(driver):
         raise TimeoutException("Login failed:\n" + driver.page_source)
 
 
-@pytest.fixture(scope='function', autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def reset_state(request):
     def teardown():
         models.DBSession().rollback()
