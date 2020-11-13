@@ -12,10 +12,23 @@ class MainHandler(tornado.web.RequestHandler):
         self.set_status(503)
         self.write("<h2>SkyPortal is being provisioned</h2>")
 
+
+class MainAPIHandler(tornado.web.RequestHandler):
+    def get(self, args):
+        self.set_header("Content-Type", "application/json")
+        self.set_status(502)
+        self.write({
+            "status": "error",
+            "message": "System provisioning",
+        })
+
+
 def make_app():
     return tornado.web.Application([
+        (r"/api(/.*)?", MainAPIHandler),
         (r".*", MainHandler),
     ])
+
 
 if __name__ == "__main__":
     app = make_app()
