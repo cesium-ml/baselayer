@@ -170,6 +170,7 @@ def join_model(
     fk_1='id',
     fk_2='id',
     base=Base,
+    mixins=(),
 ):
     """Helper function to create a join table for a many-to-many relationship.
 
@@ -241,7 +242,7 @@ def join_model(
         }
     )
 
-    model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
+    model = type(model_1.__name__ + model_2.__name__, (base,) + mixins, model_attrs)
 
     return model
 
