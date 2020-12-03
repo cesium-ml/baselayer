@@ -16,7 +16,7 @@ class MainHandler(tornado.web.RequestHandler):
 class MainAPIHandler(tornado.web.RequestHandler):
     def get(self, args):
         self.set_header("Content-Type", "application/json")
-        self.set_status(502)
+        self.set_status(503)
         self.write({
             "status": "error",
             "message": "System provisioning",
