@@ -105,49 +105,6 @@ class BaseMixin(object):
         }
 
     @classmethod
-    def get_if_readable_by(cls, ident, user_or_token, options=[]):
-        """Return an object from the database if the requesting User or Token
-        has access to read the object. If the requesting User or Token does not
-        have access, raise an AccessError.
-
-        Parameters
-        ----------
-        ident : integer or string
-           Primary key of the requested object.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-           The requesting `User` or `Token` object.
-        options : list of `sqlalchemy.orm.MapperOption`s
-           Options that wil be passed to `options()` in the loader query.
-
-        Returns
-        -------
-        obj : baselayer.app.models.Base
-           The requested entity.
-        """
-        obj = cls.query.options(options).get(ident)
-
-        if obj is not None and not obj.is_readable_by(user_or_token):
-            raise AccessError('Insufficient permissions.')
-
-        return obj
-
-    def is_readable_by(self, user_or_token):
-        """Return a boolean indicating whether a User or Token has read access
-        to this object.
-
-        Parameters
-        ----------
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-           The User or Token to check.
-
-        Returns
-        -------
-        readable : bool
-           Whether this object is readable to the user.
-        """
-        raise NotImplementedError("Ownership logic is application-specific")
-
-    @classmethod
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
@@ -207,20 +164,22 @@ def join_model(
         column_1 = f'{table_1[:-1]}_id'
     if column_2 is None:
         column_2 = f'{table_2[:-1]}_id'
+
+    forward_ind_name = f'{join_table}_forward_ind'
     reverse_ind_name = f'{join_table}_reverse_ind'
 
     model_attrs = {
         '__tablename__': join_table,
-        'id': None,
+        'id': sa.Column(
+            sa.Integer, primary_key=True, doc='Unique object identifier.'
+        ),
         column_1: sa.Column(
             column_1,
             sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
-            primary_key=True,
         ),
         column_2: sa.Column(
             column_2,
             sa.ForeignKey(f'{table_2}.{fk_2}', ondelete='CASCADE'),
-            primary_key=True,
         ),
     }
 
@@ -235,6 +194,9 @@ def join_model(
                 model_2,
                 cascade='save-update, merge, refresh-expire, expunge',
                 foreign_keys=[model_attrs[column_2]],
+            ),
+            forward_ind_name: sa.Index(
+                forward_ind_name, model_attrs[column_1], model_attrs[column_2]
             ),
             reverse_ind_name: sa.Index(
                 reverse_ind_name, model_attrs[column_2], model_attrs[column_1]
