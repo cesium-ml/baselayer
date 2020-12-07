@@ -196,7 +196,8 @@ def join_model(
                 foreign_keys=[model_attrs[column_2]],
             ),
             forward_ind_name: sa.Index(
-                forward_ind_name, model_attrs[column_1], model_attrs[column_2]
+                forward_ind_name, model_attrs[column_1], model_attrs[column_2],
+                unique=True
             ),
             reverse_ind_name: sa.Index(
                 reverse_ind_name, model_attrs[column_2], model_attrs[column_1]
