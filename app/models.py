@@ -176,10 +176,12 @@ def join_model(
         column_1: sa.Column(
             column_1,
             sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
+            nullable=False
         ),
         column_2: sa.Column(
             column_2,
             sa.ForeignKey(f'{table_2}.{fk_2}', ondelete='CASCADE'),
+            nullable=False
         ),
     }
 
