@@ -31,7 +31,7 @@ def drop_tables():
     meta.drop_all(bind=conn)
 
 
-def create_tables(retry=5, add=False):
+def create_tables(retry=5, add=True):
     """Create tables for all models, retrying 5 times at intervals of 3
     seconds if the database is not reachable.
 
