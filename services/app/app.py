@@ -35,7 +35,9 @@ baselayer_settings['autoreload'] = env.debug
 module, app_factory = app_factory.rsplit('.', 1)
 app_factory = getattr(importlib.import_module(module), app_factory)
 
-app = app_factory(cfg, baselayer_handlers, baselayer_settings)
+app = app_factory(cfg, baselayer_handlers, baselayer_settings,
+                  process=env.process if env.process else 0,
+                  env=env)
 app.cfg = cfg
 
 
