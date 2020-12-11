@@ -20,3 +20,4 @@ jinja2
 python-dateutil
 phonenumbers
 python-slugify>=4.0.1
+checksumdir==1.2.0

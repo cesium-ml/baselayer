@@ -4,6 +4,8 @@ import re
 import os
 from status import status
 
+from checksumdir import dirhash
+
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
@@ -15,6 +17,7 @@ log = make_log('baselayer')
 def fill_config_file_values(template_paths):
     log('Compiling configuration templates')
     env, cfg = load_env()
+    cfg["js_dir_hash"] = dirhash("./static/js", "md5")
 
     for template_path in template_paths:
         with status(template_path):
