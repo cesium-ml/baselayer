@@ -31,11 +31,25 @@ def drop_tables():
     meta.drop_all(bind=conn)
 
 
-def create_tables(retry=5):
-    """
-    Create tables for all models, retrying 5 times at intervals of 3
+def create_tables(retry=5, add=True):
+    """Create tables for all models, retrying 5 times at intervals of 3
     seconds if the database is not reachable.
+
+    Parameters
+    ----------
+    add : bool
+        Whether to add tables if some tables already exist.  This is
+        convenient during development, but will cause problems
+        for installations that depend on migrations to create new
+        tables.
+
     """
+    conn = models.DBSession.session_factory.kw['bind']
+    tables = models.Base.metadata.sorted_tables
+    if tables and not add:
+        print("Existing tables found; not creating additional tables")
+        return
+
     for i in range(1, retry + 1):
         try:
             conn = models.DBSession.session_factory.kw['bind']
