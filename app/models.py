@@ -1,4 +1,4 @@
-from datetime import datetime
+import abc
 import uuid
 from hashlib import md5
 
@@ -6,8 +6,11 @@ from slugify import slugify
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import sessionmaker, scoped_session, relationship
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm import sessionmaker, scoped_session, relationship, Query, aliased
+from sqlalchemy.sql.expression import Selectable, BinaryExpression, FromClause
+from sqlalchemy.ext.hybrid import hybrid_method
+
+
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy_utils import EmailType, PhoneNumberType
@@ -61,8 +64,468 @@ class SlugifiedStr(sa.types.TypeDecorator):
         return value
 
 
-class BaseMixin(object):
+def user_acls_temporary_table():
+    """This method creates a temporary table that maps user_ids to their
+    acl_ids (from roles and individual ACL grants).
+
+    The temporary table lives for the duration of the current database
+    transaction and is visible only to the transaction it was created
+    within. The temporary table maintains a forward and reverse index
+    for fast joins on accessible groups.
+
+    This function can be called many times within a transaction. It will only
+    create the table once per transaction and subsequent calls will always
+    return a reference to the table created on the first call, with the same
+    underlying data.
+
+    Returns
+    -------
+    table: `sqlalchemy.Table`
+        The forward- and reverse-indexed `merged_user_acls` temporary
+        table for the current database transaction.
+    """
+    sql = """CREATE TEMP TABLE IF NOT EXISTS merged_user_acls ON COMMIT DROP AS
+    (SELECT u.id AS user_id, ra.acl_id AS acl_id
+         FROM users u
+         JOIN user_roles ur ON u.id = ur.user_id
+         JOIN role_acls ra ON ur.role_id = ra.role_id
+         UNION
+     SELECT ua.user_id, ua.acl_id FROM user_acls ua)"""
+    DBSession().execute(sql)
+    DBSession().execute(
+        'CREATE INDEX IF NOT EXISTS merged_user_acls_forward_index '
+        'ON merged_user_acls (user_id, acl_id)'
+    )
+    DBSession().execute(
+        'CREATE INDEX IF NOT EXISTS merged_user_acls_reverse_index '
+        'ON merged_user_acls (acl_id, user_id)'
+    )
+
+    t = sa.Table(
+        'merged_user_acls',
+        Base.metadata,
+        sa.Column('user_id', sa.Integer, primary_key=True),
+        sa.Column('acl_id', sa.Integer, primary_key=True),
+        extend_existing=True,
+    )
+    return t
+
+
+class AccessControl:
+    """A pattern of access control on a mapped class. Mapped classes can set
+    their create, read, update, or delete attributes to subclasses of this class
+    to ensure they are only accessed by users or tokens with the requisite
+    permissions.
+
+    This class is not meant to be instantiated. As an abstract class, it simply
+    defines the interface that subclasses must implement.
+    """
+
+    # Attributes that a mapped class must have to call `access_table()`.
+    required_attrs = NotImplemented
+
+    @staticmethod
+    def access_table(cls, user) -> FromClause:
+        """A join table mapping records from a table to users who can access
+        them. Subclasses of AccessControl must implement this method
+        with the appropriate logic.
+
+        The join table should be constructed using aliases of `cls` and `user`,
+        then correlated against `cls` and `user` to ensure indices are propagated
+        and Cardinality is respected.
+
+        Parameters
+        ----------
+        cls: mapped class or alias of mapped class
+            The mapped class (or an alias of the mapped class) representing the
+            access-controlled table.
+        user: User class or alias of User class
+            The User class (or an alias of the User class).
+
+        Returns
+        -------
+        access_table: sqlalchemy.sql.expression.FromClause
+            A join table mapping records of the `cls` table to records
+            of the users table. Each row corresponds to one class/user pair that
+            is accessible. The schema of this table may vary depending on the
+            schema of `cls`, but will always contain two columns, `cls_id` and
+            `user_id`, representing the primary keys of the `cls` table and the
+            users table, respectively.
+        """
+        return NotImplementedError
+
+
+class AccessibleByAnyone(AccessControl):
+    """A record that can be accessed by any user."""
+
+    required_attrs = ()
+
+    @staticmethod
+    def access_table(cls, user):
+        """A join table mapping records from a table to users who can access
+        them. Subclasses of AccessControlPattern must implement this method
+        with the appropriate logic.
+
+        The join table should be constructed using aliases of `cls` and `user`,
+        then correlated against `cls` and `user` to ensure indices are propagated
+        and Cardinality is respected.
+
+        Parameters
+        ----------
+        cls: mapped class or alias of mapped class
+            The mapped class (or an alias of the mapped class) representing the
+            access-controlled table.
+        user: User class or alias of User class
+            The User class (or an alias of the User class).
+
+        Returns
+        -------
+        access_table: sqlalchemy.sql.expression.FromClause
+            A join table mapping records of the `cls` table to records
+            of the users table. Each row corresponds to one class/user pair that
+            is accessible. The schema of this table may vary depending on the
+            schema of `cls`, but will always contain two columns, `cls_id` and
+            `user_id`, representing the primary keys of the `cls` table and the
+            users table, respectively.
+        """
+        cls_alias = aliased(cls)
+        user_alias = aliased(user)
+        return (
+            sa.select(
+                [cls_alias.id.label('cls_id'), user_alias.id.label('user_id')]
+            )
+            .select_from(sa.join(cls_alias, user_alias, sa.literal(True)))
+            .where(cls_alias.id == cls.id)
+            .where(user_alias.id == user.id)
+        )
+
+
+class AccessibleByOwner(AccessControl):
+    """A record that can only be accessed by its owner (or a System Admin)."""
+
+    required_attrs = ('owner',)
+
+    @staticmethod
+    def access_table(cls, user):
+        """A join table mapping records from a table to users who can access
+        them. Subclasses of AccessControlPattern must implement this method
+        with the appropriate logic.
+
+        The join table should be constructed using aliases of `cls` and `user`,
+        then correlated against `cls` and `user` to ensure indices are propagated
+        and Cardinality is respected.
+
+        Parameters
+        ----------
+        cls: mapped class or alias of mapped class
+            The mapped class (or an alias of the mapped class) representing the
+            access-controlled table.
+        user: User class or alias of User class
+            The User class (or an alias of the User class).
+
+        Returns
+        -------
+        access_table: sqlalchemy.sql.expression.FromClause
+            A join table mapping records of the `cls` table to records
+            of the users table. Each row corresponds to one class/user pair that
+            is accessible. The schema of this table may vary depending on the
+            schema of `cls`, but will always contain two columns, `cls_id` and
+            `user_id`, representing the primary keys of the `cls` table and the
+            users table, respectively.
+        """
+        cls_alias = aliased(cls)
+        user_alias = aliased(user)
+        user_acls = user_acls_temporary_table()
+
+        accessible_by_virtue_of_owner = (
+            sa.select(
+                [cls_alias.id.label('cls_id'), user_alias.id.label('user_id')]
+            )
+            .select_from(
+                sa.join(cls_alias, user_alias, cls_alias.owner_id == user_alias.id)
+            )
+            .where(cls_alias.id == cls.id)
+            .where(user_alias.id == user.id)
+        )
+
+        accessible_by_virtue_of_acl = (
+            sa.select([cls_alias.id, user_acls.user_id])
+            .select_from(
+                sa.join(cls, user_acls, user_acls.acl_id == 'System admin', )
+            )
+            .where(cls_alias.id == cls.id)
+            .where(user_acls.user_id == user.id)
+        )
+
+        return sa.union(accessible_by_virtue_of_owner, accessible_by_virtue_of_acl)
+
+
+class BaseMixin:
+
+    # permission control logic
+    create = AccessibleByAnyone
+    read = AccessibleByAnyone
+    update = AccessibleByOwner
+    delete = AccessibleByOwner
+
+    @hybrid_method
+    def is_accessible_by(self, user_or_token, access_type="read") -> bool:
+        """Determines whether a User or Token has a specified type of access to
+        a database record.
+
+        Parameters
+        ----------
+        self: `baselayer.app.models.Base`:
+            The instance to check the User or Token's access to. Must be in the
+            SQLalchemy "persistent" state (https://docs.sqlalchemy.org/en/13/\
+            orm/session_state_management.html#quickie-intro-to-object-states)
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        access_type: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        Returns
+        -------
+        accessible: bool
+            Whether the User or Token has the specified type of access to
+            the record.
+        """
+
+        if not isinstance(user_or_token, (User, Token)):
+            raise ValueError(
+                'user_or_token must be an instance of User or Token, '
+                f'got {user_or_token.__class__.__name__}.'
+            )
+
+        # get the classmethod that determines whether a record of type `cls` is
+        # accessible to a user or token
+        cls = type(self)
+
+        # Query for the value of the access_func for this particular record and
+        # return the result.
+        return (
+            DBSession()
+            .query(cls.is_accessible_by(user_or_token, access_type=access_type))
+            .filter(cls.id == self.id)
+            .scalar()
+        )
+
+    @classmethod
+    def get_if_accessible_by(
+        cls, cls_id, user_or_token, access_type="read", options=[]
+    ):
+        """Return a database record if it is accessible to the specified User or
+        Token. If no record exists, return None. If the record exists but is
+        inaccessible, raise an `AccessError`.
+
+        Parameters
+        ----------
+        cls_id: int or str
+            The primary key of the record to query for.
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        access_type: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+           Options that will be passed to `options()` in the loader query.
+
+        Returns
+        -------
+        record: `baselayer.app.models.Base`
+            The requested record.
+        """
+
+        instance = cls.query.options(options).get(cls_id)
+        if instance is not None:
+            if not instance.is_accessible_by(user_or_token, access_type=access_type):
+                raise AccessError(
+                    f'Insufficient permissions for operation '
+                    f'"{access_type} {cls.__name__} {instance.id}".'
+                )
+        return instance
+
+    @classmethod
+    def query_for_records_accessible_by(cls, user_or_token, access_type="read", options=[]):
+        """Construct (but do not execute) a database query to retrieve all records
+        that are accessible to a single user or token from a specified table.
+
+        The query is based on join-dependent relationship hybrid logic,
+        (https://docs.sqlalchemy.org/en/14/orm/extensions/hybrid.html?highlight=\
+        hybrid%20method#join-dependent-relationship-hybrid),
+        rather than correlated subquery hybrid logic. This gives it better
+        performance compared to the correlated subquery-based hybrid methods
+        `is_*_by`, but a more restricted range of uses.
+
+        Parameters
+        ----------
+        cls: DeclarativeMeta
+            Mapped class to query for records. Must be a subclass of Base.
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        access_type: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+           Options that will be passed to `options()` in the loader query.
+        Returns
+        -------
+        query: `sqlalchemy.orm.Query`
+           The query for accessible records.
+        """
+
+        logic = getattr(cls, access_type)
+        for attr in logic.required_attrs:
+            if not hasattr(cls, attr):
+                raise TypeError(
+                    f'{cls} does not have the attribute "{attr}", '
+                    f'and thus does not expose the interface that is needed '
+                    f'to check for {access_type} access.'
+                )
+
+        if isinstance(user_or_token, User):
+            accessibility_target = user_or_token.id
+        elif isinstance(user_or_token, Token):
+            accessibility_target = user_or_token.created_by_id
+        else:
+            raise TypeError(
+                f'Invalid argument passed to user_or_token, '
+                f'expected User or Token, got '
+                f'{user_or_token.__class__.__name__}'
+            )
+
+        # Construct a query that maps user_ids to accessible cls_ids.
+        pairs = logic.access_table(cls, User).alias()
+
+        return (
+            DBSession()
+            .query(cls)
+            .join(User, sa.literal(True))
+            .join(pairs, sa.and_(User.id == pairs.c.user_id, cls.id == pairs.c.cls_id))
+            .filter(User.id == accessibility_target)
+            .options(options)
+        )
+
+    @is_accessible_by.expression
+    def is_accessible_by(cls, user_or_token, access_type="read") -> BinaryExpression:
+        """Generate an SQL expression representing whether a mapped class is
+        accessible to a specified user or token, or to an entire table of users
+        or tokens (via broadcasting).
+
+        The expressions can be queried directly,
+
+            >>> u = User.query.first()
+            >>> DBSession().query(cls.is_accessible_by(u))
+
+        or used as filter clauses,
+
+            >>> u = User.query.first()
+            >>> DBSession().query(cls).filter(cls.is_accessible_by(u))
+
+        or used as join clauses,
+
+            >>> DBSession().query(cls).join(User, cls.is_accessible_by(User))
+
+        The BinaryExpression is designed to be highly portable and is constructed
+        using correlated subquery relationship hybrids and laterals. This ensures
+        that large intermediate tables are never created, that indices are used
+        wherever possible, and that filter clauses from enclosing queries are
+        always propagated down the query stack.
+
+        Parameters
+        ----------
+        cls: DeclarativeMeta
+            Mapped class to query for records. Must be a subclass of Base.
+        user_or_token: `baselayer.app.models.User`, `baselayer.app.models.Token`,
+        `sqlalchmey.sql.expression.FromClause`, `sqlalchemy.Column`
+            The User, Token, or table to check. Can be a User or Token object,
+            a reference to an `sqlalchemy.Table` pointing to the users or tokens
+            table, or an `sqlalchemy.Column` containing the primary key of the
+            users table.
+        access_type: string, required:
+            Type of access to check. Valid choices are `['create', 'read',
+            'update', 'delete']`.
+
+        Returns
+        -------
+        accessible: `sqlalchemy.sql.expression.BinaryExpression`
+            SQLalchemy expression representing whether the User, Token, or table
+            has access to the record. Can be queried directly, or used as a filter
+            or join clause.
+        """
+
+        # Ensure that the constructed class has the required attributes for
+        # access check.
+
+        logic = getattr(cls, access_type)
+        for attr in logic.required_attrs:
+            if not hasattr(cls, attr):
+                raise TypeError(
+                    f'{cls.__name__} does not have the attribute "{attr}", '
+                    f'and thus does not expose the interface that is needed '
+                    f'to check for {access_type} access.'
+                )
+
+        # Extract the users.id column from whatever was passed to `user_or_token`.
+        if isinstance(user_or_token, FromClause):
+            if hasattr(user_or_token.c, 'created_by_id'):
+                accessibility_target = user_or_token.c.created_by_id
+            else:
+                accessibility_target = user_or_token.c.id
+        elif isinstance(user_or_token, sa.Column):
+            accessibility_target = user_or_token
+        elif user_or_token is Token or isinstance(user_or_token, Token):
+            accessibility_target = user_or_token.created_by_id
+        else:
+            accessibility_target = user_or_token.id
+
+        correlation_cls_alias = aliased(cls)
+        correlation_user_alias = aliased(User)
+        accessible_pairs = logic.access_table(
+            correlation_cls_alias, correlation_user_alias
+        ).lateral()
+
+        return (
+            sa.select([accessible_pairs.c.cls_id])
+            .select_from(
+                sa.join(
+                    correlation_cls_alias, correlation_user_alias, sa.literal(True)
+                ).outerjoin(
+                    accessible_pairs,
+                    correlation_cls_alias.id == accessible_pairs.c.cls_id,
+                )
+            )
+            .where(correlation_cls_alias.id == cls.id)
+            .where(correlation_user_alias.id == accessibility_target)
+            .label(access_type)
+            .isnot(None)
+        )
+
+    @declared_attr
+    def owner(cls):
+        return relationship('User', doc="The User that created this record.",
+                            foreign_keys=[cls.owner_id])
+
+    @declared_attr
+    def owner_id(cls):
+        return sa.Column(sa.ForeignKey('users.id', ondelete='SET NULL'),
+                         index=True, doc="The ID of the User that created "
+                                         "this record.", nullable=True)
+
+    @declared_attr
+    def last_modified_by(cls):
+        return relationship('User', doc="The User that most recently "
+                                        "updated this record.",
+                            foreign_keys=[cls.last_modified_by_id])
+
+    @declared_attr
+    def last_modified_by_id(cls):
+        return sa.Column(sa.ForeignKey('users.id', ondelete='SET NULL'),
+                         index=True, doc="The ID of the User that most recently "
+                                         "updated this record.", nullable=True)
+
     query = DBSession.query_property()
+
     id = sa.Column(
         sa.Integer, primary_key=True, doc='Unique object identifier.'
     )
@@ -104,16 +567,6 @@ class BaseMixin(object):
             k: v for k, v in self.__dict__.items() if not k.startswith('_')
         }
 
-    @classmethod
-    def create_or_get(cls, id):
-        """Return a new `cls` if an instance with the specified primary key
-        does not exist, else return the existing instance."""
-        obj = cls.query.get(id)
-        if obj is not None:
-            return obj
-        else:
-            return cls(id=id)
-
 
 Base = declarative_base(cls=BaseMixin)
 
@@ -127,7 +580,6 @@ def join_model(
     fk_1='id',
     fk_2='id',
     base=Base,
-    mixins=(),
 ):
     """Helper function to create a join table for a many-to-many relationship.
 
@@ -207,7 +659,7 @@ def join_model(
         }
     )
 
-    model = type(model_1.__name__ + model_2.__name__, (base,) + mixins, model_attrs)
+    model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
 
     return model
 
@@ -395,24 +847,10 @@ class Token(Base):
         doc="The name of the token.",
     )
 
-    def is_readable_by(self, user_or_token):
-        """Return a boolean indicating whether this Token is readable by the
-        specified User (or Token instance, if a token is passed).
-
-        Parameters
-        ----------
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-           The User or Token to check.
-
-        Returns
-        -------
-        readable : bool
-           Whether this Token instance is readable by the User or Token.
-        """
-        return user_or_token.id in [self.created_by_id, self.id]
-
 
 TokenACL = join_model('token_acls', Token, ACL)
 TokenACL.__doc__ = 'Join table mapping Tokens to ACLs'
 UserRole = join_model('user_roles', User, Role)
 UserRole.__doc__ = 'Join table mapping Users to Roles.'
+
+
