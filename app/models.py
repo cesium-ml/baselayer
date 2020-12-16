@@ -111,11 +111,11 @@ def user_acls_temporary_table():
     return t
 
 
-class AccessControl:
-    """A pattern of access control on a mapped class. Mapped classes can set
-    their create, read, update, or delete attributes to subclasses of this class
-    to ensure they are only accessed by users or tokens with the requisite
-    permissions.
+class UserAccessControl:
+    """Logic for restricting user access to database records. Mapped classes
+    can set their create, read, update, or delete attributes to subclasses of
+    this class to ensure they are only accessed by users or tokens with the
+    requisite permissions.
 
     This class is not meant to be instantiated. As an abstract class, it simply
     defines the interface that subclasses must implement.
@@ -155,7 +155,7 @@ class AccessControl:
         return NotImplementedError
 
 
-class AccessibleByAnyone(AccessControl):
+class AccessibleByAnyone(UserAccessControl):
     """A record that can be accessed by any user."""
 
     required_attrs = ()
@@ -200,10 +200,80 @@ class AccessibleByAnyone(AccessControl):
         )
 
 
-class AccessibleByOwner(AccessControl):
-    """A record that can only be accessed by its owner (or a System Admin)."""
+def accessible_through_relationship(relationship_name, fk_name):
 
-    required_attrs = ('owner',)
+    class AccessibleByUser(UserAccessControl):
+        """A record that can only be accessed by a specific user (or a System Admin)."""
+
+        required_attrs = (relationship_name,)
+
+        @staticmethod
+        def access_table(cls, user):
+            """A join table mapping records from a table to users who can access
+            them. Subclasses of AccessControlPattern must implement this method
+            with the appropriate logic.
+
+            The join table should be constructed using aliases of `cls` and `user`,
+            then correlated against `cls` and `user` to ensure indices are propagated
+            and Cardinality is respected.
+
+            Parameters
+            ----------
+            cls: mapped class or alias of mapped class
+                The mapped class (or an alias of the mapped class) representing the
+                access-controlled table.
+            user: User class or alias of User class
+                The User class (or an alias of the User class).
+
+            Returns
+            -------
+            access_table: sqlalchemy.sql.expression.FromClause
+                A join table mapping records of the `cls` table to records
+                of the users table. Each row corresponds to one class/user pair that
+                is accessible. The schema of this table may vary depending on the
+                schema of `cls`, but will always contain two columns, `cls_id` and
+                `user_id`, representing the primary keys of the `cls` table and the
+                users table, respectively.
+            """
+            cls_alias = aliased(cls)
+            user_alias = aliased(user)
+            user_acls = user_acls_temporary_table()
+            user_id = getattr(cls_alias, fk_name)
+
+            accessible_by_virtue_of_owner = (
+                sa.select(
+                    [cls_alias.id.label('cls_id'), user_alias.id.label('user_id')]
+                )
+                .select_from(
+                    sa.join(cls_alias, user_alias, user_id == user_alias.id)
+                )
+                .where(cls_alias.id == cls.id)
+                .where(user_alias.id == user.id)
+            )
+
+            accessible_by_virtue_of_acl = (
+                sa.select([cls_alias.id, user_acls.user_id])
+                .select_from(
+                    sa.join(cls, user_acls, user_acls.acl_id == 'System admin', )
+                )
+                .where(cls_alias.id == cls.id)
+                .where(user_acls.user_id == user.id)
+            )
+
+            return sa.union(accessible_by_virtue_of_owner, accessible_by_virtue_of_acl)
+    return AccessibleByUser
+
+
+AccessibleByOwner = accessible_through_relationship('owner', 'owner_id')
+AccessibleByCreatedBy = accessible_through_relationship('created_by', 'created_by_id')
+AccessibleByUser = accessible_through_relationship('user', 'user_id')
+
+
+
+class Inaccessible(UserAccessControl):
+    """A record that can only be accessed by a System Admin."""
+
+    required_attrs = ()
 
     @staticmethod
     def access_table(cls, user):
@@ -234,19 +304,7 @@ class AccessibleByOwner(AccessControl):
             users table, respectively.
         """
         cls_alias = aliased(cls)
-        user_alias = aliased(user)
         user_acls = user_acls_temporary_table()
-
-        accessible_by_virtue_of_owner = (
-            sa.select(
-                [cls_alias.id.label('cls_id'), user_alias.id.label('user_id')]
-            )
-            .select_from(
-                sa.join(cls_alias, user_alias, cls_alias.owner_id == user_alias.id)
-            )
-            .where(cls_alias.id == cls.id)
-            .where(user_alias.id == user.id)
-        )
 
         accessible_by_virtue_of_acl = (
             sa.select([cls_alias.id, user_acls.user_id])
@@ -257,16 +315,14 @@ class AccessibleByOwner(AccessControl):
             .where(user_acls.user_id == user.id)
         )
 
-        return sa.union(accessible_by_virtue_of_owner, accessible_by_virtue_of_acl)
+        return accessible_by_virtue_of_acl.distinct()
 
 
 class BaseMixin:
 
     # permission control logic
-    create = AccessibleByAnyone
-    read = AccessibleByAnyone
-    update = AccessibleByOwner
-    delete = AccessibleByOwner
+    create = read = AccessibleByAnyone
+    update = delete = Inaccessible
 
     @hybrid_method
     def is_accessible_by(self, user_or_token, access_type="read") -> bool:
@@ -501,29 +557,6 @@ class BaseMixin:
             .isnot(None)
         )
 
-    @declared_attr
-    def owner(cls):
-        return relationship('User', doc="The User that created this record.",
-                            foreign_keys=[cls.owner_id])
-
-    @declared_attr
-    def owner_id(cls):
-        return sa.Column(sa.ForeignKey('users.id', ondelete='SET NULL'),
-                         index=True, doc="The ID of the User that created "
-                                         "this record.", nullable=True)
-
-    @declared_attr
-    def last_modified_by(cls):
-        return relationship('User', doc="The User that most recently "
-                                        "updated this record.",
-                            foreign_keys=[cls.last_modified_by_id])
-
-    @declared_attr
-    def last_modified_by_id(cls):
-        return sa.Column(sa.ForeignKey('users.id', ondelete='SET NULL'),
-                         index=True, doc="The ID of the User that most recently "
-                                         "updated this record.", nullable=True)
-
     query = DBSession.query_property()
 
     id = sa.Column(
@@ -566,6 +599,16 @@ class BaseMixin:
         return {
             k: v for k, v in self.__dict__.items() if not k.startswith('_')
         }
+
+    @classmethod
+    def create_or_get(cls, id):
+        """Return a new `cls` if an instance with the specified primary key
+        does not exist, else return the existing instance."""
+        obj = cls.query.get(id)
+        if obj is not None:
+            return obj
+        else:
+            return cls(id=id)
 
 
 Base = declarative_base(cls=BaseMixin)
@@ -752,6 +795,7 @@ class User(Base):
         back_populates='created_by',
         passive_deletes=True,
         doc="This user's tokens.",
+        foreign_keys="Token.created_by_id"
     )
     acls = relationship(
         "ACL",
@@ -802,6 +846,8 @@ class User(Base):
         return True
 
 
+
+
 UserACL = join_model('user_acls', User, ACL)
 UserACL.__doc__ = 'Join table mapping Users to ACLs'
 
@@ -809,6 +855,7 @@ UserACL.__doc__ = 'Join table mapping Users to ACLs'
 class Token(Base):
     """A command line token that can be used to programmatically access the API
     as a particular User."""
+    create = read = update = delete = AccessibleByCreatedBy
 
     id = sa.Column(
         sa.String,
@@ -839,6 +886,7 @@ class Token(Base):
         creator=lambda acl: ACL.query.get(acl)
     )
     permissions = acl_ids
+
     name = sa.Column(
         sa.String,
         nullable=False,
