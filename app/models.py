@@ -42,6 +42,7 @@ def init_db(user, database, password=None, host=None, port=None):
         client_encoding='utf8',
         executemany_mode='values',
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
+        echo=True,
     )
 
     DBSession.configure(bind=conn)
@@ -111,6 +112,23 @@ def user_acls_temporary_table():
     return t
 
 
+def requires_attributes(attrs):
+    def enforce_require(function):
+        def inner_func(cls):
+            for attr in attrs:
+                if not hasattr(cls, attr):
+                    raise TypeError(
+                        f'{cls} does not have the attribute "{attr}", '
+                        f'and thus does not expose the interface that is needed '
+                        f'to check for access.'
+                    )
+            return function(cls)
+
+        return inner_func
+
+    return enforce_require
+
+
 class UserAccessControl:
     """Logic for restricting user access to database records. Mapped classes
     can set their create, read, update, or delete attributes to subclasses of
@@ -121,11 +139,8 @@ class UserAccessControl:
     defines the interface that subclasses must implement.
     """
 
-    # Attributes that a mapped class must have to call `access_table()`.
-    required_attrs = NotImplemented
-
     @staticmethod
-    def access_table(cls, user) -> FromClause:
+    def select_target(cls) -> FromClause:
         """A join table mapping records from a table to users who can access
         them. Subclasses of AccessControl must implement this method
         with the appropriate logic.
@@ -158,10 +173,8 @@ class UserAccessControl:
 class AccessibleByAnyone(UserAccessControl):
     """A record that can be accessed by any user."""
 
-    required_attrs = ()
-
     @staticmethod
-    def access_table(cls, user):
+    def select_target(cls):
         """A join table mapping records from a table to users who can access
         them. Subclasses of AccessControlPattern must implement this method
         with the appropriate logic.
@@ -188,27 +201,16 @@ class AccessibleByAnyone(UserAccessControl):
             `user_id`, representing the primary keys of the `cls` table and the
             users table, respectively.
         """
-        cls_alias = aliased(cls)
-        user_alias = aliased(user)
-        return (
-            sa.select(
-                [cls_alias.id.label('cls_id'), user_alias.id.label('user_id')]
-            )
-            .select_from(sa.join(cls_alias, user_alias, sa.literal(True)))
-            .where(cls_alias.id == cls.id)
-            .where(user_alias.id == user.id)
-        )
+        return sa.outerjoin(cls, User, sa.literal(True))
 
 
 def accessible_through_relationship(relationship_name, fk_name):
-
     class AccessibleByUser(UserAccessControl):
         """A record that can only be accessed by a specific user (or a System Admin)."""
 
-        required_attrs = (relationship_name,)
-
         @staticmethod
-        def access_table(cls, user):
+        @requires_attributes([relationship_name])
+        def select_target(cls):
             """A join table mapping records from a table to users who can access
             them. Subclasses of AccessControlPattern must implement this method
             with the appropriate logic.
@@ -235,32 +237,15 @@ def accessible_through_relationship(relationship_name, fk_name):
                 `user_id`, representing the primary keys of the `cls` table and the
                 users table, respectively.
             """
-            cls_alias = aliased(cls)
-            user_alias = aliased(user)
             user_acls = user_acls_temporary_table()
-            user_id = getattr(cls_alias, fk_name)
-
-            accessible_by_virtue_of_owner = (
-                sa.select(
-                    [cls_alias.id.label('cls_id'), user_alias.id.label('user_id')]
-                )
-                .select_from(
-                    sa.join(cls_alias, user_alias, user_id == user_alias.id)
-                )
-                .where(cls_alias.id == cls.id)
-                .where(user_alias.id == user.id)
+            cls_user_id = getattr(cls, fk_name)
+            merged_users = sa.join(User, user_acls, User.id == user_acls.c.user_id)
+            return sa.outerjoin(
+                cls,
+                merged_users,
+                sa.or_(cls_user_id == User.id, user_acls.c.acl_id == 'System admin'),
             )
 
-            accessible_by_virtue_of_acl = (
-                sa.select([cls_alias.id, user_acls.user_id])
-                .select_from(
-                    sa.join(cls, user_acls, user_acls.acl_id == 'System admin', )
-                )
-                .where(cls_alias.id == cls.id)
-                .where(user_acls.user_id == user.id)
-            )
-
-            return sa.union(accessible_by_virtue_of_owner, accessible_by_virtue_of_acl)
     return AccessibleByUser
 
 
@@ -269,14 +254,11 @@ AccessibleByCreatedBy = accessible_through_relationship('created_by', 'created_b
 AccessibleByUser = accessible_through_relationship('user', 'user_id')
 
 
-
 class Inaccessible(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
 
-    required_attrs = ()
-
     @staticmethod
-    def access_table(cls, user):
+    def select_target(cls):
         """A join table mapping records from a table to users who can access
         them. Subclasses of AccessControlPattern must implement this method
         with the appropriate logic.
@@ -303,19 +285,11 @@ class Inaccessible(UserAccessControl):
             `user_id`, representing the primary keys of the `cls` table and the
             users table, respectively.
         """
-        cls_alias = aliased(cls)
+
         user_acls = user_acls_temporary_table()
-
-        accessible_by_virtue_of_acl = (
-            sa.select([cls_alias.id, user_acls.user_id])
-            .select_from(
-                sa.join(cls, user_acls, user_acls.acl_id == 'System admin', )
-            )
-            .where(cls_alias.id == cls.id)
-            .where(user_acls.user_id == user.id)
+        return sa.outerjoin(cls, user_acls, user_acls.c.acl_id == 'System admin').join(
+            User, user_acls.c.user_id == User.id
         )
-
-        return accessible_by_virtue_of_acl.distinct()
 
 
 class BaseMixin:
@@ -324,8 +298,7 @@ class BaseMixin:
     create = read = AccessibleByAnyone
     update = delete = Inaccessible
 
-    @hybrid_method
-    def is_accessible_by(self, user_or_token, access_type="read") -> bool:
+    def is_accessible_by(self, user_or_token, mode="read") -> bool:
         """Determines whether a User or Token has a specified type of access to
         a database record.
 
@@ -337,7 +310,7 @@ class BaseMixin:
             orm/session_state_management.html#quickie-intro-to-object-states)
         user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        access_type: string
+        mode: string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
         Returns
@@ -353,6 +326,12 @@ class BaseMixin:
                 f'got {user_or_token.__class__.__name__}.'
             )
 
+        target = (
+            user_or_token.id
+            if isinstance(user_or_token, User)
+            else user_or_token.created_by_id
+        )
+
         # get the classmethod that determines whether a record of type `cls` is
         # accessible to a user or token
         cls = type(self)
@@ -361,15 +340,14 @@ class BaseMixin:
         # return the result.
         return (
             DBSession()
-            .query(cls.is_accessible_by(user_or_token, access_type=access_type))
-            .filter(cls.id == self.id)
+            .query(User.id.isnot(None))
+            .select_from(getattr(cls, mode).select_target(cls))
+            .filter(cls.id == self.id, User.id == target)
             .scalar()
         )
 
     @classmethod
-    def get_if_accessible_by(
-        cls, cls_id, user_or_token, access_type="read", options=[]
-    ):
+    def get_if_accessible_by(cls, cls_id, user_or_token, mode="read", options=[]):
         """Return a database record if it is accessible to the specified User or
         Token. If no record exists, return None. If the record exists but is
         inaccessible, raise an `AccessError`.
@@ -380,7 +358,7 @@ class BaseMixin:
             The primary key of the record to query for.
         user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        access_type: string
+        mode: string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
         options: list of `sqlalchemy.orm.MapperOption`s
@@ -394,174 +372,16 @@ class BaseMixin:
 
         instance = cls.query.options(options).get(cls_id)
         if instance is not None:
-            if not instance.is_accessible_by(user_or_token, access_type=access_type):
+            if not instance.is_accessible_by(user_or_token, mode=mode):
                 raise AccessError(
                     f'Insufficient permissions for operation '
-                    f'"{access_type} {cls.__name__} {instance.id}".'
+                    f'"{mode} {cls.__name__} {instance.id}".'
                 )
         return instance
 
-    @classmethod
-    def query_for_records_accessible_by(cls, user_or_token, access_type="read", options=[]):
-        """Construct (but do not execute) a database query to retrieve all records
-        that are accessible to a single user or token from a specified table.
-
-        The query is based on join-dependent relationship hybrid logic,
-        (https://docs.sqlalchemy.org/en/14/orm/extensions/hybrid.html?highlight=\
-        hybrid%20method#join-dependent-relationship-hybrid),
-        rather than correlated subquery hybrid logic. This gives it better
-        performance compared to the correlated subquery-based hybrid methods
-        `is_*_by`, but a more restricted range of uses.
-
-        Parameters
-        ----------
-        cls: DeclarativeMeta
-            Mapped class to query for records. Must be a subclass of Base.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        access_type: string
-            Type of access to check. Valid choices are `['create', 'read', 'update',
-            'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
-           Options that will be passed to `options()` in the loader query.
-        Returns
-        -------
-        query: `sqlalchemy.orm.Query`
-           The query for accessible records.
-        """
-
-        logic = getattr(cls, access_type)
-        for attr in logic.required_attrs:
-            if not hasattr(cls, attr):
-                raise TypeError(
-                    f'{cls} does not have the attribute "{attr}", '
-                    f'and thus does not expose the interface that is needed '
-                    f'to check for {access_type} access.'
-                )
-
-        if isinstance(user_or_token, User):
-            accessibility_target = user_or_token.id
-        elif isinstance(user_or_token, Token):
-            accessibility_target = user_or_token.created_by_id
-        else:
-            raise TypeError(
-                f'Invalid argument passed to user_or_token, '
-                f'expected User or Token, got '
-                f'{user_or_token.__class__.__name__}'
-            )
-
-        # Construct a query that maps user_ids to accessible cls_ids.
-        pairs = logic.access_table(cls, User).alias()
-
-        return (
-            DBSession()
-            .query(cls)
-            .join(User, sa.literal(True))
-            .join(pairs, sa.and_(User.id == pairs.c.user_id, cls.id == pairs.c.cls_id))
-            .filter(User.id == accessibility_target)
-            .options(options)
-        )
-
-    @is_accessible_by.expression
-    def is_accessible_by(cls, user_or_token, access_type="read") -> BinaryExpression:
-        """Generate an SQL expression representing whether a mapped class is
-        accessible to a specified user or token, or to an entire table of users
-        or tokens (via broadcasting).
-
-        The expressions can be queried directly,
-
-            >>> u = User.query.first()
-            >>> DBSession().query(cls.is_accessible_by(u))
-
-        or used as filter clauses,
-
-            >>> u = User.query.first()
-            >>> DBSession().query(cls).filter(cls.is_accessible_by(u))
-
-        or used as join clauses,
-
-            >>> DBSession().query(cls).join(User, cls.is_accessible_by(User))
-
-        The BinaryExpression is designed to be highly portable and is constructed
-        using correlated subquery relationship hybrids and laterals. This ensures
-        that large intermediate tables are never created, that indices are used
-        wherever possible, and that filter clauses from enclosing queries are
-        always propagated down the query stack.
-
-        Parameters
-        ----------
-        cls: DeclarativeMeta
-            Mapped class to query for records. Must be a subclass of Base.
-        user_or_token: `baselayer.app.models.User`, `baselayer.app.models.Token`,
-        `sqlalchmey.sql.expression.FromClause`, `sqlalchemy.Column`
-            The User, Token, or table to check. Can be a User or Token object,
-            a reference to an `sqlalchemy.Table` pointing to the users or tokens
-            table, or an `sqlalchemy.Column` containing the primary key of the
-            users table.
-        access_type: string, required:
-            Type of access to check. Valid choices are `['create', 'read',
-            'update', 'delete']`.
-
-        Returns
-        -------
-        accessible: `sqlalchemy.sql.expression.BinaryExpression`
-            SQLalchemy expression representing whether the User, Token, or table
-            has access to the record. Can be queried directly, or used as a filter
-            or join clause.
-        """
-
-        # Ensure that the constructed class has the required attributes for
-        # access check.
-
-        logic = getattr(cls, access_type)
-        for attr in logic.required_attrs:
-            if not hasattr(cls, attr):
-                raise TypeError(
-                    f'{cls.__name__} does not have the attribute "{attr}", '
-                    f'and thus does not expose the interface that is needed '
-                    f'to check for {access_type} access.'
-                )
-
-        # Extract the users.id column from whatever was passed to `user_or_token`.
-        if isinstance(user_or_token, FromClause):
-            if hasattr(user_or_token.c, 'created_by_id'):
-                accessibility_target = user_or_token.c.created_by_id
-            else:
-                accessibility_target = user_or_token.c.id
-        elif isinstance(user_or_token, sa.Column):
-            accessibility_target = user_or_token
-        elif user_or_token is Token or isinstance(user_or_token, Token):
-            accessibility_target = user_or_token.created_by_id
-        else:
-            accessibility_target = user_or_token.id
-
-        correlation_cls_alias = aliased(cls)
-        correlation_user_alias = aliased(User)
-        accessible_pairs = logic.access_table(
-            correlation_cls_alias, correlation_user_alias
-        ).lateral()
-
-        return (
-            sa.select([accessible_pairs.c.cls_id])
-            .select_from(
-                sa.join(
-                    correlation_cls_alias, correlation_user_alias, sa.literal(True)
-                ).outerjoin(
-                    accessible_pairs,
-                    correlation_cls_alias.id == accessible_pairs.c.cls_id,
-                )
-            )
-            .where(correlation_cls_alias.id == cls.id)
-            .where(correlation_user_alias.id == accessibility_target)
-            .label(access_type)
-            .isnot(None)
-        )
-
     query = DBSession.query_property()
 
-    id = sa.Column(
-        sa.Integer, primary_key=True, doc='Unique object identifier.'
-    )
+    id = sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.')
     created_at = sa.Column(
         sa.DateTime,
         nullable=False,
@@ -596,9 +416,7 @@ class BaseMixin:
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
             DBSession().refresh(self)
-        return {
-            k: v for k, v in self.__dict__.items() if not k.startswith('_')
-        }
+        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
 
     @classmethod
     def create_or_get(cls, id):
@@ -665,18 +483,16 @@ def join_model(
 
     model_attrs = {
         '__tablename__': join_table,
-        'id': sa.Column(
-            sa.Integer, primary_key=True, doc='Unique object identifier.'
-        ),
+        'id': sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.'),
         column_1: sa.Column(
             column_1,
             sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
-            nullable=False
+            nullable=False,
         ),
         column_2: sa.Column(
             column_2,
             sa.ForeignKey(f'{table_2}.{fk_2}', ondelete='CASCADE'),
-            nullable=False
+            nullable=False,
         ),
     }
 
@@ -693,8 +509,10 @@ def join_model(
                 foreign_keys=[model_attrs[column_2]],
             ),
             forward_ind_name: sa.Index(
-                forward_ind_name, model_attrs[column_1], model_attrs[column_2],
-                unique=True
+                forward_ind_name,
+                model_attrs[column_1],
+                model_attrs[column_2],
+                unique=True,
             ),
             reverse_ind_name: sa.Index(
                 reverse_ind_name, model_attrs[column_2], model_attrs[column_1]
@@ -714,18 +532,14 @@ class ACL(Base):
     and `Manage Groups`.
     """
 
-    id = sa.Column(
-        sa.String, nullable=False, primary_key=True, doc='ACL name.'
-    )
+    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='ACL name.')
 
 
 class Role(Base):
     """A collection of ACLs. Roles map Users to ACLs. One User may assume
     multiple Roles."""
 
-    id = sa.Column(
-        sa.String, nullable=False, primary_key=True, doc='Role name.'
-    )
+    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='Role name.')
     acls = relationship(
         'ACL',
         secondary='role_acls',
@@ -752,27 +566,19 @@ class User(Base):
         SlugifiedStr, nullable=False, unique=True, doc="The user's username."
     )
 
-    first_name = sa.Column(
-        sa.String, nullable=True, doc="The User's first name."
-    )
-    last_name = sa.Column(
-        sa.String, nullable=True, doc="The User's last name."
-    )
+    first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
+    last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
-        doc="The phone number at which the user prefers to receive "
-        "communications.",
+        doc="The phone number at which the user prefers to receive " "communications.",
     )
     contact_phone = sa.Column(
         PhoneNumberType(),
         nullable=True,
-        doc="The email at which the user prefers to receive "
-        "communications.",
+        doc="The email at which the user prefers to receive " "communications.",
     )
-    oauth_uid = sa.Column(
-        sa.String, unique=True, doc="The user's OAuth UID."
-    )
+    oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(
         JSONB, nullable=True, doc="The user's application settings."
     )
@@ -784,18 +590,14 @@ class User(Base):
         passive_deletes=True,
         doc='The roles assumed by this user.',
     )
-    role_ids = association_proxy(
-        'roles',
-        'id',
-        creator=lambda r: Role.query.get(r),
-    )
+    role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r),)
     tokens = relationship(
         'Token',
         cascade='save-update, merge, refresh-expire, expunge',
         back_populates='created_by',
         passive_deletes=True,
         doc="This user's tokens.",
-        foreign_keys="Token.created_by_id"
+        foreign_keys="Token.created_by_id",
     )
     acls = relationship(
         "ACL",
@@ -808,11 +610,7 @@ class User(Base):
     def gravatar_url(self):
         """The Gravatar URL inferred from the user's contact email, or, if the
         contact email is null, the username."""
-        email = (
-            self.contact_email
-            if self.contact_email is not None
-            else self.username
-        )
+        email = self.contact_email if self.contact_email is not None else self.username
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
         # return a transparent png if not found on gravatar
@@ -827,8 +625,9 @@ class User(Base):
     def permissions(self):
         """List of the names of all of the user's ACLs (role-level + individual)."""
         return list(
-            {acl.id for acl in self.acls}
-            .union({acl.id for acl in self._acls_from_roles})
+            {acl.id for acl in self.acls}.union(
+                {acl.id for acl in self._acls_from_roles}
+            )
         )
 
     @classmethod
@@ -846,8 +645,6 @@ class User(Base):
         return True
 
 
-
-
 UserACL = join_model('user_acls', User, ACL)
 UserACL.__doc__ = 'Join table mapping Users to ACLs'
 
@@ -855,6 +652,7 @@ UserACL.__doc__ = 'Join table mapping Users to ACLs'
 class Token(Base):
     """A command line token that can be used to programmatically access the API
     as a particular User."""
+
     create = read = update = delete = AccessibleByCreatedBy
 
     id = sa.Column(
@@ -880,11 +678,7 @@ class Token(Base):
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
     )
-    acl_ids = association_proxy(
-        'acls',
-        'id',
-        creator=lambda acl: ACL.query.get(acl)
-    )
+    acl_ids = association_proxy('acls', 'id', creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
 
     name = sa.Column(
@@ -900,5 +694,3 @@ TokenACL = join_model('token_acls', Token, ACL)
 TokenACL.__doc__ = 'Join table mapping Tokens to ACLs'
 UserRole = join_model('user_roles', User, Role)
 UserRole.__doc__ = 'Join table mapping Users to Roles.'
-
-
