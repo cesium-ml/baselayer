@@ -2,13 +2,15 @@ import abc
 import uuid
 from hashlib import md5
 
+import numpy as np
+
 from slugify import slugify
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, Query, aliased
 from sqlalchemy.sql.expression import Selectable, BinaryExpression, FromClause
-from sqlalchemy.ext.hybrid import hybrid_method
+from sqlalchemy.ext.hybrid import hybrid_property
 
 
 from sqlalchemy import func
@@ -114,15 +116,15 @@ def user_acls_temporary_table():
 
 def requires_attributes(attrs):
     def enforce_require(function):
-        def inner_func(cls):
+        def inner_func(cls, target_left, *args):
             for attr in attrs:
-                if not hasattr(cls, attr):
+                if not hasattr(target_left, attr):
                     raise TypeError(
-                        f'{cls} does not have the attribute "{attr}", '
+                        f'{target_left} does not have the attribute "{attr}", '
                         f'and thus does not expose the interface that is needed '
                         f'to check for access.'
                     )
-            return function(cls)
+            return function(cls, target_left, *args)
 
         return inner_func
 
@@ -140,7 +142,13 @@ class UserAccessControl:
     """
 
     @staticmethod
-    def select_target(cls) -> FromClause:
+    def all_pairs(target_left, user_left):
+        return sa.join(target_left, user_left, sa.literal(True))
+
+    @classmethod
+    def select_target(
+        cls, target_left, target_right, user_left, user_right
+    ) -> FromClause:
         """A join table mapping records from a table to users who can access
         them. Subclasses of AccessControl must implement this method
         with the appropriate logic.
@@ -173,8 +181,8 @@ class UserAccessControl:
 class AccessibleByAnyone(UserAccessControl):
     """A record that can be accessed by any user."""
 
-    @staticmethod
-    def select_target(cls):
+    @classmethod
+    def select_target(cls, target_left, target_right, user_left, user_right):
         """A join table mapping records from a table to users who can access
         them. Subclasses of AccessControlPattern must implement this method
         with the appropriate logic.
@@ -201,16 +209,22 @@ class AccessibleByAnyone(UserAccessControl):
             `user_id`, representing the primary keys of the `cls` table and the
             users table, respectively.
         """
-        return sa.outerjoin(cls, User, sa.literal(True))
+        all_pairs = cls.all_pairs(target_left, user_left)
+        accessible_pairs = sa.join(target_right, user_right, sa.literal(True))
+        return sa.outerjoin(
+            all_pairs,
+            accessible_pairs,
+            sa.and_(user_left.id == user_right.id, target_left.id == target_right.id),
+        )
 
 
 def accessible_through_relationship(relationship_name, fk_name):
     class AccessibleByUser(UserAccessControl):
         """A record that can only be accessed by a specific user (or a System Admin)."""
 
-        @staticmethod
+        @classmethod
         @requires_attributes([relationship_name])
-        def select_target(cls):
+        def select_target(cls, target_left, target_right, user_left, user_right):
             """A join table mapping records from a table to users who can access
             them. Subclasses of AccessControlPattern must implement this method
             with the appropriate logic.
@@ -237,13 +251,28 @@ def accessible_through_relationship(relationship_name, fk_name):
                 `user_id`, representing the primary keys of the `cls` table and the
                 users table, respectively.
             """
+
+            all_pairs = cls.all_pairs(target_left, user_left)
             user_acls = user_acls_temporary_table()
-            cls_user_id = getattr(cls, fk_name)
-            merged_users = sa.join(User, user_acls, User.id == user_acls.c.user_id)
-            return sa.outerjoin(
-                cls,
+            cls_user_id = getattr(target_right, fk_name)
+
+            merged_users = sa.join(
+                user_right, user_acls, user_right.id == user_acls.c.user_id
+            )
+            accessible_pairs = sa.join(
                 merged_users,
-                sa.or_(cls_user_id == User.id, user_acls.c.acl_id == 'System admin'),
+                target_right,
+                sa.or_(
+                    user_acls.c.acl_id == 'System admin', cls_user_id == user_right.id
+                ),
+            )
+
+            return sa.outerjoin(
+                all_pairs,
+                accessible_pairs,
+                sa.and_(
+                    user_left.id == user_right.id, target_left.id == target_right.id
+                ),
             )
 
     return AccessibleByUser
@@ -286,9 +315,14 @@ class Inaccessible(UserAccessControl):
             users table, respectively.
         """
 
+        ua = cls.user_alias()
+        total = sa.join(User, cls, sa.literal(True))
         user_acls = user_acls_temporary_table()
-        return sa.outerjoin(cls, user_acls, user_acls.c.acl_id == 'System admin').join(
-            User, user_acls.c.user_id == User.id
+        accessible = sa.join(ua, user_acls, ua.id == user_acls.c.user_id)
+        return sa.outerjoin(
+            total,
+            accessible,
+            sa.and_(user_acls.c.acl_id == 'System admin', ua.id == User.id),
         )
 
 
@@ -336,12 +370,14 @@ class BaseMixin:
         # accessible to a user or token
         cls = type(self)
 
+        accessibility_target, select_target = cls.accessibility_query(mode=mode)
+
         # Query for the value of the access_func for this particular record and
         # return the result.
         return (
             DBSession()
-            .query(User.id.isnot(None))
-            .select_from(getattr(cls, mode).select_target(cls))
+            .query(accessibility_target)
+            .select_from(cls)
             .filter(cls.id == self.id, User.id == target)
             .scalar()
         )
@@ -354,8 +390,8 @@ class BaseMixin:
 
         Parameters
         ----------
-        cls_id: int or str
-            The primary key of the record to query for.
+        cls_id: int, str, iterable of int, iterable of str
+            The primary key(s) of the record(s) to query for.
         user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
         mode: string
@@ -370,17 +406,40 @@ class BaseMixin:
             The requested record.
         """
 
-        instance = cls.query.options(options).get(cls_id)
-        if instance is not None:
-            if not instance.is_accessible_by(user_or_token, mode=mode):
-                raise AccessError(
-                    f'Insufficient permissions for operation '
-                    f'"{mode} {cls.__name__} {instance.id}".'
-                )
-        return instance
+        original_shape = np.asarray(cls_id).shape
+        standardized = np.atleast_1d(cls_id)
+        result = []
+
+        for pk in standardized:
+            instance = cls.query.options(options).get(pk)
+            if instance is not None:
+                if not instance.is_accessible_by(user_or_token, mode=mode):
+                    raise AccessError(
+                        f'Insufficient permissions for operation '
+                        f'"{mode} {cls.__name__} {instance.id}".'
+                    )
+            result.append(instance)
+        return np.asarray(result).reshape(original_shape).tolist()
+
+    @classmethod
+    def accessibility_query(cls, *args, mode="read"):
+        if not hasattr(cls, mode):
+            raise ValueError(
+                f'{cls.__name__} does not implement {mode} logic. '
+                f'This operation is not defined on the class, and '
+                f'thus cannot be executed.'
+            )
+        logic = getattr(cls, mode)
+
+        # query aliases
+        user_right = aliased(User)
+        user_left = aliased(User)
+        target_right = aliased(cls)
+        select_target = logic.select_target(cls, target_right, user_left, user_right)
+        accessibility_target = user_right.id.isnot(None).label(mode)
+        return accessibility_target, select_target
 
     query = DBSession.query_property()
-
     id = sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.')
     created_at = sa.Column(
         sa.DateTime,
