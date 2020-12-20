@@ -114,48 +114,88 @@ def user_acls_temporary_table():
     return t
 
 
-def requires_attributes(attrs):
-    def enforce_require(function):
-        def inner_func(cls, target_left, *args):
-            for attr in attrs:
-                if not hasattr(target_left, attr):
-                    raise TypeError(
-                        f'{target_left} does not have the attribute "{attr}", '
-                        f'and thus does not expose the interface that is needed '
-                        f'to check for access.'
-                    )
-            return function(cls, target_left, *args)
-
-        return inner_func
-
-    return enforce_require
-
-
 class UserAccessControl:
-    """Logic for restricting user access to database records. Mapped classes
+    """Logic for controlling user access to database records. Mapped classes
     can set their create, read, update, or delete attributes to subclasses of
     this class to ensure they are only accessed by users or tokens with the
     requisite permissions.
 
     This class is not meant to be instantiated. As an abstract class, it simply
-    defines the interface that subclasses must implement.
+    defines the interface that subclasses must implement. Only one method needs
+    to be implemented by subclasses, `accessible_pairs`.
     """
+
+    @staticmethod
+    def check_cls_for_attributes(cls, attrs):
+        """Check that a target class has the specified attributes. If not,
+        raise a TypeError.
+
+        Parameters
+        ----------
+        cls: `baselayer.app.models.DeclarativeMeta`
+            The class to check.
+        attrs: list of str
+            The names of the attributes to check for.
+        """
+        for attr in attrs:
+            if not hasattr(cls, attr):
+                raise TypeError(
+                    f'{cls} does not have the attribute "{attr}", '
+                    f'and thus does not expose the interface that is needed '
+                    f'to check for access.'
+                )
 
     @classmethod
     def all_pairs(cls, target_left, user_left):
+        """Construct a join table mapping all target records to all user
+        records (regardless of access control).
+
+        Parameters
+        ----------
+        target_left: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            Access protected class or alias of the access protected class.
+        user_left: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            The `User` class or an alias of the `User` class.
+
+        Returns
+        -------
+        table: `sqlalchemy.sql.expression.Selectable`
+            SQLalchemy table mapping all target records to all user records
+            (regardless of access control).
+        """
         return sa.join(target_left, user_left, sa.literal(True))
 
     @classmethod
     def accessible_pairs(cls, target_right, user_right):
+        """Construct a join table mapping User records to accessible target
+        records.
+
+        Subclasses should implement this method to define the access control
+        logic of this class.
+
+        Parameters
+        ----------
+        target_right: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            Access protected class or alias of the access protected class.
+        user_right: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            The `User` class or an alias of the `User` class.
+
+        Returns
+        -------
+        table: `sqlalchemy.sql.expression.Selectable`
+            SQLalchemy table mapping User records to accessible target records.
+        """
+
         raise NotImplementedError
 
     @classmethod
-    def select_target(
-        cls, target_left, target_right, user_left, user_right
-    ) -> FromClause:
+    def accessibility_table(cls, target_left, target_right, user_left, user_right):
         """A join table mapping records from a table to users who can access
-        them. Subclasses of AccessControl must implement this method
-        with the appropriate logic.
+        them.
 
         The join table should be constructed using aliases of `cls` and `user`,
         then correlated against `cls` and `user` to ensure indices are propagated
@@ -180,8 +220,16 @@ class UserAccessControl:
             users table, respectively.
         """
 
+        # get all possible cls x User pairs
         all_pairs = cls.all_pairs(target_left, user_left)
+
+        # get the accessible cls x User pairs
         accessible_pairs = cls.accessible_pairs(target_right, user_right)
+
+        # outerjoin the two. If user_right.id is NULL, then user_left.id does
+        # not have access to target_left.id. If not, then user_left.id does
+        # have access to target_left.id.
+
         return sa.outerjoin(
             all_pairs,
             accessible_pairs,
@@ -192,26 +240,61 @@ class UserAccessControl:
 class AccessibleByAnyone(UserAccessControl):
     """A record that can be accessed by any user."""
 
-    @classmethod
-    def accessible_pairs(cls, target_right, user_right):
-        return cls.all_pairs(target_right, user_right)
+    accessible_pairs = UserAccessControl.all_pairs
 
 
-def accessible_through_relationship(relationship_name, fk_name):
+def accessible_through_foreign_key(fk_name):
+    """Create a class that grants access to only one user (and System Admins).
+    For access, the user's ID must match the value of the specified foreign key.
+
+    Parameters
+    ----------
+    fk_name: str
+        The name of the target class's foreign key that the requesting user's
+        ID must match in order to have access.
+
+    Returns
+    -------
+    AccessibleByUser: type
+        Class implementing the accessible-by-user logic.
+    """
+
     class AccessibleByUser(UserAccessControl):
         """A record that can only be accessed by a specific user (or a System
         Admin). """
 
         @classmethod
-        @requires_attributes([relationship_name])
         def accessible_pairs(cls, target_right, user_right):
-            user_acls = user_acls_temporary_table()
+            """Construct a join table mapping User records to accessible target
+            records.
+
+            Parameters
+            ----------
+            target_right: `baselayer.app.models.Base` or alias of
+            `baselayer.app.models.Base`
+                Access protected class or alias of the access protected class.
+            user_right: `baselayer.app.models.Base` or alias of
+            `baselayer.app.models.Base`
+                The `User` class or an alias of the `User` class.
+
+            Returns
+            -------
+            table: `sqlalchemy.sql.expression.Selectable`
+                SQLalchemy table mapping User records to accessible target records.
+            """
+
+            # Ensure the target class has the foreign key that moderates
+            # access control.
+            cls.check_cls_for_attributes(target_right, [fk_name])
             cls_user_id = getattr(target_right, fk_name)
 
+            # Allow system admins to access the record as well as users.
+            user_acls = user_acls_temporary_table()
             merged_users = sa.join(
                 user_right, user_acls, user_right.id == user_acls.c.user_id
             )
-            accessible_pairs = sa.join(
+
+            return sa.join(
                 merged_users,
                 target_right,
                 sa.or_(
@@ -219,14 +302,12 @@ def accessible_through_relationship(relationship_name, fk_name):
                 ),
             )
 
-            return accessible_pairs
-
     return AccessibleByUser
 
 
-AccessibleByOwner = accessible_through_relationship('owner', 'owner_id')
-AccessibleByCreatedBy = accessible_through_relationship('created_by', 'created_by_id')
-AccessibleByUser = accessible_through_relationship('user', 'user_id')
+AccessibleByOwner = accessible_through_foreign_key('owner_id')
+AccessibleByCreatedBy = accessible_through_foreign_key('created_by_id')
+AccessibleByUser = accessible_through_foreign_key('user_id')
 
 
 class Inaccessible(UserAccessControl):
@@ -234,9 +315,24 @@ class Inaccessible(UserAccessControl):
 
     @classmethod
     def accessible_pairs(cls, target_right, user_right):
+        """Construct a join table mapping User records to accessible target
+        records.
 
+        Parameters
+        ----------
+        target_right: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            Access protected class or alias of the access protected class.
+        user_right: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            The `User` class or an alias of the `User` class.
+
+        Returns
+        -------
+        table: `sqlalchemy.sql.expression.Selectable`
+            SQLalchemy table mapping User records to accessible target records.
+        """
         user_acls = user_acls_temporary_table()
-
         merged_users = sa.join(
             user_right, user_acls, user_right.id == user_acls.c.user_id
         )
@@ -251,16 +347,12 @@ class BaseMixin:
     create = read = AccessibleByAnyone
     update = delete = Inaccessible
 
-    def is_accessible_by(self, user_or_token, mode="read") -> bool:
+    def is_accessible_by(self, user_or_token, mode="read"):
         """Check if a User or Token has a specified type of access to this
         database record.
 
         Parameters
         ----------
-        self: `baselayer.app.models.Base`:
-            The instance to check the User or Token's access to. Must be in the
-            SQLalchemy "persistent" state (https://docs.sqlalchemy.org/en/13/\
-            orm/session_state_management.html#quickie-intro-to-object-states)
         user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
         mode: string
@@ -290,11 +382,13 @@ class BaseMixin:
         cls = type(self)
         logic = getattr(cls, mode)
 
-        # query aliases
+        # Construct the join from which accessibility can be selected.
         user_right = aliased(User)
         user_left = aliased(User)
         target_right = aliased(cls)
-        select_target = logic.select_target(cls, target_right, user_left, user_right)
+        accessibility_table = logic.accessibility_table(
+            cls, target_right, user_left, user_right
+        )
         accessibility_target = user_right.id.isnot(None).label(f'{mode}_ok')
 
         # Query for the value of the access_func for this particular record and
@@ -302,7 +396,7 @@ class BaseMixin:
         return (
             DBSession()
             .query(accessibility_target)
-            .select_from(select_target)
+            .select_from(accessibility_table)
             .filter(cls.id == self.id, user_left.id == target)
             .scalar()
         )
@@ -327,8 +421,8 @@ class BaseMixin:
 
         Returns
         -------
-        record: `baselayer.app.models.Base`
-            The requested record.
+        record: `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
+            The requested record(s). Has the same shape as `cls_id`.
         """
 
         original_shape = np.asarray(cls_id).shape
@@ -348,6 +442,25 @@ class BaseMixin:
 
     @classmethod
     def get_records_accessible_by(cls, user_or_token, mode="read", options=[]):
+        """Retrieve all database records accessible by the specified User or
+        token.
+
+        Parameters
+        ----------
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+           Options that will be passed to `options()` in the loader query.
+
+        Returns
+        -------
+        records: list of `baselayer.app.models.Base`
+            The records accessible to the specified user or token.
+
+        """
 
         if not isinstance(user_or_token, (User, Token)):
             raise ValueError(
