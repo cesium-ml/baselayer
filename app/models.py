@@ -141,9 +141,13 @@ class UserAccessControl:
     defines the interface that subclasses must implement.
     """
 
-    @staticmethod
-    def all_pairs(target_left, user_left):
+    @classmethod
+    def all_pairs(cls, target_left, user_left):
         return sa.join(target_left, user_left, sa.literal(True))
+
+    @classmethod
+    def accessible_pairs(cls, target_right, user_right):
+        raise NotImplementedError
 
     @classmethod
     def select_target(
@@ -175,42 +179,9 @@ class UserAccessControl:
             `user_id`, representing the primary keys of the `cls` table and the
             users table, respectively.
         """
-        return NotImplementedError
 
-
-class AccessibleByAnyone(UserAccessControl):
-    """A record that can be accessed by any user."""
-
-    @classmethod
-    def select_target(cls, target_left, target_right, user_left, user_right):
-        """A join table mapping records from a table to users who can access
-        them. Subclasses of AccessControlPattern must implement this method
-        with the appropriate logic.
-
-        The join table should be constructed using aliases of `cls` and `user`,
-        then correlated against `cls` and `user` to ensure indices are propagated
-        and Cardinality is respected.
-
-        Parameters
-        ----------
-        cls: mapped class or alias of mapped class
-            The mapped class (or an alias of the mapped class) representing the
-            access-controlled table.
-        user: User class or alias of User class
-            The User class (or an alias of the User class).
-
-        Returns
-        -------
-        access_table: sqlalchemy.sql.expression.FromClause
-            A join table mapping records of the `cls` table to records
-            of the users table. Each row corresponds to one class/user pair that
-            is accessible. The schema of this table may vary depending on the
-            schema of `cls`, but will always contain two columns, `cls_id` and
-            `user_id`, representing the primary keys of the `cls` table and the
-            users table, respectively.
-        """
         all_pairs = cls.all_pairs(target_left, user_left)
-        accessible_pairs = sa.join(target_right, user_right, sa.literal(True))
+        accessible_pairs = cls.accessible_pairs(target_right, user_right)
         return sa.outerjoin(
             all_pairs,
             accessible_pairs,
@@ -218,41 +189,22 @@ class AccessibleByAnyone(UserAccessControl):
         )
 
 
+class AccessibleByAnyone(UserAccessControl):
+    """A record that can be accessed by any user."""
+
+    @classmethod
+    def accessible_pairs(cls, target_right, user_right):
+        return cls.all_pairs(target_right, user_right)
+
+
 def accessible_through_relationship(relationship_name, fk_name):
     class AccessibleByUser(UserAccessControl):
-        """A record that can only be accessed by a specific user (or a System Admin)."""
+        """A record that can only be accessed by a specific user (or a System
+        Admin). """
 
         @classmethod
         @requires_attributes([relationship_name])
-        def select_target(cls, target_left, target_right, user_left, user_right):
-            """A join table mapping records from a table to users who can access
-            them. Subclasses of AccessControlPattern must implement this method
-            with the appropriate logic.
-
-            The join table should be constructed using aliases of `cls` and `user`,
-            then correlated against `cls` and `user` to ensure indices are propagated
-            and Cardinality is respected.
-
-            Parameters
-            ----------
-            cls: mapped class or alias of mapped class
-                The mapped class (or an alias of the mapped class) representing the
-                access-controlled table.
-            user: User class or alias of User class
-                The User class (or an alias of the User class).
-
-            Returns
-            -------
-            access_table: sqlalchemy.sql.expression.FromClause
-                A join table mapping records of the `cls` table to records
-                of the users table. Each row corresponds to one class/user pair that
-                is accessible. The schema of this table may vary depending on the
-                schema of `cls`, but will always contain two columns, `cls_id` and
-                `user_id`, representing the primary keys of the `cls` table and the
-                users table, respectively.
-            """
-
-            all_pairs = cls.all_pairs(target_left, user_left)
+        def accessible_pairs(cls, target_right, user_right):
             user_acls = user_acls_temporary_table()
             cls_user_id = getattr(target_right, fk_name)
 
@@ -267,13 +219,7 @@ def accessible_through_relationship(relationship_name, fk_name):
                 ),
             )
 
-            return sa.outerjoin(
-                all_pairs,
-                accessible_pairs,
-                sa.and_(
-                    user_left.id == user_right.id, target_left.id == target_right.id
-                ),
-            )
+            return accessible_pairs
 
     return AccessibleByUser
 
@@ -286,43 +232,16 @@ AccessibleByUser = accessible_through_relationship('user', 'user_id')
 class Inaccessible(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
 
-    @staticmethod
-    def select_target(cls):
-        """A join table mapping records from a table to users who can access
-        them. Subclasses of AccessControlPattern must implement this method
-        with the appropriate logic.
+    @classmethod
+    def accessible_pairs(cls, target_right, user_right):
 
-        The join table should be constructed using aliases of `cls` and `user`,
-        then correlated against `cls` and `user` to ensure indices are propagated
-        and Cardinality is respected.
-
-        Parameters
-        ----------
-        cls: mapped class or alias of mapped class
-            The mapped class (or an alias of the mapped class) representing the
-            access-controlled table.
-        user: User class or alias of User class
-            The User class (or an alias of the User class).
-
-        Returns
-        -------
-        access_table: sqlalchemy.sql.expression.FromClause
-            A join table mapping records of the `cls` table to records
-            of the users table. Each row corresponds to one class/user pair that
-            is accessible. The schema of this table may vary depending on the
-            schema of `cls`, but will always contain two columns, `cls_id` and
-            `user_id`, representing the primary keys of the `cls` table and the
-            users table, respectively.
-        """
-
-        ua = cls.user_alias()
-        total = sa.join(User, cls, sa.literal(True))
         user_acls = user_acls_temporary_table()
-        accessible = sa.join(ua, user_acls, ua.id == user_acls.c.user_id)
-        return sa.outerjoin(
-            total,
-            accessible,
-            sa.and_(user_acls.c.acl_id == 'System admin', ua.id == User.id),
+
+        merged_users = sa.join(
+            user_right, user_acls, user_right.id == user_acls.c.user_id
+        )
+        return sa.join(
+            merged_users, target_right, user_acls.c.acl_id == 'System admin',
         )
 
 
@@ -333,8 +252,8 @@ class BaseMixin:
     update = delete = Inaccessible
 
     def is_accessible_by(self, user_or_token, mode="read") -> bool:
-        """Determines whether a User or Token has a specified type of access to
-        a database record.
+        """Check if a User or Token has a specified type of access to this
+        database record.
 
         Parameters
         ----------
@@ -369,16 +288,22 @@ class BaseMixin:
         # get the classmethod that determines whether a record of type `cls` is
         # accessible to a user or token
         cls = type(self)
+        logic = getattr(cls, mode)
 
-        accessibility_target, select_target = cls.accessibility_query(mode=mode)
+        # query aliases
+        user_right = aliased(User)
+        user_left = aliased(User)
+        target_right = aliased(cls)
+        select_target = logic.select_target(cls, target_right, user_left, user_right)
+        accessibility_target = user_right.id.isnot(None).label(f'{mode}_ok')
 
         # Query for the value of the access_func for this particular record and
         # return the result.
         return (
             DBSession()
             .query(accessibility_target)
-            .select_from(cls)
-            .filter(cls.id == self.id, User.id == target)
+            .select_from(select_target)
+            .filter(cls.id == self.id, user_left.id == target)
             .scalar()
         )
 
@@ -422,22 +347,35 @@ class BaseMixin:
         return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
-    def accessibility_query(cls, *args, mode="read"):
-        if not hasattr(cls, mode):
+    def get_records_accessible_by(cls, user_or_token, mode="read", options=[]):
+
+        if not isinstance(user_or_token, (User, Token)):
             raise ValueError(
-                f'{cls.__name__} does not implement {mode} logic. '
-                f'This operation is not defined on the class, and '
-                f'thus cannot be executed.'
+                'user_or_token must be an instance of User or Token, '
+                f'got {user_or_token.__class__.__name__}.'
             )
+
+        target = (
+            user_or_token.id
+            if isinstance(user_or_token, User)
+            else user_or_token.created_by_id
+        )
+
         logic = getattr(cls, mode)
 
-        # query aliases
+        # alias User in case cls is User
         user_right = aliased(User)
-        user_left = aliased(User)
-        target_right = aliased(cls)
-        select_target = logic.select_target(cls, target_right, user_left, user_right)
-        accessibility_target = user_right.id.isnot(None).label(mode)
-        return accessibility_target, select_target
+
+        accessible_pairs = logic.accessible_pairs(cls, user_right)
+
+        return (
+            DBSession()
+            .query(cls)
+            .select_from(accessible_pairs)
+            .filter(user_right.id == target)
+            .options(options)
+            .all()
+        )
 
     query = DBSession.query_property()
     id = sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.')
