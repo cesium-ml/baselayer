@@ -44,7 +44,6 @@ def init_db(user, database, password=None, host=None, port=None):
         client_encoding='utf8',
         executemany_mode='values',
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
-        echo=True,
     )
 
     DBSession.configure(bind=conn)
