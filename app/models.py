@@ -309,7 +309,7 @@ AccessibleByCreatedBy = accessible_by_user('created_by_id')
 AccessibleByUser = accessible_by_user('user_id')
 
 
-class Inaccessible(UserAccessControl):
+class Restricted(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
 
     @classmethod
@@ -344,7 +344,7 @@ class BaseMixin:
 
     # permission control logic
     create = read = AccessibleByAnyone
-    update = delete = Inaccessible
+    update = delete = Restricted
 
     def is_accessible_by(self, user_or_token, mode="read"):
         """Check if a User or Token has a specified type of access to this
