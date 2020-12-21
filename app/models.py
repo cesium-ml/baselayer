@@ -242,7 +242,7 @@ class AccessibleByAnyone(UserAccessControl):
     accessible_pairs = UserAccessControl.all_pairs
 
 
-def accessible_through_foreign_key(fk_name):
+def accessible_by_user(fk_name):
     """Create a class that grants access to only one user (and System Admins).
     For access, the user's ID must match the value of the specified foreign key.
 
@@ -304,9 +304,9 @@ def accessible_through_foreign_key(fk_name):
     return AccessibleByUser
 
 
-AccessibleByOwner = accessible_through_foreign_key('owner_id')
-AccessibleByCreatedBy = accessible_through_foreign_key('created_by_id')
-AccessibleByUser = accessible_through_foreign_key('user_id')
+AccessibleByOwner = accessible_by_user('owner_id')
+AccessibleByCreatedBy = accessible_by_user('created_by_id')
+AccessibleByUser = accessible_by_user('user_id')
 
 
 class Inaccessible(UserAccessControl):
@@ -476,15 +476,15 @@ class BaseMixin:
         logic = getattr(cls, mode)
 
         # alias User in case cls is User
-        user_right = aliased(User)
+        user = aliased(User)
 
-        accessible_pairs = logic.accessible_pairs(cls, user_right)
+        accessible_pairs = logic.accessible_pairs(cls, user)
 
         return (
             DBSession()
             .query(cls)
             .select_from(accessible_pairs)
-            .filter(user_right.id == target)
+            .filter(user.id == target)
             .options(options)
             .all()
         )
