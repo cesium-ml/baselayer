@@ -243,15 +243,16 @@ class AccessibleByAnyone(UserAccessControl):
     accessible_pairs = UserAccessControl.all_pairs
 
 
-def accessible_by_user(fk_name):
+def accessible_by_user(relationship_name, of=None):
     """Create a class that grants access to only one user (and System Admins).
     For access, the user's ID must match the value of the specified foreign key.
 
     Parameters
     ----------
-    fk_name: str
-        The name of the target class's foreign key that the requesting user's
-        ID must match in order to have access.
+    relationship_name: str
+        The name of the target class's foreign key relationship that the
+        requesting user must match for access to be granted.
+
 
     Returns
     -------
@@ -285,8 +286,7 @@ def accessible_by_user(fk_name):
 
             # Ensure the target class has the foreign key that moderates
             # access control.
-            cls.check_cls_for_attributes(target_right, [fk_name])
-            cls_user_id = getattr(target_right, fk_name)
+            cls.check_cls_for_attributes(target_right, [relationship_name])
 
             # Allow system admins to access the record as well as users.
             user_acls = user_acls_temporary_table()
@@ -294,9 +294,24 @@ def accessible_by_user(fk_name):
                 user_right, user_acls, user_right.id == user_acls.c.user_id
             )
 
+            if of is not None:
+                relationship = sa.inspect(target_right).mapper.relationships[of]
+                class_ = relationship.argument()
+                of_alias = aliased(class_)
+                local_col, remote_col = relationship.local_remote_pairs[0]
+                join_condition = getattr(of_alias, remote_col.name) == getattr(
+                    target_right, local_col.name
+                )
+                final_target = target_right.join(of_alias, join_condition)
+                cls_user_id = getattr(of_alias, relationship_name)
+
+            else:
+                final_target = target_right
+                cls_user_id = getattr(target_right, relationship_name)
+
             return sa.join(
                 merged_users,
-                target_right,
+                final_target,
                 sa.or_(
                     user_acls.c.acl_id == 'System admin', cls_user_id == user_right.id
                 ),
@@ -305,9 +320,91 @@ def accessible_by_user(fk_name):
     return AccessibleByUser
 
 
-AccessibleByOwner = accessible_by_user('owner_id')
-AccessibleByCreatedBy = accessible_by_user('created_by_id')
-AccessibleByUser = accessible_by_user('user_id')
+AccessibleByOwner = accessible_by_user('owner')
+AccessibleByCreatedBy = accessible_by_user('created_by')
+AccessibleByUser = accessible_by_user('user')
+
+
+def accessible_if_properties_are_accessible(**properties_and_modes):
+    class AccessibleIfPropertiesAreAccessible(UserAccessControl):
+        @classmethod
+        def accessible_pairs(cls, target_right, user_right):
+            """Construct a join table mapping User records to accessible target
+            records.
+
+            Parameters
+            ----------
+            target_right: `baselayer.app.models.Base` or alias of
+            `baselayer.app.models.Base`
+                Access protected class or alias of the access protected class.
+            user_right: `baselayer.app.models.Base` or alias of
+            `baselayer.app.models.Base`
+                The `User` class or an alias of the `User` class.
+
+            Returns
+            -------
+            table: `sqlalchemy.sql.expression.Selectable`
+                SQLalchemy table mapping User records to accessible target records.
+            """
+
+            if len(properties_and_modes) == 0:
+                raise ValueError("Need at least 1 property to check.")
+            cls.check_cls_for_attributes(target_right, properties_and_modes)
+
+            base = cls.all_pairs(target_right, user_right)
+
+            for prop in properties_and_modes:
+                mode = properties_and_modes[prop]
+                relationship = sa.inspect(target_right).mapper.relationships[prop]
+                property_class = relationship.argument()
+                aliased_property_class = aliased(property_class)
+                local_col, remote_col = relationship.local_remote_pairs[0]
+                join_condition = getattr(
+                    aliased_property_class, remote_col.name
+                ) == getattr(target_right, local_col.name)
+
+                logic = getattr(property_class, mode)
+                user_alias = aliased(User)
+                accessible_pairs = logic.accessible_pairs(
+                    aliased_property_class, user_alias
+                )
+
+                base = base.join(
+                    accessible_pairs,
+                    sa.and_(join_condition, user_alias.id == user_right.id),
+                )
+
+            return base
+
+    return AccessibleIfPropertiesAreAccessible
+
+
+def compose_access_control(*access_controls):
+    class ComposedAccessControl(UserAccessControl):
+        @classmethod
+        def accessible_pairs(cls, target_right, user_right):
+            base = cls.all_pairs(target_right, user_right)
+
+            for access_control in access_controls:
+
+                # join against the first access control
+                target_right_1 = aliased(target_right)
+                user_right_1 = aliased(user_right)
+                accessible_1 = access_control.accessible_pairs(
+                    target_right_1, user_right_1
+                )
+
+                base = base.join(
+                    accessible_1,
+                    sa.and_(
+                        target_right.id == target_right_1.id,
+                        user_right.id == user_right_1.id,
+                    ),
+                )
+
+            return base
+
+    return ComposedAccessControl
 
 
 class Restricted(UserAccessControl):
@@ -390,7 +487,9 @@ class BaseMixin:
             cls, target_right, user_left, user_right
         )
 
-        accessibility_target = sa.func.bool_or(user_right.id.isnot(None).label(f'{mode}_ok'))
+        accessibility_target = sa.func.bool_or(user_right.id.isnot(None)).label(
+            f'{mode}_ok'
+        )
 
         # Query for the value of the access_func for this particular record and
         # return the result.
@@ -463,6 +562,31 @@ class BaseMixin:
             The records accessible to the specified user or token.
 
         """
+        return cls.query_records_accessible_by(
+            user_or_token, mode=mode, options=options
+        ).all()
+
+    @classmethod
+    def query_records_accessible_by(cls, user_or_token, mode="read", options=[]):
+        """Return the query for all database records accessible by the
+        specified User or token.
+
+        Parameters
+        ----------
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+           Options that will be passed to `options()` in the loader query.
+
+        Returns
+        -------
+        query: sqlalchemy.Query
+            The query for the specified records.
+
+        """
 
         if not isinstance(user_or_token, (User, Token)):
             raise ValueError(
@@ -489,7 +613,6 @@ class BaseMixin:
             .select_from(accessible_pairs)
             .filter(user.id == target)
             .options(options)
-            .all()
         )
 
     query = DBSession.query_property()
@@ -633,7 +756,9 @@ def join_model(
     )
 
     model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
-
+    model.read = model.create = accessible_if_properties_are_accessible(
+        **{model_1.__name__.lower(): 'read', model_2.__name__.lower(): 'read'}
+    )
     return model
 
 
