@@ -303,11 +303,19 @@ def accessible_by_user(relationship_name, of=None):
                     target_right, local_col.name
                 )
                 final_target = target_right.join(of_alias, join_condition)
-                cls_user_id = getattr(of_alias, relationship_name)
+                second_relationship = sa.inspect(of_alias).mapper.relationships[
+                    relationship_name
+                ]
+                local_col, _ = second_relationship.local_remote_pairs[0]
+                cls_user_id = getattr(of_alias, local_col.name)
 
             else:
                 final_target = target_right
-                cls_user_id = getattr(target_right, relationship_name)
+                second_relationship = sa.inspect(final_target).mapper.relationships[
+                    relationship_name
+                ]
+                local_col, _ = second_relationship.local_remote_pairs[0]
+                cls_user_id = getattr(target_right, local_col.name)
 
             return sa.join(
                 merged_users,
@@ -531,7 +539,7 @@ class BaseMixin:
         result = []
 
         for pk in standardized:
-            instance = cls.query.options(options).get(pk)
+            instance = cls.query.options(options).get(pk.item())
             if instance is not None:
                 if not instance.is_accessible_by(user_or_token, mode=mode):
                     raise AccessError(
