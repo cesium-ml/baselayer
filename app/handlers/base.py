@@ -3,6 +3,7 @@ import inspect
 import tornado.escape
 from tornado.web import RequestHandler
 from json.decoder import JSONDecodeError
+from sqlalchemy import event
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -20,6 +21,7 @@ from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
 from ...log import make_log
+from ..custom_exceptions import AccessError
 
 env, cfg = load_env()
 log = make_log('basehandler')
@@ -78,6 +80,43 @@ for (name, fn) in inspect.getmembers(
 
 
 class BaseHandler(PSABaseHandler):
+
+    def enforce_permissions_on_next_flush(self):
+        user_or_token = self.current_user
+
+        @event.listens_for(DBSession(), "before_flush", once=True)
+        def receive_before_flush(session, context, instances):
+
+            # get items to be inserted
+            new_rows = [row for row in session.new]
+
+            # get items to be updated
+            updated_rows = [row for row in session.dirty]
+
+            # get items to be deleted
+            deleted_rows = [row for row in session.deleted]
+
+            @event.listens_for(DBSession(), "after_flush_postexec", once=True)
+            def receive_after_flush(session, context):
+                for row in new_rows:
+                    if not row.is_accessible_by(user_or_token, mode="create"):
+                        raise AccessError(
+                            f'Insufficient permissions for operation '
+                            f'"create {type(row).__name__} {row.id}".'
+                        )
+                for row in updated_rows:
+                    if not row.is_accessible_by(user_or_token, mode="update"):
+                        raise AccessError(
+                            f'Insufficient permissions for operation '
+                            f'"update {type(row).__name__} {row.id}".'
+                        )
+                for row in deleted_rows:
+                    if not row.is_accessible_by(user_or_token, mode="delete"):
+                        raise AccessError(
+                            f'Insufficient permissions for operation '
+                            f'"delete {type(row).__name__} {row.id}".'
+                        )
+
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
