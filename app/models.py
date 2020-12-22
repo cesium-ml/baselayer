@@ -44,6 +44,7 @@ def init_db(user, database, password=None, host=None, port=None):
         client_encoding='utf8',
         executemany_mode='values',
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
+        echo=True,
     )
 
     DBSession.configure(bind=conn)
@@ -388,7 +389,8 @@ class BaseMixin:
         accessibility_table = logic.accessibility_table(
             cls, target_right, user_left, user_right
         )
-        accessibility_target = user_right.id.isnot(None).label(f'{mode}_ok')
+
+        accessibility_target = sa.func.bool_or(user_right.id.isnot(None).label(f'{mode}_ok'))
 
         # Query for the value of the access_func for this particular record and
         # return the result.
@@ -397,6 +399,7 @@ class BaseMixin:
             .query(accessibility_target)
             .select_from(accessibility_table)
             .filter(cls.id == self.id, user_left.id == target)
+            .group_by(cls.id, user_left.id)
             .scalar()
         )
 
