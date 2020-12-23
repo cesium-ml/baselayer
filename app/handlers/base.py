@@ -36,6 +36,7 @@ log = make_log('basehandler')
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
 
+
 class PSABaseHandler(RequestHandler):
     """
     Mixin used by Python Social Auth
@@ -55,7 +56,7 @@ class PSABaseHandler(RequestHandler):
             if sa is None:
                 # No SocialAuth entry; probably machine generated user
                 return user
-            if (sa.uid.encode('utf-8') == oauth_uid):
+            if sa.uid.encode('utf-8') == oauth_uid:
                 return user
 
     def login_user(self, user):
@@ -73,49 +74,48 @@ class PSABaseHandler(RequestHandler):
 
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
-for (name, fn) in inspect.getmembers(
-        PSABaseHandler, predicate=inspect.isfunction
-):
+for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunction):
     setattr(psa_handlers.BaseHandler, name, fn)
 
 
 class BaseHandler(PSABaseHandler):
+    def finalize_transaction(self, commit=True):
 
-    def enforce_permissions_on_next_flush(self):
-        user_or_token = self.current_user
+        user_or_token = self.associated_user_object
 
-        @event.listens_for(DBSession(), "before_flush", once=True)
-        def receive_before_flush(session, context, instances):
+        # get items to be inserted
+        new_rows = [row for row in DBSession().new]
 
-            # get items to be inserted
-            new_rows = [row for row in session.new]
+        # get items to be updated
+        updated_rows = [
+            row for row in DBSession().dirty if DBSession().is_modified(row)
+        ]
 
-            # get items to be updated
-            updated_rows = [row for row in session.dirty]
+        # get items to be deleted
+        deleted_rows = [row for row in DBSession().deleted]
 
-            # get items to be deleted
-            deleted_rows = [row for row in session.deleted]
+        # get items that were read
+        read_rows = [
+            row
+            for row in set(DBSession().identity_map.values())
+            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
+        ]
 
-            @event.listens_for(DBSession(), "after_flush_postexec", once=True)
-            def receive_after_flush(session, context):
-                for row in new_rows:
-                    if not row.is_accessible_by(user_or_token, mode="create"):
-                        raise AccessError(
-                            f'Insufficient permissions for operation '
-                            f'"create {type(row).__name__} {row.id}".'
-                        )
-                for row in updated_rows:
-                    if not row.is_accessible_by(user_or_token, mode="update"):
-                        raise AccessError(
-                            f'Insufficient permissions for operation '
-                            f'"update {type(row).__name__} {row.id}".'
-                        )
-                for row in deleted_rows:
-                    if not row.is_accessible_by(user_or_token, mode="delete"):
-                        raise AccessError(
-                            f'Insufficient permissions for operation '
-                            f'"delete {type(row).__name__} {row.id}".'
-                        )
+        # check permissions on each database record
+        DBSession().flush()
+        for mode, collection in zip(
+            ['create', 'read', 'update', 'delete'],
+            [new_rows, read_rows, updated_rows, deleted_rows],
+        ):
+            for row in collection:
+                if not row.is_accessible_by(user_or_token, mode=mode):
+                    raise AccessError(
+                        f'Insufficient permissions for operation '
+                        f'"{mode} {type(row).__name__} {row.id}".'
+                    )
+
+        if commit:
+            DBSession().commit()
 
     def prepare(self):
         self.cfg = self.application.cfg
