@@ -35,7 +35,7 @@ utcnow = func.timezone('UTC', func.current_timestamp())
 
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
-def init_db(user, database, password=None, host=None, port=None):
+def init_db(user, database, password=None, host=None, port=None, autoflush=True):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
@@ -46,7 +46,7 @@ def init_db(user, database, password=None, host=None, port=None):
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
     )
 
-    DBSession.configure(bind=conn)
+    DBSession.configure(bind=conn, autoflush=autoflush)
     Base.metadata.bind = conn
 
     return conn
