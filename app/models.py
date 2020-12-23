@@ -44,7 +44,6 @@ def init_db(user, database, password=None, host=None, port=None):
         client_encoding='utf8',
         executemany_mode='values',
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
-        echo=True,
     )
 
     DBSession.configure(bind=conn)
@@ -511,7 +510,9 @@ class BaseMixin:
         )
 
     @classmethod
-    def get_if_accessible_by(cls, cls_id, user_or_token, mode="read", options=[]):
+    def get_if_accessible_by(
+        cls, cls_id, user_or_token, mode="read", raise_if_none=False, options=[]
+    ):
         """Return a database record if it is accessible to the specified User or
         Token. If no record exists, return None. If the record exists but is
         inaccessible, raise an `AccessError`.
@@ -546,6 +547,8 @@ class BaseMixin:
                         f'Insufficient permissions for operation '
                         f'"{mode} {cls.__name__} {instance.id}".'
                     )
+            elif raise_if_none:
+                raise AccessError(f'Invalid {cls.__name__} id: {pk}')
             result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
