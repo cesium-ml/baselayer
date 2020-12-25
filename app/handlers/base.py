@@ -3,7 +3,6 @@ import inspect
 import tornado.escape
 from tornado.web import RequestHandler
 from json.decoder import JSONDecodeError
-from sqlalchemy import event
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user

@@ -7,7 +7,7 @@ from slugify import slugify
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import sessionmaker, scoped_session, relationship, Query, aliased
+from sqlalchemy.orm import sessionmaker, scoped_session, relationship, aliased
 
 
 from sqlalchemy import func
