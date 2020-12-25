@@ -73,7 +73,9 @@ class PSABaseHandler(RequestHandler):
 
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
-for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunction):
+for (name, fn) in inspect.getmembers(
+    PSABaseHandler, predicate=inspect.isfunction
+):
     setattr(psa_handlers.BaseHandler, name, fn)
 
 
@@ -105,7 +107,8 @@ class BaseHandler(PSABaseHandler):
         # joins). Read permissions can be checked here or below as they do not
         # change on flush.
         for mode, collection in zip(
-            ['read', 'update', 'delete'], [read_rows, updated_rows, deleted_rows]
+            ['read', 'update', 'delete'],
+            [read_rows, updated_rows, deleted_rows],
         ):
             for row in deleted_rows:
                 if not row.is_accessible_by(user_or_token, mode=mode):
@@ -140,9 +143,12 @@ class BaseHandler(PSABaseHandler):
         # Remove slash prefixes from arguments
         if self.path_args:
             self.path_args = [
-                arg.lstrip('/') if arg is not None else None for arg in self.path_args
+                arg.lstrip('/') if arg is not None else None
+                for arg in self.path_args
             ]
-            self.path_args = [arg if (arg != '') else None for arg in self.path_args]
+            self.path_args = [
+                arg if (arg != '') else None for arg in self.path_args
+            ]
 
         # If there are no arguments, make it explicit, otherwise
         # get / post / put / delete all have to accept an optional kwd argument
@@ -209,7 +215,9 @@ class BaseHandler(PSABaseHandler):
         try:
             json = tornado.escape.json_decode(self.request.body)
             if not isinstance(json, dict):
-                raise Exception('Please ensure posted data is of type application/json')
+                raise Exception(
+                    'Please ensure posted data is of type application/json'
+                )
             return json
         except JSONDecodeError:
             raise Exception(
@@ -249,7 +257,9 @@ class BaseHandler(PSABaseHandler):
 
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
-        self.write({"status": "error", "message": message, "data": data, **extra})
+        self.write(
+            {"status": "error", "message": message, "data": data, **extra}
+        )
 
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
@@ -314,7 +324,9 @@ class BaseHandler(PSABaseHandler):
 
         from distributed import Client
 
-        client = await Client('{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True)
+        client = await Client(
+            '{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True
+        )
 
         return client
 

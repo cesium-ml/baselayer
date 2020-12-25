@@ -32,7 +32,9 @@ utcnow = func.timezone('UTC', func.current_timestamp())
 
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
-def init_db(user, database, password=None, host=None, port=None, autoflush=True):
+def init_db(
+    user, database, password=None, host=None, port=None, autoflush=True
+):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
@@ -190,7 +192,9 @@ class UserAccessControl:
         raise NotImplementedError
 
     @classmethod
-    def accessibility_table(cls, target_left, target_right, user_left, user_right):
+    def accessibility_table(
+        cls, target_left, target_right, user_left, user_right
+    ):
         """A join table mapping records from a table to users who can access
         them.
 
@@ -230,7 +234,10 @@ class UserAccessControl:
         return sa.outerjoin(
             all_pairs,
             accessible_pairs,
-            sa.and_(user_left.id == user_right.id, target_left.id == target_right.id),
+            sa.and_(
+                user_left.id == user_right.id,
+                target_left.id == target_right.id,
+            ),
         )
 
 
@@ -292,7 +299,9 @@ def accessible_by_user(relationship_name, of=None):
             )
 
             if of is not None:
-                relationship = sa.inspect(target_right).mapper.relationships[of]
+                relationship = sa.inspect(target_right).mapper.relationships[
+                    of
+                ]
                 class_ = relationship.argument()
                 of_alias = aliased(class_)
                 local_col, remote_col = relationship.local_remote_pairs[0]
@@ -300,17 +309,17 @@ def accessible_by_user(relationship_name, of=None):
                     target_right, local_col.name
                 )
                 final_target = target_right.join(of_alias, join_condition)
-                second_relationship = sa.inspect(of_alias).mapper.relationships[
-                    relationship_name
-                ]
+                second_relationship = sa.inspect(
+                    of_alias
+                ).mapper.relationships[relationship_name]
                 local_col, _ = second_relationship.local_remote_pairs[0]
                 cls_user_id = getattr(of_alias, local_col.name)
 
             else:
                 final_target = target_right
-                second_relationship = sa.inspect(final_target).mapper.relationships[
-                    relationship_name
-                ]
+                second_relationship = sa.inspect(
+                    final_target
+                ).mapper.relationships[relationship_name]
                 local_col, _ = second_relationship.local_remote_pairs[0]
                 cls_user_id = getattr(target_right, local_col.name)
 
@@ -318,7 +327,8 @@ def accessible_by_user(relationship_name, of=None):
                 merged_users,
                 final_target,
                 sa.or_(
-                    user_acls.c.acl_id == 'System admin', cls_user_id == user_right.id
+                    user_acls.c.acl_id == 'System admin',
+                    cls_user_id == user_right.id,
                 ),
             )
 
@@ -360,7 +370,9 @@ def accessible_if_properties_are_accessible(**properties_and_modes):
 
             for prop in properties_and_modes:
                 mode = properties_and_modes[prop]
-                relationship = sa.inspect(target_right).mapper.relationships[prop]
+                relationship = sa.inspect(target_right).mapper.relationships[
+                    prop
+                ]
                 property_class = relationship.argument()
                 aliased_property_class = aliased(property_class)
                 local_col, remote_col = relationship.local_remote_pairs[0]
@@ -492,9 +504,9 @@ class BaseMixin:
             cls, target_right, user_left, user_right
         )
 
-        accessibility_target = sa.func.bool_or(user_right.id.isnot(None)).label(
-            f'{mode}_ok'
-        )
+        accessibility_target = sa.func.bool_or(
+            user_right.id.isnot(None)
+        ).label(f'{mode}_ok')
 
         # Query for the value of the access_func for this particular record and
         # return the result.
@@ -518,7 +530,12 @@ class BaseMixin:
 
     @classmethod
     def get_if_accessible_by(
-        cls, cls_id, user_or_token, mode="read", raise_if_none=False, options=[]
+        cls,
+        cls_id,
+        user_or_token,
+        mode="read",
+        raise_if_none=False,
+        options=[],
     ):
         """Return a database record if it is accessible to the specified User or
         Token. If no record exists, return None. If the record exists but is
@@ -586,7 +603,9 @@ class BaseMixin:
         ).all()
 
     @classmethod
-    def query_records_accessible_by(cls, user_or_token, mode="read", options=[]):
+    def query_records_accessible_by(
+        cls, user_or_token, mode="read", options=[]
+    ):
         """Return the query for all database records accessible by the
         specified User or token.
 
@@ -635,7 +654,9 @@ class BaseMixin:
         )
 
     query = DBSession.query_property()
-    id = sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.')
+    id = sa.Column(
+        sa.Integer, primary_key=True, doc='Unique object identifier.'
+    )
     created_at = sa.Column(
         sa.DateTime,
         nullable=False,
@@ -670,7 +691,9 @@ class BaseMixin:
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
             DBSession().refresh(self)
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        return {
+            k: v for k, v in self.__dict__.items() if not k.startswith('_')
+        }
 
     @classmethod
     def create_or_get(cls, id):
@@ -737,7 +760,9 @@ def join_model(
 
     model_attrs = {
         '__tablename__': join_table,
-        'id': sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.'),
+        'id': sa.Column(
+            sa.Integer, primary_key=True, doc='Unique object identifier.'
+        ),
         column_1: sa.Column(
             column_1,
             sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
@@ -788,14 +813,18 @@ class ACL(Base):
     and `Manage Groups`.
     """
 
-    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='ACL name.')
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc='ACL name.'
+    )
 
 
 class Role(Base):
     """A collection of ACLs. Roles map Users to ACLs. One User may assume
     multiple Roles."""
 
-    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='Role name.')
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc='Role name.'
+    )
     acls = relationship(
         'ACL',
         secondary='role_acls',
@@ -822,17 +851,23 @@ class User(Base):
         SlugifiedStr, nullable=False, unique=True, doc="The user's username."
     )
 
-    first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
-    last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
+    first_name = sa.Column(
+        sa.String, nullable=True, doc="The User's first name."
+    )
+    last_name = sa.Column(
+        sa.String, nullable=True, doc="The User's last name."
+    )
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
-        doc="The phone number at which the user prefers to receive " "communications.",
+        doc="The phone number at which the user prefers to receive "
+        "communications.",
     )
     contact_phone = sa.Column(
         PhoneNumberType(),
         nullable=True,
-        doc="The email at which the user prefers to receive " "communications.",
+        doc="The email at which the user prefers to receive "
+        "communications.",
     )
     oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(
@@ -846,7 +881,9 @@ class User(Base):
         passive_deletes=True,
         doc='The roles assumed by this user.',
     )
-    role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r),)
+    role_ids = association_proxy(
+        'roles', 'id', creator=lambda r: Role.query.get(r),
+    )
     tokens = relationship(
         'Token',
         cascade='save-update, merge, refresh-expire, expunge',
@@ -866,7 +903,11 @@ class User(Base):
     def gravatar_url(self):
         """The Gravatar URL inferred from the user's contact email, or, if the
         contact email is null, the username."""
-        email = self.contact_email if self.contact_email is not None else self.username
+        email = (
+            self.contact_email
+            if self.contact_email is not None
+            else self.username
+        )
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
         # return a transparent png if not found on gravatar
@@ -934,7 +975,9 @@ class Token(Base):
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
     )
-    acl_ids = association_proxy('acls', 'id', creator=lambda acl: ACL.query.get(acl))
+    acl_ids = association_proxy(
+        'acls', 'id', creator=lambda acl: ACL.query.get(acl)
+    )
     permissions = acl_ids
 
     name = sa.Column(
