@@ -101,17 +101,34 @@ class BaseHandler(PSABaseHandler):
             - (set(updated_rows) | set(new_rows) | set(deleted_rows))
         ]
 
-        # check permissions on each database record
-        DBSession().flush()
+        # need to check delete permissions before flushing, as deleted records
+        # are not present in the transaction after flush (thus can't be used in
+        # joins). Read permissions can be checked here or below as they do not
+        # change on flush.
         for mode, collection in zip(
-            ['create', 'read', 'update', 'delete'],
-            [new_rows, read_rows, updated_rows, deleted_rows],
+            ['read', 'update', 'delete'], [read_rows, updated_rows, deleted_rows]
         ):
+            for row in deleted_rows:
+                if not row.is_accessible_by(user_or_token, mode=mode):
+                    raise AccessError(
+                        f'Insufficient permissions for operation '
+                        f'"{type(user_or_token).__name__} {user_or_token.id} '
+                        f'{mode} {type(row).__name__} {row.id}".'
+                    )
+
+        # update transaction state in DB, but don't commit yet. this
+        # updates or adds rows in the database and uses their new /updated
+        # state in joins, for permissions checking purposes. if there
+        # are any bad accesses.
+        DBSession().flush()
+
+        for mode, collection in zip(['create'], [new_rows]):
             for row in collection:
                 if not row.is_accessible_by(user_or_token, mode=mode):
                     raise AccessError(
                         f'Insufficient permissions for operation '
-                        f'"{mode} {type(row).__name__} {row.id}".'
+                        f'"{type(user_or_token).__name__} {user_or_token.id} '
+                        f'{mode} {type(row).__name__} {row.id}".'
                     )
 
         if commit:

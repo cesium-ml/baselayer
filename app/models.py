@@ -1,4 +1,3 @@
-import abc
 import uuid
 from hashlib import md5
 
@@ -9,8 +8,6 @@ import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, Query, aliased
-from sqlalchemy.sql.expression import Selectable, BinaryExpression, FromClause
-from sqlalchemy.ext.hybrid import hybrid_property
 
 
 from sqlalchemy import func
@@ -44,6 +41,7 @@ def init_db(user, database, password=None, host=None, port=None, autoflush=True)
         client_encoding='utf8',
         executemany_mode='values',
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
+        echo=True,
     )
 
     DBSession.configure(bind=conn, autoflush=autoflush)
@@ -500,7 +498,7 @@ class BaseMixin:
 
         # Query for the value of the access_func for this particular record and
         # return the result.
-        return (
+        result = (
             DBSession()
             .query(accessibility_target)
             .select_from(accessibility_table)
@@ -508,6 +506,15 @@ class BaseMixin:
             .group_by(cls.id, user_left.id)
             .scalar()
         )
+
+        if not isinstance(result, bool):
+            raise RuntimeError(
+                f'Non-boolean result ({result}) from operation '
+                f'"{type(user_or_token).__name__} {user_or_token.id} '
+                f'{mode} {cls.__name__} {self.id}".'
+            )
+
+        return result
 
     @classmethod
     def get_if_accessible_by(
@@ -545,7 +552,8 @@ class BaseMixin:
                 if not instance.is_accessible_by(user_or_token, mode=mode):
                     raise AccessError(
                         f'Insufficient permissions for operation '
-                        f'"{mode} {cls.__name__} {instance.id}".'
+                        f'"{type(user_or_token).__name__} {user_or_token.id} '
+                        f'{mode} {cls.__name__} {instance.id}".'
                     )
             elif raise_if_none:
                 raise AccessError(f'Invalid {cls.__name__} id: {pk}')
