@@ -696,6 +696,49 @@ class BaseMixin:
         }
 
     @classmethod
+    def get_if_readable_by(cls, ident, user_or_token, options=[]):
+        """Return an object from the database if the requesting User or Token
+        has access to read the object. If the requesting User or Token does not
+        have access, raise an AccessError.
+
+        Parameters
+        ----------
+        ident : integer or string
+           Primary key of the requested object.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The requesting `User` or `Token` object.
+        options : list of `sqlalchemy.orm.MapperOption`s
+           Options that wil be passed to `options()` in the loader query.
+
+        Returns
+        -------
+        obj : baselayer.app.models.Base
+           The requested entity.
+        """
+        obj = cls.query.options(options).get(ident)
+
+        if obj is not None and not obj.is_readable_by(user_or_token):
+            raise AccessError('Insufficient permissions.')
+
+        return obj
+
+    def is_readable_by(self, user_or_token):
+        """Return a boolean indicating whether a User or Token has read access
+        to this object.
+
+        Parameters
+        ----------
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The User or Token to check.
+
+        Returns
+        -------
+        readable : bool
+           Whether this object is readable to the user.
+        """
+        raise NotImplementedError("Ownership logic is application-specific")
+
+    @classmethod
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
@@ -987,6 +1030,22 @@ class Token(Base):
         default=lambda: str(uuid.uuid4()),
         doc="The name of the token.",
     )
+
+    def is_readable_by(self, user_or_token):
+        """Return a boolean indicating whether this Token is readable by the
+        specified User (or Token instance, if a token is passed).
+
+        Parameters
+        ----------
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The User or Token to check.
+
+        Returns
+        -------
+        readable : bool
+           Whether this Token instance is readable by the User or Token.
+        """
+        return user_or_token.id in [self.created_by_id, self.id]
 
 
 TokenACL = join_model('token_acls', Token, ACL)
