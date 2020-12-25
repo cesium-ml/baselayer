@@ -137,8 +137,9 @@ if __name__ == "__main__":
     except Exception as e:
         log(f'Uncaught exception: {e}')
 
-    app = make_app()
+    migration_manager = make_app()
+
     port = cfg['ports.migration_manager']
-    app.listen(port)
+    migration_manager.listen(port)
     log(f'Listening on port {port}')
     tornado.ioloop.IOLoop.current().start()
