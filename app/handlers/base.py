@@ -80,7 +80,8 @@ for (name, fn) in inspect.getmembers(
 
 
 class BaseHandler(PSABaseHandler):
-    def finalize_transaction(self, commit=True):
+
+    def verify_permissions(self):
 
         user_or_token = self.associated_user_object
 
@@ -133,8 +134,9 @@ class BaseHandler(PSABaseHandler):
                         f'{mode} {type(row).__name__} {row.id}".'
                     )
 
-        if commit:
-            DBSession().commit()
+    def finalize_transaction(self):
+        self.verify_permissions()
+        DBSession().commit()
 
     def prepare(self):
         self.cfg = self.application.cfg
