@@ -66,53 +66,6 @@ class SlugifiedStr(sa.types.TypeDecorator):
         return value
 
 
-def user_acls_temporary_table():
-    """This method creates a temporary table that maps user_ids to their
-    acl_ids (from roles and individual ACL grants).
-
-    The temporary table lives for the duration of the current database
-    transaction and is visible only to the transaction it was created
-    within. The temporary table maintains a forward and reverse index
-    for fast joins on accessible groups.
-
-    This function can be called many times within a transaction. It will only
-    create the table once per transaction and subsequent calls will always
-    return a reference to the table created on the first call, with the same
-    underlying data.
-
-    Returns
-    -------
-    table: `sqlalchemy.Table`
-        The forward- and reverse-indexed `merged_user_acls` temporary
-        table for the current database transaction.
-    """
-    sql = """CREATE TEMP TABLE IF NOT EXISTS merged_user_acls ON COMMIT DROP AS
-    (SELECT u.id AS user_id, ra.acl_id AS acl_id
-         FROM users u
-         JOIN user_roles ur ON u.id = ur.user_id
-         JOIN role_acls ra ON ur.role_id = ra.role_id
-         UNION
-     SELECT ua.user_id, ua.acl_id FROM user_acls ua)"""
-    DBSession().execute(sql)
-    DBSession().execute(
-        'CREATE INDEX IF NOT EXISTS merged_user_acls_forward_index '
-        'ON merged_user_acls (user_id, acl_id)'
-    )
-    DBSession().execute(
-        'CREATE INDEX IF NOT EXISTS merged_user_acls_reverse_index '
-        'ON merged_user_acls (acl_id, user_id)'
-    )
-
-    t = sa.Table(
-        'merged_user_acls',
-        Base.metadata,
-        sa.Column('user_id', sa.Integer, primary_key=True),
-        sa.Column('acl_id', sa.Integer, primary_key=True),
-        extend_existing=True,
-    )
-    return t
-
-
 class UserAccessControl:
     """Logic for controlling user access to database records. Mapped classes
     can set their create, read, update, or delete attributes to subclasses of
@@ -144,30 +97,8 @@ class UserAccessControl:
                     f'to check for access.'
                 )
 
-    @classmethod
-    def all_pairs(cls, target_left, user_left):
-        """Construct a join table mapping all target records to all user
-        records (regardless of access control).
-
-        Parameters
-        ----------
-        target_left: `baselayer.app.models.Base` or alias of
-        `baselayer.app.models.Base`
-            Access protected class or alias of the access protected class.
-        user_left: `baselayer.app.models.Base` or alias of
-        `baselayer.app.models.Base`
-            The `User` class or an alias of the `User` class.
-
-        Returns
-        -------
-        table: `sqlalchemy.sql.expression.Selectable`
-            SQLalchemy table mapping all target records to all user records
-            (regardless of access control).
-        """
-        return sa.join(target_left, user_left, sa.literal(True))
-
-    @classmethod
-    def accessible_pairs(cls, target_right, user_right):
+    @staticmethod
+    def query_accessible_rows(target, user_or_token, columns=None):
         """Construct a join table mapping User records to accessible target
         records.
 
@@ -176,10 +107,10 @@ class UserAccessControl:
 
         Parameters
         ----------
-        target_right: `baselayer.app.models.Base` or alias of
+        target: `baselayer.app.models.Base` or alias of
         `baselayer.app.models.Base`
             Access protected class or alias of the access protected class.
-        user_right: `baselayer.app.models.Base` or alias of
+        user_or_token: `baselayer.app.models.Base` or alias of
         `baselayer.app.models.Base`
             The `User` class or an alias of the `User` class.
 
@@ -191,69 +122,24 @@ class UserAccessControl:
 
         raise NotImplementedError
 
-    @classmethod
-    def accessibility_table(
-        cls, target_left, target_right, user_left, user_right
-    ):
-        """A join table mapping records from a table to users who can access
-        them.
 
-        The join table should be constructed using aliases of `cls` and `user`,
-        then correlated against `cls` and `user` to ensure indices are propagated
-        and Cardinality is respected.
+class Public(UserAccessControl):
+    """A record acessible to anyone."""
 
-        Parameters
-        ----------
-        cls: mapped class or alias of mapped class
-            The mapped class (or an alias of the mapped class) representing the
-            access-controlled table.
-        user: User class or alias of User class
-            The User class (or an alias of the User class).
-
-        Returns
-        -------
-        access_table: sqlalchemy.sql.expression.FromClause
-            A join table mapping records of the `cls` table to records
-            of the users table. Each row corresponds to one class/user pair that
-            is accessible. The schema of this table may vary depending on the
-            schema of `cls`, but will always contain two columns, `cls_id` and
-            `user_id`, representing the primary keys of the `cls` table and the
-            users table, respectively.
-        """
-
-        # get all possible cls x User pairs
-        all_pairs = cls.all_pairs(target_left, user_left)
-
-        # get the accessible cls x User pairs
-        accessible_pairs = cls.accessible_pairs(target_right, user_right)
-
-        # outerjoin the two. If user_right.id is NULL, then user_left.id does
-        # not have access to target_left.id. If not, then user_left.id does
-        # have access to target_left.id.
-
-        return sa.outerjoin(
-            all_pairs,
-            accessible_pairs,
-            sa.and_(
-                user_left.id == user_right.id,
-                target_left.id == target_right.id,
-            ),
-        )
+    @staticmethod
+    def query_accessible_rows(target, user_or_token, columns=None):
+        if columns is not None:
+            return DBSession().query(*columns).select_from(target)
+        return DBSession().query(target)
 
 
-class AccessibleByAnyone(UserAccessControl):
-    """A record that can be accessed by any user."""
-
-    accessible_pairs = UserAccessControl.all_pairs
-
-
-def accessible_by_user(relationship_name, of=None):
+def accessible_if_user_is(relationship_key):
     """Create a class that grants access to only one user (and System Admins).
     For access, the user's ID must match the value of the specified foreign key.
 
     Parameters
     ----------
-    relationship_name: str
+    relationship_key: str
         The name of the target class's foreign key relationship that the
         requesting user must match for access to be granted.
 
@@ -264,21 +150,25 @@ def accessible_by_user(relationship_name, of=None):
         Class implementing the accessible-by-user logic.
     """
 
+    relationship_names = relationship_key.split('.')
+    if len(relationship_names) < 1:
+        raise ValueError('Need at least 1 relationship to join on.')
+
     class AccessibleByUser(UserAccessControl):
         """A record that can only be accessed by a specific user (or a System
         Admin). """
 
-        @classmethod
-        def accessible_pairs(cls, target_right, user_right):
+        @staticmethod
+        def query_accessible_rows(target, user_or_token, columns=None):
             """Construct a join table mapping User records to accessible target
             records.
 
             Parameters
             ----------
-            target_right: `baselayer.app.models.Base` or alias of
+            target: `baselayer.app.models.Base` or alias of
             `baselayer.app.models.Base`
                 Access protected class or alias of the access protected class.
-            user_right: `baselayer.app.models.Base` or alias of
+            user_or_token: `baselayer.app.models.Base` or alias of
             `baselayer.app.models.Base`
                 The `User` class or an alias of the `User` class.
 
@@ -288,71 +178,56 @@ def accessible_by_user(relationship_name, of=None):
                 SQLalchemy table mapping User records to accessible target records.
             """
 
-            # Ensure the target class has the foreign key that moderates
-            # access control.
-            cls.check_cls_for_attributes(target_right, [relationship_name])
+            if user_or_token.is_admin:
+                return Public.query_accessible_rows(target, user_or_token)
 
-            # Allow system admins to access the record as well as users.
-            user_acls = user_acls_temporary_table()
-            merged_users = sa.join(
-                user_right, user_acls, user_right.id == user_acls.c.user_id
-            )
-
-            if of is not None:
-                relationship = sa.inspect(target_right).mapper.relationships[
-                    of
-                ]
-                class_ = relationship.argument()
-                of_alias = aliased(class_)
-                local_col, remote_col = relationship.local_remote_pairs[0]
-                join_condition = getattr(of_alias, remote_col.name) == getattr(
-                    target_right, local_col.name
-                )
-                final_target = target_right.join(of_alias, join_condition)
-                second_relationship = sa.inspect(
-                    of_alias
-                ).mapper.relationships[relationship_name]
-                local_col, _ = second_relationship.local_remote_pairs[0]
-                cls_user_id = getattr(of_alias, local_col.name)
-
+            if columns is not None:
+                base = DBSession().query(*columns).select_from(target)
             else:
-                final_target = target_right
-                second_relationship = sa.inspect(
-                    final_target
-                ).mapper.relationships[relationship_name]
-                local_col, _ = second_relationship.local_remote_pairs[0]
-                cls_user_id = getattr(target_right, local_col.name)
+                base = DBSession().query(target)
 
-            return sa.join(
-                merged_users,
-                final_target,
-                sa.or_(
-                    user_acls.c.acl_id == 'System admin',
-                    cls_user_id == user_right.id,
-                ),
-            )
+            for relationship_name in relationship_names:
+
+                # Ensure the target class has the foreign key that moderates
+                # access control.
+                UserAccessControl.check_cls_for_attributes(
+                    target, [relationship_key]
+                )
+
+                # each of these represents a one-to-one relationship
+                relationship = sa.inspect(target).mapper.relationships[
+                    relationship_name
+                ]
+                join_target = relationship.argument()
+                for local_col, remote_col in relationship.local_remote_pairs:
+                    join_condition = local_col == remote_col
+                    base = base.join(join_target, join_condition)
+                    target = join_target
+
+            base = base.filter(target.id == user_or_token.id)
+            return base
 
     return AccessibleByUser
 
 
-AccessibleByOwner = accessible_by_user('owner')
-AccessibleByCreatedBy = accessible_by_user('created_by')
-AccessibleByUser = accessible_by_user('user')
+AccessibleByOwner = accessible_if_user_is('owner')
+AccessibleByCreatedBy = accessible_if_user_is('created_by')
+AccessibleByUser = accessible_if_user_is('user')
 
 
 def accessible_if_properties_are_accessible(**properties_and_modes):
     class AccessibleIfPropertiesAreAccessible(UserAccessControl):
-        @classmethod
-        def accessible_pairs(cls, target_right, user_right):
+        @staticmethod
+        def query_accessible_rows(cls, user_or_token, columns=None):
             """Construct a join table mapping User records to accessible target
             records.
 
             Parameters
             ----------
-            target_right: `baselayer.app.models.Base` or alias of
+            cls: `baselayer.app.models.Base` or alias of
             `baselayer.app.models.Base`
                 Access protected class or alias of the access protected class.
-            user_right: `baselayer.app.models.Base` or alias of
+            user_or_token: `baselayer.app.models.Base` or alias of
             `baselayer.app.models.Base`
                 The `User` class or an alias of the `User` class.
 
@@ -364,32 +239,29 @@ def accessible_if_properties_are_accessible(**properties_and_modes):
 
             if len(properties_and_modes) == 0:
                 raise ValueError("Need at least 1 property to check.")
-            cls.check_cls_for_attributes(target_right, properties_and_modes)
+            UserAccessControl.check_cls_for_attributes(
+                cls, properties_and_modes
+            )
 
-            base = cls.all_pairs(target_right, user_right)
+            if columns is None:
+                base = DBSession().query(cls)
+            else:
+                base = DBSession().query(*columns).select_from(cls)
 
             for prop in properties_and_modes:
                 mode = properties_and_modes[prop]
-                relationship = sa.inspect(target_right).mapper.relationships[
-                    prop
-                ]
-                property_class = relationship.argument()
-                aliased_property_class = aliased(property_class)
-                local_col, remote_col = relationship.local_remote_pairs[0]
-                join_condition = getattr(
-                    aliased_property_class, remote_col.name
-                ) == getattr(target_right, local_col.name)
+                relationship = sa.inspect(cls).mapper.relationships[prop]
+                related_class = relationship.argument()
 
-                logic = getattr(property_class, mode)
-                user_alias = aliased(User)
-                accessible_pairs = logic.accessible_pairs(
-                    aliased_property_class, user_alias
-                )
+                for local_col, remote_col in relationship.local_remote_pairs:
+                    join_condition = local_col == remote_col
 
-                base = base.join(
-                    accessible_pairs,
-                    sa.and_(join_condition, user_alias.id == user_right.id),
-                )
+                    logic = getattr(related_class, mode)
+                    accessible_related_rows = logic.query_accessible_rows(
+                        related_class, user_or_token, columns=[remote_col]
+                    ).subquery()
+
+                    base = base.join(accessible_related_rows, join_condition)
 
             return base
 
@@ -398,26 +270,22 @@ def accessible_if_properties_are_accessible(**properties_and_modes):
 
 def compose_access_control(*access_controls):
     class ComposedAccessControl(UserAccessControl):
-        @classmethod
-        def accessible_pairs(cls, target_right, user_right):
-            base = cls.all_pairs(target_right, user_right)
+        @staticmethod
+        def query_accessible_rows(target, user_or_token, columns=None):
+
+            if columns is not None:
+                base = DBSession().query(*columns).select_from(target)
+            else:
+                base = DBSession().query(target)
 
             for access_control in access_controls:
 
                 # join against the first access control
-                target_right_1 = aliased(target_right)
-                user_right_1 = aliased(user_right)
-                accessible_1 = access_control.accessible_pairs(
-                    target_right_1, user_right_1
-                )
+                accessible = access_control.query_accessible_rows(
+                    target, user_or_token, columns=[target.id]
+                ).subquery()
 
-                base = base.join(
-                    accessible_1,
-                    sa.and_(
-                        target_right.id == target_right_1.id,
-                        user_right.id == user_right_1.id,
-                    ),
-                )
+                base = base.join(accessible, accessible.c.id == target.id)
 
             return base
 
@@ -427,17 +295,17 @@ def compose_access_control(*access_controls):
 class Restricted(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
 
-    @classmethod
-    def accessible_pairs(cls, target_right, user_right):
+    @staticmethod
+    def query_accessible_rows(target, user_or_token, columns=None):
         """Construct a join table mapping User records to accessible target
         records.
 
         Parameters
         ----------
-        target_right: `baselayer.app.models.Base` or alias of
+        target: `baselayer.app.models.Base` or alias of
         `baselayer.app.models.Base`
             Access protected class or alias of the access protected class.
-        user_right: `baselayer.app.models.Base` or alias of
+        user_or_token: `baselayer.app.models.Base` or alias of
         `baselayer.app.models.Base`
             The `User` class or an alias of the `User` class.
 
@@ -446,19 +314,26 @@ class Restricted(UserAccessControl):
         table: `sqlalchemy.sql.expression.Selectable`
             SQLalchemy table mapping User records to accessible target records.
         """
-        user_acls = user_acls_temporary_table()
-        merged_users = sa.join(
-            user_right, user_acls, user_right.id == user_acls.c.user_id
-        )
-        return sa.join(
-            merged_users, target_right, user_acls.c.acl_id == 'System admin',
-        )
+
+        if user_or_token.is_admin:
+            return Public.query_accessible_rows(
+                target, user_or_token, columns=columns
+            )
+
+        if columns is not None:
+            return (
+                DBSession()
+                .query(*columns)
+                .select_from(target)
+                .filter(sa.literal(False))
+            )
+        return DBSession().query(target).filter(sa.literal(False))
 
 
 class BaseMixin:
 
     # permission control logic
-    create = read = AccessibleByAnyone
+    create = read = Public
     update = delete = Restricted
 
     def is_accessible_by(self, user_or_token, mode="read"):
@@ -485,39 +360,20 @@ class BaseMixin:
                 f'got {user_or_token.__class__.__name__}.'
             )
 
-        target = (
-            user_or_token.id
-            if isinstance(user_or_token, User)
-            else user_or_token.created_by_id
-        )
-
         # get the classmethod that determines whether a record of type `cls` is
         # accessible to a user or token
         cls = type(self)
         logic = getattr(cls, mode)
 
         # Construct the join from which accessibility can be selected.
-        user_right = aliased(User)
-        user_left = aliased(User)
-        target_right = aliased(cls)
-        accessibility_table = logic.accessibility_table(
-            cls, target_right, user_left, user_right
-        )
-
-        accessibility_target = sa.func.bool_or(
-            user_right.id.isnot(None)
-        ).label(f'{mode}_ok')
+        accessibility_target = (sa.func.count('*') > 0).label(f'{mode}_ok')
+        accessibility_table = logic.query_accessible_rows(
+            cls, user_or_token, columns=[accessibility_target]
+        ).filter(cls.id == self.id)
 
         # Query for the value of the access_func for this particular record and
         # return the result.
-        result = (
-            DBSession()
-            .query(accessibility_target)
-            .select_from(accessibility_table)
-            .filter(cls.id == self.id, user_left.id == target)
-            .group_by(cls.id, user_left.id)
-            .scalar()
-        )
+        result = accessibility_table.scalar()
 
         if not isinstance(result, bool):
             raise RuntimeError(
@@ -578,7 +434,9 @@ class BaseMixin:
         return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
-    def get_records_accessible_by(cls, user_or_token, mode="read", options=[]):
+    def get_records_accessible_by(
+        cls, user_or_token, mode="read", options=[], columns=None
+    ):
         """Retrieve all database records accessible by the specified User or
         token.
 
@@ -599,12 +457,12 @@ class BaseMixin:
 
         """
         return cls.query_records_accessible_by(
-            user_or_token, mode=mode, options=options
+            user_or_token, mode=mode, options=options, columns=columns
         ).all()
 
     @classmethod
     def query_records_accessible_by(
-        cls, user_or_token, mode="read", options=[]
+        cls, user_or_token, mode="read", options=[], columns=None
     ):
         """Return the query for all database records accessible by the
         specified User or token.
@@ -632,26 +490,10 @@ class BaseMixin:
                 f'got {user_or_token.__class__.__name__}.'
             )
 
-        target = (
-            user_or_token.id
-            if isinstance(user_or_token, User)
-            else user_or_token.created_by_id
-        )
-
         logic = getattr(cls, mode)
-
-        # alias User in case cls is User
-        user = aliased(User)
-
-        accessible_pairs = logic.accessible_pairs(cls, user)
-
-        return (
-            DBSession()
-            .query(cls)
-            .select_from(accessible_pairs)
-            .filter(user.id == target)
-            .options(options)
-        )
+        return logic.query_accessible_rows(
+            cls, user_or_token, columns=columns
+        ).options(options)
 
     query = DBSession.query_property()
     id = sa.Column(
@@ -887,6 +729,10 @@ RoleACL = join_model('role_acls', Role, ACL)
 RoleACL.__doc__ = "Join table class mapping Roles to ACLs."
 
 
+def is_admin(self):
+    return "System admin" in self.permissions
+
+
 class User(Base):
     """An application user."""
 
@@ -984,6 +830,8 @@ class User(Base):
         """Boolean flag indicating whether the User is currently active."""
         return True
 
+    is_admin = property(is_admin)
+
 
 UserACL = join_model('user_acls', User, ACL)
 UserACL.__doc__ = 'Join table mapping Users to ACLs'
@@ -1030,6 +878,8 @@ class Token(Base):
         default=lambda: str(uuid.uuid4()),
         doc="The name of the token.",
     )
+
+    is_admin = property(is_admin)
 
     def is_readable_by(self, user_or_token):
         """Return a boolean indicating whether this Token is readable by the
