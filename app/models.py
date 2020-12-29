@@ -2,21 +2,17 @@ import uuid
 from hashlib import md5
 
 import numpy as np
-
-from slugify import slugify
 import sqlalchemy as sa
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import sessionmaker, scoped_session, relationship, aliased
-
-
+from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.declarative import declarative_base, declared_attr
+from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
-from .json_util import to_json
 from .custom_exceptions import AccessError
-
+from .json_util import to_json
 
 DBSession = scoped_session(sessionmaker())
 
@@ -32,9 +28,7 @@ utcnow = func.timezone('UTC', func.current_timestamp())
 
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
-def init_db(
-    user, database, password=None, host=None, port=None, autoflush=True
-):
+def init_db(user, database, password=None, host=None, port=None, autoflush=True):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
@@ -43,7 +37,6 @@ def init_db(
         client_encoding='utf8',
         executemany_mode='values',
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
-        echo=True,
     )
 
     DBSession.configure(bind=conn, autoflush=autoflush)
@@ -159,13 +152,13 @@ def accessible_if_user_is(relationship_key):
         Admin). """
 
         @staticmethod
-        def query_accessible_rows(target, user_or_token, columns=None):
+        def query_accessible_rows(cls, user_or_token, columns=None):
             """Construct a join table mapping User records to accessible target
             records.
 
             Parameters
             ----------
-            target: `baselayer.app.models.Base` or alias of
+            cls: `baselayer.app.models.Base` or alias of
             `baselayer.app.models.Base`
                 Access protected class or alias of the access protected class.
             user_or_token: `baselayer.app.models.Base` or alias of
@@ -179,33 +172,24 @@ def accessible_if_user_is(relationship_key):
             """
 
             if user_or_token.is_admin:
-                return Public.query_accessible_rows(target, user_or_token)
+                return Public.query_accessible_rows(cls, user_or_token, columns=columns)
 
             if columns is not None:
-                base = DBSession().query(*columns).select_from(target)
+                query = DBSession().query(*columns).select_from(cls)
             else:
-                base = DBSession().query(target)
+                query = DBSession().query(cls)
 
             for relationship_name in relationship_names:
 
-                # Ensure the target class has the foreign key that moderates
-                # access control.
-                UserAccessControl.check_cls_for_attributes(
-                    target, [relationship_key]
-                )
+                UserAccessControl.check_cls_for_attributes(cls, [relationship_name])
 
-                # each of these represents a one-to-one relationship
-                relationship = sa.inspect(target).mapper.relationships[
-                    relationship_name
-                ]
-                join_target = relationship.argument()
-                for local_col, remote_col in relationship.local_remote_pairs:
-                    join_condition = local_col == remote_col
-                    base = base.join(join_target, join_condition)
-                    target = join_target
+                relationship = sa.inspect(cls).mapper.relationships[relationship_name]
 
-            base = base.filter(target.id == user_or_token.id)
-            return base
+                cls = relationship.entity.class_
+                query = query.join(relationship.class_attribute)
+
+            query = query.filter(cls.id == user_or_token.id)
+            return query
 
     return AccessibleByUser
 
@@ -239,9 +223,7 @@ def accessible_if_properties_are_accessible(**properties_and_modes):
 
             if len(properties_and_modes) == 0:
                 raise ValueError("Need at least 1 property to check.")
-            UserAccessControl.check_cls_for_attributes(
-                cls, properties_and_modes
-            )
+            UserAccessControl.check_cls_for_attributes(cls, properties_and_modes)
 
             if columns is None:
                 base = DBSession().query(cls)
@@ -251,17 +233,17 @@ def accessible_if_properties_are_accessible(**properties_and_modes):
             for prop in properties_and_modes:
                 mode = properties_and_modes[prop]
                 relationship = sa.inspect(cls).mapper.relationships[prop]
-                related_class = relationship.argument()
+                base = base.join(relationship.class_attribute)
 
-                for local_col, remote_col in relationship.local_remote_pairs:
-                    join_condition = local_col == remote_col
+                join_target = relationship.entity.class_
+                logic = getattr(join_target, mode)
 
-                    logic = getattr(related_class, mode)
-                    accessible_related_rows = logic.query_accessible_rows(
-                        related_class, user_or_token, columns=[remote_col]
-                    ).subquery()
+                accessible_related_rows = logic.query_accessible_rows(
+                    join_target, user_or_token, columns=[join_target.id]
+                ).subquery()
 
-                    base = base.join(accessible_related_rows, join_condition)
+                join_condition = accessible_related_rows.c.id == join_target.id
+                base = base.join(accessible_related_rows, join_condition)
 
             return base
 
@@ -316,9 +298,7 @@ class Restricted(UserAccessControl):
         """
 
         if user_or_token.is_admin:
-            return Public.query_accessible_rows(
-                target, user_or_token, columns=columns
-            )
+            return Public.query_accessible_rows(target, user_or_token, columns=columns)
 
         if columns is not None:
             return (
@@ -386,12 +366,7 @@ class BaseMixin:
 
     @classmethod
     def get_if_accessible_by(
-        cls,
-        cls_id,
-        user_or_token,
-        mode="read",
-        raise_if_none=False,
-        options=[],
+        cls, cls_id, user_or_token, mode="read", raise_if_none=False, options=[],
     ):
         """Return a database record if it is accessible to the specified User or
         Token. If no record exists, return None. If the record exists but is
@@ -491,14 +466,12 @@ class BaseMixin:
             )
 
         logic = getattr(cls, mode)
-        return logic.query_accessible_rows(
-            cls, user_or_token, columns=columns
-        ).options(options)
+        return logic.query_accessible_rows(cls, user_or_token, columns=columns).options(
+            options
+        )
 
     query = DBSession.query_property()
-    id = sa.Column(
-        sa.Integer, primary_key=True, doc='Unique object identifier.'
-    )
+    id = sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.')
     created_at = sa.Column(
         sa.DateTime,
         nullable=False,
@@ -533,9 +506,7 @@ class BaseMixin:
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
             DBSession().refresh(self)
-        return {
-            k: v for k, v in self.__dict__.items() if not k.startswith('_')
-        }
+        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
 
     @classmethod
     def get_if_readable_by(cls, ident, user_or_token, options=[]):
@@ -645,9 +616,7 @@ def join_model(
 
     model_attrs = {
         '__tablename__': join_table,
-        'id': sa.Column(
-            sa.Integer, primary_key=True, doc='Unique object identifier.'
-        ),
+        'id': sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.'),
         column_1: sa.Column(
             column_1,
             sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
@@ -698,18 +667,14 @@ class ACL(Base):
     and `Manage Groups`.
     """
 
-    id = sa.Column(
-        sa.String, nullable=False, primary_key=True, doc='ACL name.'
-    )
+    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='ACL name.')
 
 
 class Role(Base):
     """A collection of ACLs. Roles map Users to ACLs. One User may assume
     multiple Roles."""
 
-    id = sa.Column(
-        sa.String, nullable=False, primary_key=True, doc='Role name.'
-    )
+    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='Role name.')
     acls = relationship(
         'ACL',
         secondary='role_acls',
@@ -740,23 +705,17 @@ class User(Base):
         SlugifiedStr, nullable=False, unique=True, doc="The user's username."
     )
 
-    first_name = sa.Column(
-        sa.String, nullable=True, doc="The User's first name."
-    )
-    last_name = sa.Column(
-        sa.String, nullable=True, doc="The User's last name."
-    )
+    first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
+    last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
-        doc="The phone number at which the user prefers to receive "
-        "communications.",
+        doc="The phone number at which the user prefers to receive " "communications.",
     )
     contact_phone = sa.Column(
         PhoneNumberType(),
         nullable=True,
-        doc="The email at which the user prefers to receive "
-        "communications.",
+        doc="The email at which the user prefers to receive " "communications.",
     )
     oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(
@@ -770,9 +729,7 @@ class User(Base):
         passive_deletes=True,
         doc='The roles assumed by this user.',
     )
-    role_ids = association_proxy(
-        'roles', 'id', creator=lambda r: Role.query.get(r),
-    )
+    role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r),)
     tokens = relationship(
         'Token',
         cascade='save-update, merge, refresh-expire, expunge',
@@ -792,11 +749,7 @@ class User(Base):
     def gravatar_url(self):
         """The Gravatar URL inferred from the user's contact email, or, if the
         contact email is null, the username."""
-        email = (
-            self.contact_email
-            if self.contact_email is not None
-            else self.username
-        )
+        email = self.contact_email if self.contact_email is not None else self.username
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
         # return a transparent png if not found on gravatar
@@ -866,9 +819,7 @@ class Token(Base):
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
     )
-    acl_ids = association_proxy(
-        'acls', 'id', creator=lambda acl: ACL.query.get(acl)
-    )
+    acl_ids = association_proxy('acls', 'id', creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
 
     name = sa.Column(
