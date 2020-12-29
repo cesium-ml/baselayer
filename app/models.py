@@ -261,10 +261,11 @@ def compose_access_control(*access_controls):
                 base = DBSession().query(target)
 
             for access_control in access_controls:
+                target_alias = sa.orm.aliased(target)
 
                 # join against the first access control
                 accessible = access_control.query_accessible_rows(
-                    target, user_or_token, columns=[target.id]
+                    target_alias, user_or_token, columns=[target_alias.id]
                 ).subquery()
 
                 base = base.join(accessible, accessible.c.id == target.id)
