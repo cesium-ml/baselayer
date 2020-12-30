@@ -91,7 +91,18 @@ class UserAccessControl:
                 )
 
     @staticmethod
-    def query_accessible_rows(target, user_or_token, columns=None):
+    def user_id_from_user_or_token(user_or_token):
+        if isinstance(user_or_token, User):
+            return user_or_token.id
+        elif isinstance(user_or_token, Token):
+            return user_or_token.created_by_id
+        else:
+            raise ValueError(
+                'user_or_token must be an instance of User or Token, '
+                f'got {user_or_token.__class__.__name__}.'
+            )
+
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a join table mapping User records to accessible target
         records.
 
@@ -117,175 +128,42 @@ class UserAccessControl:
 
 
 class Public(UserAccessControl):
-    """A record acessible to anyone."""
+    """A record accessible to anyone."""
 
-    @staticmethod
-    def query_accessible_rows(target, user_or_token, columns=None):
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
         if columns is not None:
-            return DBSession().query(*columns).select_from(target)
-        return DBSession().query(target)
+            return DBSession().query(*columns).select_from(cls)
+        return DBSession().query(cls)
 
 
-def accessible_if_user_is(relationship_key):
-    """Create a class that grants access to only one user (and System Admins).
-    For access, the user's ID must match the value of the specified foreign key.
-
-    Parameters
-    ----------
-    relationship_key: str
-        The name of the target class's foreign key relationship that the
-        requesting user must match for access to be granted.
+public = Public()
 
 
-    Returns
-    -------
-    AccessibleByUser: type
-        Class implementing the accessible-by-user logic.
-    """
+class AccessibleIfUserIs(UserAccessControl):
+    def __init__(self, relationship_key):
+        """Create a class that grants access to only one user (and System Admins).
+        For access, the user's ID must match the value of the specified foreign key.
 
-    relationship_names = relationship_key.split('.')
-    if len(relationship_names) < 1:
-        raise ValueError('Need at least 1 relationship to join on.')
+        Parameters
+        ----------
+        relationship_key: str
+            The name of the target class's foreign key relationship that the
+            requesting user must match for access to be granted.
 
-    class AccessibleByUser(UserAccessControl):
-        """A record that can only be accessed by a specific user (or a System
-        Admin). """
+        Returns
+        -------
+        AccessibleByUser: type
+            Class implementing the accessible-by-user logic.
+        """
+        self.relationship_key = relationship_key
 
-        @staticmethod
-        def query_accessible_rows(cls, user_or_token, columns=None):
-            """Construct a join table mapping User records to accessible target
-            records.
-
-            Parameters
-            ----------
-            cls: `baselayer.app.models.Base` or alias of
-            `baselayer.app.models.Base`
-                Access protected class or alias of the access protected class.
-            user_or_token: `baselayer.app.models.Base` or alias of
-            `baselayer.app.models.Base`
-                The `User` class or an alias of the `User` class.
-
-            Returns
-            -------
-            table: `sqlalchemy.sql.expression.Selectable`
-                SQLalchemy table mapping User records to accessible target records.
-            """
-
-            if user_or_token.is_admin:
-                return Public.query_accessible_rows(cls, user_or_token, columns=columns)
-
-            if columns is not None:
-                query = DBSession().query(*columns).select_from(cls)
-            else:
-                query = DBSession().query(cls)
-
-            for relationship_name in relationship_names:
-
-                UserAccessControl.check_cls_for_attributes(cls, [relationship_name])
-
-                relationship = sa.inspect(cls).mapper.relationships[relationship_name]
-
-                cls = relationship.entity.class_
-                query = query.join(relationship.class_attribute)
-
-            query = query.filter(cls.id == user_or_token.id)
-            return query
-
-    return AccessibleByUser
-
-
-AccessibleByOwner = accessible_if_user_is('owner')
-AccessibleByCreatedBy = accessible_if_user_is('created_by')
-AccessibleByUser = accessible_if_user_is('user')
-
-
-def accessible_if_properties_are_accessible(**properties_and_modes):
-    class AccessibleIfPropertiesAreAccessible(UserAccessControl):
-        @staticmethod
-        def query_accessible_rows(cls, user_or_token, columns=None):
-            """Construct a join table mapping User records to accessible target
-            records.
-
-            Parameters
-            ----------
-            cls: `baselayer.app.models.Base` or alias of
-            `baselayer.app.models.Base`
-                Access protected class or alias of the access protected class.
-            user_or_token: `baselayer.app.models.Base` or alias of
-            `baselayer.app.models.Base`
-                The `User` class or an alias of the `User` class.
-
-            Returns
-            -------
-            table: `sqlalchemy.sql.expression.Selectable`
-                SQLalchemy table mapping User records to accessible target records.
-            """
-
-            if len(properties_and_modes) == 0:
-                raise ValueError("Need at least 1 property to check.")
-            UserAccessControl.check_cls_for_attributes(cls, properties_and_modes)
-
-            if columns is None:
-                base = DBSession().query(cls)
-            else:
-                base = DBSession().query(*columns).select_from(cls)
-
-            for prop in properties_and_modes:
-                mode = properties_and_modes[prop]
-                relationship = sa.inspect(cls).mapper.relationships[prop]
-                base = base.join(relationship.class_attribute)
-
-                join_target = relationship.entity.class_
-                logic = getattr(join_target, mode)
-
-                accessible_related_rows = logic.query_accessible_rows(
-                    join_target, user_or_token, columns=[join_target.id]
-                ).subquery()
-
-                join_condition = accessible_related_rows.c.id == join_target.id
-                base = base.join(accessible_related_rows, join_condition)
-
-            return base
-
-    return AccessibleIfPropertiesAreAccessible
-
-
-def compose_access_control(*access_controls):
-    class ComposedAccessControl(UserAccessControl):
-        @staticmethod
-        def query_accessible_rows(target, user_or_token, columns=None):
-
-            if columns is not None:
-                base = DBSession().query(*columns).select_from(target)
-            else:
-                base = DBSession().query(target)
-
-            for access_control in access_controls:
-                target_alias = sa.orm.aliased(target)
-
-                # join against the first access control
-                accessible = access_control.query_accessible_rows(
-                    target_alias, user_or_token, columns=[target_alias.id]
-                ).subquery()
-
-                base = base.join(accessible, accessible.c.id == target.id)
-
-            return base
-
-    return ComposedAccessControl
-
-
-class Restricted(UserAccessControl):
-    """A record that can only be accessed by a System Admin."""
-
-    @staticmethod
-    def query_accessible_rows(target, user_or_token, columns=None):
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a join table mapping User records to accessible target
         records.
 
         Parameters
         ----------
-        target: `baselayer.app.models.Base` or alias of
+        cls: `baselayer.app.models.Base` or alias of
         `baselayer.app.models.Base`
             Access protected class or alias of the access protected class.
         user_or_token: `baselayer.app.models.Base` or alias of
@@ -299,23 +177,218 @@ class Restricted(UserAccessControl):
         """
 
         if user_or_token.is_admin:
-            return Public.query_accessible_rows(target, user_or_token, columns=columns)
+            return public.query_accessible_rows(cls, user_or_token, columns=columns)
+
+        if columns is not None:
+            query = DBSession().query(*columns).select_from(cls)
+        else:
+            query = DBSession().query(cls)
+
+        for relationship_name in self.relationship_names:
+            self.check_cls_for_attributes(cls, [relationship_name])
+            relationship = sa.inspect(cls).mapper.relationships[relationship_name]
+            cls = relationship.entity.class_
+            query = query.join(relationship.class_attribute)
+
+        user_id = self.user_id_from_user_or_token(user_or_token)
+        query = query.filter(cls.id == user_id)
+        return query
+
+    @property
+    def relationship_key(self):
+        return self._relationship_key
+
+    @relationship_key.setter
+    def relationship_key(self, value):
+        if not isinstance(value, str):
+            raise ValueError(
+                f'Invalid value for relationship key: {value}, expected str, got {value.__class__.__name__}'
+            )
+        relationship_names = value.split('.')
+        if len(relationship_names) < 1:
+            raise ValueError('Need at least 1 relationship to join on.')
+        self._relationship_key = value
+
+    @property
+    def relationship_names(self):
+        return self.relationship_key.split('.')
+
+
+accessible_by_owner = AccessibleIfUserIs('owner')
+accessible_by_created_by = AccessibleIfUserIs('created_by')
+accessible_by_user = AccessibleIfUserIs('user')
+
+
+class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
+    def __init__(self, **properties_and_modes):
+        self.properties_and_modes = properties_and_modes
+
+    @property
+    def properties_and_modes(self):
+        return self._properties_and_modes
+
+    @properties_and_modes.setter
+    def properties_and_modes(self, value):
+        if not isinstance(value, dict):
+            raise ValueError(
+                f'properties_and_modes must be an instance of dict, got {value.__class__.__name__}'
+            )
+        if len(value) == 0:
+            raise ValueError("Need at least 1 property to check.")
+        self._properties_and_modes = value
+
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a join table mapping User records to accessible target
+        records.
+
+        Parameters
+        ----------
+        cls: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            Access protected class or alias of the access protected class.
+        user_or_token: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            The `User` class or an alias of the `User` class.
+
+        Returns
+        -------
+        table: `sqlalchemy.sql.expression.Selectable`
+            SQLalchemy table mapping User records to accessible target records.
+        """
+
+        if columns is None:
+            base = DBSession().query(cls)
+        else:
+            base = DBSession().query(*columns).select_from(cls)
+
+        self.check_cls_for_attributes(cls, self.properties_and_modes)
+
+        for prop in self.properties_and_modes:
+            mode = self.properties_and_modes[prop]
+            relationship = sa.inspect(cls).mapper.relationships[prop]
+            base = base.join(relationship.class_attribute)
+
+            join_target = relationship.entity.class_
+            logic = getattr(join_target, mode)
+
+            accessible_related_rows = logic.query_accessible_rows(
+                join_target, user_or_token, columns=[join_target.id]
+            ).subquery()
+
+            join_condition = accessible_related_rows.c.id == join_target.id
+            base = base.join(accessible_related_rows, join_condition)
+
+        return base
+
+
+class ComposedAccessControl(UserAccessControl):
+    @property
+    def access_controls(self):
+        return self._access_controls
+
+    @access_controls.setter
+    def access_controls(self, value):
+        error = ValueError(
+            f'access_controls must be a list or tuple of UserAccessControl, got {value.__class__.__name__}'
+        )
+        if not isinstance(value, (list, tuple)):
+            raise error
+        for v in value:
+            if not isinstance(v, UserAccessControl):
+                raise error
+        self._access_controls = value
+
+    @property
+    def logic(self):
+        return self._logic
+
+    @logic.setter
+    def logic(self, value):
+        if value not in ['and', 'or']:
+            raise ValueError(
+                f'composition logic must be either "and" or "or", got {value}.'
+            )
+        self._logic = value
+
+    def __init__(self, *access_controls, logic="and"):
+        self.access_controls = access_controls
+        self.logic = logic
+
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
+
+        if columns is not None:
+            query = DBSession().query(*columns).select_from(cls)
+        else:
+            query = DBSession().query(cls)
+
+        accessible_id_cols = []
+        for access_control in self.access_controls:
+            target_alias = sa.orm.aliased(cls)
+
+            # join against the first access control
+            accessible = access_control.query_accessible_rows(
+                target_alias, user_or_token, columns=[target_alias.id]
+            ).subquery()
+
+            join_condition = accessible.c.id == cls.id
+            if self.logic == 'and':
+                query = query.join(accessible, join_condition)
+            elif self.logic == 'or':
+                query = query.outerjoin(accessible, join_condition)
+            else:
+                raise ValueError(
+                    f'Invalid composition logic: {self.logic}, must be either "and" or "or".'
+                )
+            accessible_id_cols.append(accessible.c.id)
+
+        if self.logic == 'or':
+            query = query.filter(
+                sa.or_([col.isnot(None) for col in accessible_id_cols])
+            )
+
+        return query
+
+
+class Restricted(UserAccessControl):
+    """A record that can only be accessed by a System Admin."""
+
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a join table mapping User records to accessible target
+        records.
+
+        Parameters
+        ----------
+        cls: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            Access protected class or alias of the access protected class.
+        user_or_token: `baselayer.app.models.Base` or alias of
+        `baselayer.app.models.Base`
+            The `User` class or an alias of the `User` class.
+
+        Returns
+        -------
+        table: `sqlalchemy.sql.expression.Selectable`
+            SQLalchemy table mapping User records to accessible target records.
+        """
+
+        if user_or_token.is_admin:
+            return public.query_accessible_rows(cls, user_or_token, columns=columns)
 
         if columns is not None:
             return (
-                DBSession()
-                .query(*columns)
-                .select_from(target)
-                .filter(sa.literal(False))
+                DBSession().query(*columns).select_from(cls).filter(sa.literal(False))
             )
-        return DBSession().query(target).filter(sa.literal(False))
+        return DBSession().query(cls).filter(sa.literal(False))
+
+
+restricted = Restricted()
 
 
 class BaseMixin:
 
     # permission control logic
-    create = read = Public
-    update = delete = Restricted
+    create = read = public
+    update = delete = restricted
 
     def is_accessible_by(self, user_or_token, mode="read"):
         """Check if a User or Token has a specified type of access to this
@@ -334,12 +407,6 @@ class BaseMixin:
             Whether the User or Token has the specified type of access to
             the record.
         """
-
-        if not isinstance(user_or_token, (User, Token)):
-            raise ValueError(
-                'user_or_token must be an instance of User or Token, '
-                f'got {user_or_token.__class__.__name__}.'
-            )
 
         # get the classmethod that determines whether a record of type `cls` is
         # accessible to a user or token
@@ -655,7 +722,7 @@ def join_model(
     )
 
     model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
-    model.read = model.create = accessible_if_properties_are_accessible(
+    model.read = model.create = AccessibleIfRelatedRowsAreAccessible(
         **{model_1.__name__.lower(): 'read', model_2.__name__.lower(): 'read'}
     )
     return model
@@ -795,7 +862,7 @@ class Token(Base):
     """A command line token that can be used to programmatically access the API
     as a particular User."""
 
-    create = read = update = delete = AccessibleByCreatedBy
+    create = read = update = delete = accessible_by_created_by
 
     id = sa.Column(
         sa.String,
