@@ -139,7 +139,7 @@ class Public(UserAccessControl):
 public = Public()
 
 
-class AccessibleIfUserIs(UserAccessControl):
+class AccessibleIfUserMatches(UserAccessControl):
     def __init__(self, relationship_key):
         """Create a class that grants access to only one user (and System Admins).
         For access, the user's ID must match the value of the specified foreign key.
@@ -214,9 +214,9 @@ class AccessibleIfUserIs(UserAccessControl):
         return self.relationship_key.split('.')
 
 
-accessible_by_owner = AccessibleIfUserIs('owner')
-accessible_by_created_by = AccessibleIfUserIs('created_by')
-accessible_by_user = AccessibleIfUserIs('user')
+accessible_by_owner = AccessibleIfUserMatches('owner')
+accessible_by_created_by = AccessibleIfUserMatches('created_by')
+accessible_by_user = AccessibleIfUserMatches('user')
 
 
 class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
@@ -343,7 +343,7 @@ class ComposedAccessControl(UserAccessControl):
 
         if self.logic == 'or':
             query = query.filter(
-                sa.or_([col.isnot(None) for col in accessible_id_cols])
+                sa.or_(*[col.isnot(None) for col in accessible_id_cols])
             )
 
         return query
