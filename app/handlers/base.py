@@ -82,8 +82,13 @@ for (name, fn) in inspect.getmembers(
 class BaseHandler(PSABaseHandler):
 
     def verify_permissions(self):
+        """Check that the current user has permission to create, read,
+        update, or delete rows that are present in the session. If not,
+        raise an AccessError (causing the transaction to fail and the API to
+        respond with 400).
+        """
 
-        user_or_token = self.associated_user_object
+        user_or_token = self.current_user
 
         # get items to be inserted
         new_rows = [row for row in DBSession().new]
@@ -119,10 +124,9 @@ class BaseHandler(PSABaseHandler):
                         f'{mode} {type(row).__name__} {row.id}".'
                     )
 
-        # update transaction state in DB, but don't commit yet. this
-        # updates or adds rows in the database and uses their new /updated
-        # state in joins, for permissions checking purposes. if there
-        # are any bad accesses.
+        # update transaction state in DB, but don't commit yet. this updates
+        # or adds rows in the database and uses their new state in joins,
+        # for permissions checking purposes.
         DBSession().flush()
 
         for mode, collection in zip(['create'], [new_rows]):
