@@ -794,6 +794,13 @@ class BaseMixin:
 Base = declarative_base(cls=BaseMixin)
 
 
+class JoinModel:
+    """Dummy class that join_models subclass. Provides an easy way to
+    access all join_model mapped classes via the __subclasses__() method.
+    """
+    pass
+
+
 def join_model(
     join_table,
     model_1,
@@ -882,7 +889,7 @@ def join_model(
         }
     )
 
-    model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
+    model = type(model_1.__name__ + model_2.__name__, (base, JoinModel), model_attrs)
     model.read = model.create = AccessibleIfRelatedRowsAreAccessible(
         **{model_1.__name__.lower(): 'read', model_2.__name__.lower(): 'read'}
     )
