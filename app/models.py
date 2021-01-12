@@ -132,6 +132,73 @@ class UserAccessControl:
 
         raise NotImplementedError
 
+    def __and__(self, other):
+        """Return a policy that is the logical AND of two UserAccessControls.
+
+        Parameters
+        ----------
+        other: UserAccessControl
+            The access control to combine with this one.
+
+        Returns
+        -------
+        composed: ComposedAccessControl
+            The UserAccessControl representing the logical AND of the input access 
+            controls.
+
+
+        Examples
+        --------
+        Create an access control that grants access if the querying user is the record
+        owner AND the user that most recently modified the record
+
+            >>>> accessible_if_is_owner = AccessibleIfUserMatches('owner')
+            >>>> accessible_if_is_last_modifier = AccessibleIfUserMatches('last_modified_by')
+            >>>> access_control = accessible_if_is_owner & accessible_if_is_last_modifier
+        """
+
+        try:
+            retval = ComposedAccessControl(self, other, logic='and')
+        except TypeError:
+            raise TypeError(
+                f"unsupported operand type(s) for &: '{type(self).__name__}' "
+                f"and '{type(other).__name__}"
+            )
+        return retval
+
+    def __or__(self, other):
+        """Return a policy that is the logical OR of two UserAccessControls.
+
+        Parameters
+        ----------
+        other: UserAccessControl
+            The access control to combine with this one.
+
+        Returns
+        -------
+        composed: ComposedAccessControl
+            The UserAccessControl representing the logical OR of the input access 
+            controls.
+
+
+        Examples
+        --------
+        Create an access control that grants access if the querying user is the record
+        owner OR the user that most recently modified the record
+
+            >>>> accessible_if_is_owner = AccessibleIfUserMatches('owner')
+            >>>> accessible_if_is_last_modifier = AccessibleIfUserMatches('last_modified_by')
+            >>>> access_control = accessible_if_is_owner | accessible_if_is_last_modifier
+        """
+        try:
+            retval = ComposedAccessControl(self, other, logic='or')
+        except TypeError:
+            raise TypeError(
+                f"unsupported operand type(s) for |: '{type(self).__name__}' "
+                f"and '{type(other).__name__}"
+            )
+        return retval
+
 
 class Public(UserAccessControl):
     """A record accessible to anyone."""
@@ -798,6 +865,7 @@ class JoinModel:
     """Dummy class that join_models subclass. Provides an easy way to
     access all join_model mapped classes via the __subclasses__() method.
     """
+
     pass
 
 
