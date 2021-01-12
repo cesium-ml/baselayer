@@ -162,7 +162,7 @@ class UserAccessControl:
         except TypeError:
             raise TypeError(
                 f"unsupported operand type(s) for &: '{type(self).__name__}' "
-                f"and '{type(other).__name__}"
+                f"and '{type(other).__name__}'"
             )
         return retval
 
@@ -195,7 +195,7 @@ class UserAccessControl:
         except TypeError:
             raise TypeError(
                 f"unsupported operand type(s) for |: '{type(self).__name__}' "
-                f"and '{type(other).__name__}"
+                f"and '{type(other).__name__}'"
             )
         return retval
 
