@@ -1,0 +1,7 @@
+[program:app]
+numprocs={{ server.processes }}
+command=/usr/bin/env python baselayer/services/app/app.py --process=%(process_num)s %(ENV_FLAGS)s
+process_name=%(program_name)s_%(process_num)02d
+environment=PYTHONPATH=".",PYTHONUNBUFFERED=1
+stdout_logfile=log/app_%(process_num)02d.log
+redirect_stderr=true

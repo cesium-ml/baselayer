@@ -7,10 +7,11 @@ from .handlers import (
     MainPageHandler,
     SocketAuthTokenHandler,
     ProfileHandler,
-    LogoutHandler
+    LogoutHandler,
 )
 
 from .env import load_env
+
 env, cfg = load_env()
 
 
@@ -18,7 +19,6 @@ env, cfg = load_env()
 settings = {
     'template_path': './static',
     'login_url': '/',
-
     # Python Social Auth configuration
     'SOCIAL_AUTH_USER_MODEL': 'baselayer.app.models.User',
     'SOCIAL_AUTH_STORAGE': 'social_tornado.models.TornadoStorage',
@@ -29,17 +29,12 @@ settings = {
     'SOCIAL_AUTH_LOGIN_URL': '/',
     'SOCIAL_AUTH_LOGIN_REDIRECT_URL': '/',  # on success
     'SOCIAL_AUTH_LOGIN_ERROR_URL': '/login-error/',
-
     'SOCIAL_AUTH_USER_FIELDS': ['username'],
     'SOCIAL_AUTH_USERNAME_IS_FULL_EMAIL': True,
     'SOCIAL_AUTH_SESSION_EXPIRATION': True,
-
-    'SOCIAL_AUTH_GOOGLE_OAUTH2_KEY':
-        cfg['server.auth.google_oauth2_key'],
-    'SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET': \
-        cfg['server.auth.google_oauth2_secret'],
-    'SOCIAL_AUTH_REDIRECT_IS_HTTPS': \
-        cfg['server.auth.ssl']
+    'SOCIAL_AUTH_GOOGLE_OAUTH2_KEY': cfg['server.auth.google_oauth2_key'],
+    'SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET': cfg['server.auth.google_oauth2_secret'],
+    'SOCIAL_AUTH_REDIRECT_IS_HTTPS': cfg['server.ssl'],
 }
 
 if cfg['server.auth.debug_login']:
@@ -51,8 +46,7 @@ handlers = SOCIAL_AUTH_ROUTES + [
     (r'/baselayer/socket_auth_token', SocketAuthTokenHandler),
     (r'/baselayer/profile', ProfileHandler),
     (r'/baselayer/logout', LogoutHandler),
-
     (r'/()', MainPageHandler),
     (r'/static/(.*)', tornado.web.StaticFileHandler, {'path': 'static/'}),
-    (r'/(favicon.png)', tornado.web.StaticFileHandler, {'path': 'static/'})
+    (r'/(favicon.png)', tornado.web.StaticFileHandler, {'path': 'static/'}),
 ]

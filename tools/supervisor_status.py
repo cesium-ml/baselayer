@@ -22,8 +22,9 @@ def supervisor_status():
     """
     result = subprocess.run(
         'python -m supervisor.supervisorctl -c baselayer/conf/supervisor/supervisor.conf status',
-        shell=True, cwd=base_dir,
-        stdout=subprocess.PIPE
+        shell=True,
+        cwd=base_dir,
+        stdout=subprocess.PIPE,
     )
     return result.stdout.decode().split('\n')[:-1], result.returncode
 

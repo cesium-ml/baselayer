@@ -2,6 +2,7 @@ from datetime import datetime
 import uuid
 from hashlib import md5
 
+from slugify import slugify
 import sqlalchemy as sa
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
@@ -33,9 +34,12 @@ def init_db(user, database, password=None, host=None, port=None):
     url = 'postgresql://{}:{}@{}:{}/{}'
     url = url.format(user, password or '', host or '', port or '', database)
 
-    conn = sa.create_engine(url, client_encoding='utf8',
-                            executemany_mode='values',
-                            executemany_values_page_size=EXECUTEMANY_PAGESIZE)
+    conn = sa.create_engine(
+        url,
+        client_encoding='utf8',
+        executemany_mode='values',
+        executemany_values_page_size=EXECUTEMANY_PAGESIZE,
+    )
 
     DBSession.configure(bind=conn)
     Base.metadata.bind = conn
@@ -43,16 +47,42 @@ def init_db(user, database, password=None, host=None, port=None):
     return conn
 
 
+class SlugifiedStr(sa.types.TypeDecorator):
+    """Slugified string"""
+
+    impl = sa.String
+
+    # Used with INSERT
+    def process_bind_param(self, value, dialect):
+        return slugify(value)
+
+    # Used with SELECT
+    def process_result_value(self, value, dialect):
+        return value
+
 
 class BaseMixin(object):
     query = DBSession.query_property()
-    id = sa.Column(sa.Integer, primary_key=True)
-    created_at = sa.Column(sa.DateTime, nullable=False, default=utcnow)
-    modified = sa.Column(sa.DateTime, default=utcnow, onupdate=utcnow,
-                         nullable=False)
+    id = sa.Column(
+        sa.Integer, primary_key=True, doc='Unique object identifier.'
+    )
+    created_at = sa.Column(
+        sa.DateTime,
+        nullable=False,
+        default=utcnow,
+        doc="UTC time of insertion of object's row into the database.",
+    )
+    modified = sa.Column(
+        sa.DateTime,
+        default=utcnow,
+        onupdate=utcnow,
+        nullable=False,
+        doc="UTC time the object's row was last modified in the database.",
+    )
 
     @declared_attr
     def __tablename__(cls):
+        """The name of this class's mapped database table."""
         return cls.__name__.lower() + 's'
 
     __mapper_args__ = {'confirm_deleted_rows': False}
@@ -61,29 +91,66 @@ class BaseMixin(object):
         return to_json(self)
 
     def __repr__(self):
-        attr_list = [f"{c.name}={getattr(self, c.name)}"
-                     for c in self.__table__.columns]
+        attr_list = [
+            f"{c.name}={getattr(self, c.name)}" for c in self.__table__.columns
+        ]
         return f"<{type(self).__name__}({', '.join(attr_list)})>"
 
     def to_dict(self):
+        """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
             DBSession().refresh(self)
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        return {
+            k: v for k, v in self.__dict__.items() if not k.startswith('_')
+        }
 
     @classmethod
-    def get_if_owned_by(cls, ident, user, options=[]):
+    def get_if_readable_by(cls, ident, user_or_token, options=[]):
+        """Return an object from the database if the requesting User or Token
+        has access to read the object. If the requesting User or Token does not
+        have access, raise an AccessError.
+
+        Parameters
+        ----------
+        ident : integer or string
+           Primary key of the requested object.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The requesting `User` or `Token` object.
+        options : list of `sqlalchemy.orm.MapperOption`s
+           Options that wil be passed to `options()` in the loader query.
+
+        Returns
+        -------
+        obj : baselayer.app.models.Base
+           The requested entity.
+        """
         obj = cls.query.options(options).get(ident)
 
-        if obj is not None and not obj.is_owned_by(user):
+        if obj is not None and not obj.is_readable_by(user_or_token):
             raise AccessError('Insufficient permissions.')
 
         return obj
 
-    def is_owned_by(self, user):
+    def is_readable_by(self, user_or_token):
+        """Return a boolean indicating whether a User or Token has read access
+        to this object.
+
+        Parameters
+        ----------
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The User or Token to check.
+
+        Returns
+        -------
+        readable : bool
+           Whether this object is readable to the user.
+        """
         raise NotImplementedError("Ownership logic is application-specific")
 
     @classmethod
     def create_or_get(cls, id):
+        """Return a new `cls` if an instance with the specified primary key
+        does not exist, else return the existing instance."""
         obj = cls.query.get(id)
         if obj is not None:
             return obj
@@ -94,8 +161,16 @@ class BaseMixin(object):
 Base = declarative_base(cls=BaseMixin)
 
 
-def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
-               fk_1='id', fk_2='id', base=Base):
+def join_model(
+    join_table,
+    model_1,
+    model_2,
+    column_1=None,
+    column_2=None,
+    fk_1='id',
+    fk_2='id',
+    base=Base,
+):
     """Helper function to create a join table for a many-to-many relationship.
 
     Parameters
@@ -136,26 +211,35 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
     model_attrs = {
         '__tablename__': join_table,
         'id': None,
-        column_1: sa.Column(column_1, sa.ForeignKey(f'{table_1}.{fk_1}',
-                                                    ondelete='CASCADE'),
-                            primary_key=True),
-        column_2: sa.Column(column_2, sa.ForeignKey(f'{table_2}.{fk_2}',
-                                                    ondelete='CASCADE'),
-                            primary_key=True)
+        column_1: sa.Column(
+            column_1,
+            sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
+            primary_key=True,
+        ),
+        column_2: sa.Column(
+            column_2,
+            sa.ForeignKey(f'{table_2}.{fk_2}', ondelete='CASCADE'),
+            primary_key=True,
+        ),
     }
 
-    model_attrs.update({
-        model_1.__name__.lower(): relationship(
-            model_1, cascade='save-update, merge, refresh-expire, expunge',
-            foreign_keys=[model_attrs[column_1]]),
-        model_2.__name__.lower(): relationship(
-            model_2, cascade='save-update, merge, refresh-expire, expunge',
-            foreign_keys=[model_attrs[column_2]]),
-        reverse_ind_name: sa.Index(reverse_ind_name,
-                                   model_attrs[column_2],
-                                   model_attrs[column_1])
-
-    })
+    model_attrs.update(
+        {
+            model_1.__name__.lower(): relationship(
+                model_1,
+                cascade='save-update, merge, refresh-expire, expunge',
+                foreign_keys=[model_attrs[column_1]],
+            ),
+            model_2.__name__.lower(): relationship(
+                model_2,
+                cascade='save-update, merge, refresh-expire, expunge',
+                foreign_keys=[model_attrs[column_2]],
+            ),
+            reverse_ind_name: sa.Index(
+                reverse_ind_name, model_attrs[column_2], model_attrs[column_1]
+            ),
+        }
+    )
 
     model = type(model_1.__name__ + model_2.__name__, (base,), model_attrs)
 
@@ -163,80 +247,206 @@ def join_model(join_table, model_1, model_2, column_1=None, column_2=None,
 
 
 class ACL(Base):
-    id = sa.Column(sa.String, nullable=False, primary_key=True)
+    """An access control list item representing a privilege within the
+    application. ACLs are aggregated into collections called Roles which
+    are assumed by Users. Examples of ACLs include `Upload Data`, `Comment`,
+    and `Manage Groups`.
+    """
+
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc='ACL name.'
+    )
 
 
 class Role(Base):
-    id = sa.Column(sa.String, nullable=False, primary_key=True)
-    acls = relationship('ACL', secondary='role_acls',
-                        passive_deletes=True)
-    users = relationship('User', secondary='user_roles', back_populates='roles',
-                         passive_deletes=True)
+    """A collection of ACLs. Roles map Users to ACLs. One User may assume
+    multiple Roles."""
+
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc='Role name.'
+    )
+    acls = relationship(
+        'ACL',
+        secondary='role_acls',
+        passive_deletes=True,
+        doc='ACLs associated with the Role.',
+    )
+    users = relationship(
+        'User',
+        secondary='user_roles',
+        back_populates='roles',
+        passive_deletes=True,
+        doc='Users who have this Role.',
+    )
 
 
 RoleACL = join_model('role_acls', Role, ACL)
+RoleACL.__doc__ = "Join table class mapping Roles to ACLs."
 
 
 class User(Base):
-    username = sa.Column(sa.String, nullable=False, unique=True)
+    """An application user."""
 
-    first_name = sa.Column(sa.String, nullable=True)
-    last_name = sa.Column(sa.String, nullable=True)
-    contact_email = sa.Column(EmailType(), nullable=True)
-    contact_phone = sa.Column(PhoneNumberType(), nullable=True)
+    username = sa.Column(
+        SlugifiedStr, nullable=False, unique=True, doc="The user's username."
+    )
 
-    roles = relationship('Role', secondary='user_roles', back_populates='users',
-                         passive_deletes=True)
-    role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r))
-    tokens = relationship('Token', cascade='save-update, merge, refresh-expire, expunge',
-                          back_populates='created_by', passive_deletes=True)
-    preferences = sa.Column(JSONB, nullable=True)
+    first_name = sa.Column(
+        sa.String, nullable=True, doc="The User's first name."
+    )
+    last_name = sa.Column(
+        sa.String, nullable=True, doc="The User's last name."
+    )
+    contact_email = sa.Column(
+        EmailType(),
+        nullable=True,
+        doc="The phone number at which the user prefers to receive "
+        "communications.",
+    )
+    contact_phone = sa.Column(
+        PhoneNumberType(),
+        nullable=True,
+        doc="The email at which the user prefers to receive "
+        "communications.",
+    )
+    oauth_uid = sa.Column(
+        sa.String, unique=True, doc="The user's OAuth UID."
+    )
+    preferences = sa.Column(
+        JSONB, nullable=True, doc="The user's application settings."
+    )
+
+    roles = relationship(
+        'Role',
+        secondary='user_roles',
+        back_populates='users',
+        passive_deletes=True,
+        doc='The roles assumed by this user.',
+    )
+    role_ids = association_proxy(
+        'roles',
+        'id',
+        creator=lambda r: Role.query.get(r),
+    )
+    tokens = relationship(
+        'Token',
+        cascade='save-update, merge, refresh-expire, expunge',
+        back_populates='created_by',
+        passive_deletes=True,
+        doc="This user's tokens.",
+    )
+    acls = relationship(
+        "ACL",
+        secondary="user_acls",
+        passive_deletes=True,
+        doc="ACLs granted to user, separate from role-level ACLs",
+    )
 
     @property
     def gravatar_url(self):
-        email = self.contact_email if \
-                self.contact_email is not None else self.username
+        """The Gravatar URL inferred from the user's contact email, or, if the
+        contact email is null, the username."""
+        email = (
+            self.contact_email
+            if self.contact_email is not None
+            else self.username
+        )
 
         digest = md5(email.lower().encode('utf-8')).hexdigest()
-        # return a 404 status code if not found on gravatar
-        return f'https://www.gravatar.com/avatar/{digest}?d=404'
+        # return a transparent png if not found on gravatar
+        return f'https://secure.gravatar.com/avatar/{digest}?d=blank'
 
     @property
-    def acls(self):
+    def _acls_from_roles(self):
+        """List of the ACLs associated with the user's role(s)."""
         return list({acl for role in self.roles for acl in role.acls})
 
     @property
     def permissions(self):
-        return [acl.id for acl in self.acls]
+        """List of the names of all of the user's ACLs (role-level + individual)."""
+        return list(
+            {acl.id for acl in self.acls}
+            .union({acl.id for acl in self._acls_from_roles})
+        )
 
     @classmethod
     def user_model(cls):
+        """The base model for User subclasses."""
         return User
 
     def is_authenticated(self):
+        """Boolean flag indicating whether the User is currently
+        authenticated."""
         return True
 
     def is_active(self):
+        """Boolean flag indicating whether the User is currently active."""
         return True
 
 
-class Token(Base):
-    id = sa.Column(sa.String, nullable=False, primary_key=True,
-                   default=lambda: str(uuid.uuid4()))
-    created_by_id = sa.Column(sa.ForeignKey('users.id', ondelete='CASCADE'),
-                              nullable=True)
-    created_by = relationship('User', back_populates='tokens')
-    acls = relationship('ACL', secondary='token_acls',
-                        passive_deletes=True)
-    acl_ids = association_proxy('acls', 'id',
-                                creator=lambda acl: ACL.query.get(acl))
-    permissions = acl_ids
-    name = sa.Column(sa.String, nullable=False, unique=True,
-                     default=lambda: str(uuid.uuid4()))
+UserACL = join_model('user_acls', User, ACL)
+UserACL.__doc__ = 'Join table mapping Users to ACLs'
 
-    def is_owned_by(self, user_or_token):
-        return (user_or_token.id in [self.created_by_id, self.id])
+
+class Token(Base):
+    """A command line token that can be used to programmatically access the API
+    as a particular User."""
+
+    id = sa.Column(
+        sa.String,
+        nullable=False,
+        primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+        doc="The value of the token. This field is used for authenticating as "
+        "a User on the command line.",
+    )
+
+    created_by_id = sa.Column(
+        sa.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=True,
+        doc="The ID of the User that created the Token.",
+    )
+    created_by = relationship(
+        'User', back_populates='tokens', doc="The User that created the token."
+    )
+    acls = relationship(
+        'ACL',
+        secondary='token_acls',
+        passive_deletes=True,
+        doc="The ACLs granted to the Token.",
+    )
+    acl_ids = association_proxy(
+        'acls',
+        'id',
+        creator=lambda acl: ACL.query.get(acl)
+    )
+    permissions = acl_ids
+    name = sa.Column(
+        sa.String,
+        nullable=False,
+        unique=True,
+        default=lambda: str(uuid.uuid4()),
+        doc="The name of the token.",
+    )
+
+    def is_readable_by(self, user_or_token):
+        """Return a boolean indicating whether this Token is readable by the
+        specified User (or Token instance, if a token is passed).
+
+        Parameters
+        ----------
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+           The User or Token to check.
+
+        Returns
+        -------
+        readable : bool
+           Whether this Token instance is readable by the User or Token.
+        """
+        return user_or_token.id in [self.created_by_id, self.id]
 
 
 TokenACL = join_model('token_acls', Token, ACL)
+TokenACL.__doc__ = 'Join table mapping Tokens to ACLs'
 UserRole = join_model('user_roles', User, Role)
+UserRole.__doc__ = 'Join table mapping Users to Roles.'

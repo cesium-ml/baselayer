@@ -1,5 +1,7 @@
+import time
+import inspect
 import tornado.escape
-from sqlalchemy.orm import joinedload
+from tornado.web import RequestHandler
 from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
@@ -8,13 +10,71 @@ from json.decoder import JSONDecodeError
 # `get_current_user` is needed by tornado.authentication,
 # and provides a cached version, `current_user`, that should
 # be used to look up the logged in user.
-from social_tornado.handlers import BaseHandler as PSABaseHandler
+import social_tornado.handlers as psa_handlers
+
+# Initialize PSA tornado models
+from .. import psa  # noqa
 
 from ..models import DBSession, User
 from ..json_util import to_json
 from ..flow import Flow
+from ..env import load_env
+from ...log import make_log
 
-import time
+env, cfg = load_env()
+log = make_log('basehandler')
+
+
+# Monkey-patch Python Social Auth's base handler
+#
+# See
+# https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
+# for the original
+#
+# Python Social Auth documentation:
+# https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+
+class PSABaseHandler(RequestHandler):
+    """
+    Mixin used by Python Social Auth
+    """
+
+    def user_id(self):
+        return self.get_secure_cookie('user_id')
+
+    def get_current_user(self):
+        user_id = self.user_id()
+        oauth_uid = self.get_secure_cookie('user_oauth_uid')
+        if user_id and oauth_uid:
+            user = User.query.get(int(user_id))
+            if user is None:
+                return
+            sa = user.social_auth.first()
+            if sa is None:
+                # No SocialAuth entry; probably machine generated user
+                return user
+            if (sa.uid.encode('utf-8') == oauth_uid):
+                return user
+
+    def login_user(self, user):
+        self.set_secure_cookie('user_id', str(user.id))
+        sa = user.social_auth.first()
+        if sa is not None:
+            self.set_secure_cookie('user_oauth_uid', sa.uid)
+
+    def write_error(self, status_code, exc_info=None):
+        if exc_info is not None:
+            err_cls, err, traceback = exc_info
+        else:
+            err = "An unknown error occurred"
+        self.render("loginerror.html", app=cfg["app"], error_message=str(err))
+
+
+# Monkey-patch in each method of social_tornado.handlers.BaseHandler
+for (name, fn) in inspect.getmembers(
+        PSABaseHandler, predicate=inspect.isfunction
+):
+    setattr(psa_handlers.BaseHandler, name, fn)
 
 
 class BaseHandler(PSABaseHandler):
@@ -24,10 +84,10 @@ class BaseHandler(PSABaseHandler):
 
         # Remove slash prefixes from arguments
         if self.path_args:
-            self.path_args = [arg.lstrip('/') if arg is not None else None
-                              for arg in self.path_args]
-            self.path_args = [arg if (arg != '') else None
-                              for arg in self.path_args]
+            self.path_args = [
+                arg.lstrip('/') if arg is not None else None for arg in self.path_args
+            ]
+            self.path_args = [arg if (arg != '') else None for arg in self.path_args]
 
         # If there are no arguments, make it explicit, otherwise
         # get / post / put / delete all have to accept an optional kwd argument
@@ -40,28 +100,13 @@ class BaseHandler(PSABaseHandler):
             try:
                 assert DBSession.session_factory.kw['bind'] is not None
             except Exception as e:
-                if (i == N):
+                if i == N:
                     raise e
                 else:
-                    print('Error connecting to database, sleeping for a while')
+                    log('Error connecting to database, sleeping for a while')
                     time.sleep(5)
 
         return super(BaseHandler, self).prepare()
-
-    def get_current_user(self):
-        """Get currently logged in user.
-
-        The currently logged in user_id is stored in a secure cookie
-        by Python Social Auth.
-        """
-        # This cookie is set by Python Social Auth's
-        # BaseHandler:
-        # https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
-        user_id = self.get_secure_cookie('user_id')
-        if user_id is None:
-            return None
-        else:
-            return User.query.get(int(user_id))
 
     def push(self, action, payload={}):
         """Broadcast a message to current frontend user.
@@ -77,7 +122,7 @@ class BaseHandler(PSABaseHandler):
         """
         # Don't push messages if current user is a token
         if hasattr(self.current_user, 'username'):
-            self.flow.push(self.current_user.username, action, payload)
+            self.flow.push(self.current_user.id, action, payload)
 
     def push_all(self, action, payload={}):
         """Broadcast a message to all frontend users.
@@ -114,7 +159,8 @@ class BaseHandler(PSABaseHandler):
         except JSONDecodeError:
             raise Exception(
                 f'JSON decode of request body failed on {self.request.uri}.'
-                ' Please ensure all requests are of type application/json.')
+                ' Please ensure all requests are of type application/json.'
+            )
 
     def on_finish(self):
         DBSession.remove()
@@ -144,15 +190,11 @@ class BaseHandler(PSABaseHandler):
         extra : dict
             Extra fields to be included in the response.
         """
-        print(f'[!] Error in `{self.request.path}`: {message}')
+        log(f'Error response returned by [{self.request.path}]: [{message}]')
 
+        self.set_header("Content-Type", "application/json")
         self.set_status(status)
-        self.write({
-            "status": "error",
-            "message": message,
-            "data": data,
-            **extra
-        })
+        self.write({"status": "error", "message": message, "data": data, **extra})
 
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
@@ -168,8 +210,7 @@ class BaseHandler(PSABaseHandler):
         """
         self.push(action, payload)
 
-    def success(self, data={}, action=None, payload={}, status=200,
-                extra={}):
+    def success(self, data={}, action=None, payload={}, status=200, extra={}):
         """Write data and send actions on API success.
 
         The return JSON has the following format::
@@ -200,13 +241,9 @@ class BaseHandler(PSABaseHandler):
         if action is not None:
             self.action(action, payload)
 
+        self.set_header("Content-Type", "application/json")
         self.set_status(status)
-        self.write(to_json(
-            {
-                "status": "success",
-                "data": data,
-                **extra
-            }))
+        self.write(to_json({"status": "success", "data": data, **extra}))
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
@@ -221,12 +258,13 @@ class BaseHandler(PSABaseHandler):
         PORT_SCHEDULER = self.cfg['ports.dask']
 
         from distributed import Client
-        client = await Client('{}:{}'.format(IP, PORT_SCHEDULER),
-                              asynchronous=True)
+
+        client = await Client('{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True)
 
         return client
 
     def push_notification(self, note, notification_type='info'):
-        self.push(action='baselayer/SHOW_NOTIFICATION',
-                  payload={'note': note,
-                           'type': notification_type})
+        self.push(
+            action='baselayer/SHOW_NOTIFICATION',
+            payload={'note': note, 'type': notification_type},
+        )

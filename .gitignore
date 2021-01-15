@@ -17,4 +17,6 @@ doc/_build
 # These are built from templates
 conf/supervisor/supervisor.conf
 services/dask/supervisor.conf
+services/app/supervisor.conf
+services/nginx/nginx.conf
 conf/nginx.conf

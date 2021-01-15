@@ -5,7 +5,7 @@ ESLINT=npx eslint
 
 # Use `config.yaml` by default, unless overridden by user
 # through setting FLAGS environment variable
-FLAGS:=$(if $(FLAGS),$(FLAGS),"--config=config.yaml")
+FLAGS:=$(if $(FLAGS),$(FLAGS),--config=config.yaml)
 
 PYTHON=PYTHONPATH=. python
 ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
@@ -14,7 +14,7 @@ ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
 # Inside of supervisord configuration files, you may reference them using
 # %(ENV_FLAGS)s
 SUPERVISORD_CFG=baselayer/conf/supervisor/supervisor.conf
-SUPERVISORD=$(PYTHON) -m supervisor.supervisord -c $(SUPERVISORD_CFG)
+SUPERVISORD=$(PYTHON) -m supervisor.supervisord -s -c $(SUPERVISORD_CFG)
 SUPERVISORCTL=$(PYTHON) -m supervisor.supervisorctl -c $(SUPERVISORD_CFG)
 
 LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('baselayer'); spl('$1')"
@@ -32,7 +32,7 @@ webpack = npx webpack
 
 .PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
-.PHONY: stop status test_headless test check-js-updates lint-install
+.PHONY: stop status test_headless test test_report check-js-updates lint-install
 .PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
 .PHONY: system_setup service_setup
 .PHONY: $(bundle) bundle bundle-watch
@@ -79,6 +79,7 @@ log: paths
 	@PYTHONPATH=. PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
 
 run: ## Start the web application.
+run: FLAGS:=$(FLAGS) --debug
 run: system_setup
 	@echo
 	$(call LOG, Starting micro-services)
@@ -90,24 +91,24 @@ run: system_setup
 	@echo
 	@echo "  JavaScript and Python files will be reloaded upon change."
 	@echo
-	@export FLAGS="$(FLAGS) --debug" && \
+	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && echo && \
 	echo "Press Ctrl-C to abort the server" && \
 	echo && \
 	$(SUPERVISORD)
 
 run_production: ## Run the web application in production mode (no dependency checking).
-run_production: system_setup
+run_production:
 	@echo "[!] Production run: not automatically installing dependencies."
 	@echo
 	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-run_testing: FLAGS = "--config=test_config.yaml"  # both this and the next FLAGS definition are needed
+run_testing: FLAGS=--config=test_config.yaml  # both this and the next FLAGS definition are needed
 run_testing: system_setup
 	@echo -e "\n$(B)[baselayer] Launch app for testing$(N)"
-	@export FLAGS=$(FLAGS) && \
+	@export FLAGS="$(FLAGS) --debug" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
@@ -130,17 +131,17 @@ stop: ## Stop all running services.
 status:
 	@PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
 
-test_headless: ## Run tests headlessly with xvfb (Linux only).
+test_headless: ## Run tests headlessly
 test_headless: system_setup
-	@PYTHONPATH='.' xvfb-run baselayer/tools/test_frontend.py
+	@PYTHONPATH='.' baselayer/tools/test_frontend.py --headless --xml
 
 test: ## Run tests.
 test: system_setup
-	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py
-
-test_xml: ## Run tests and generate JUnit XML output.
-test_xml: paths dependencies fill_conf_values
 	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml
+
+test_report: ## Print report on failed tests
+test_report:
+	@PYTHONPATH='.' baselayer/tools/junitxml_report.py test-results/junit.xml
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
