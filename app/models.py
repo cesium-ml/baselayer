@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from hashlib import md5
 
@@ -23,19 +24,19 @@ DBSession = scoped_session(sessionmaker())
 EXECUTEMANY_PAGESIZE = 50000
 
 
-utcnow = func.timezone('UTC', func.current_timestamp())
+utcnow = func.timezone("UTC", func.current_timestamp())
 
 
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
-def init_db(user, database, password=None, host=None, port=None, autoflush=True):
-    url = 'postgresql://{}:{}@{}:{}/{}'
-    url = url.format(user, password or '', host or '', port or '', database)
+def init_db(user, database, password=None, host=None, port=None):
+    url = "postgresql://{}:{}@{}:{}/{}"
+    url = url.format(user, password or "", host or "", port or "", database)
 
     conn = sa.create_engine(
         url,
-        client_encoding='utf8',
-        executemany_mode='values',
+        client_encoding="utf8",
+        executemany_mode="values",
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
     )
 
@@ -56,6 +57,29 @@ class SlugifiedStr(sa.types.TypeDecorator):
 
     # Used with SELECT
     def process_result_value(self, value, dialect):
+        return value
+
+
+class TZDateTime(sa.types.TypeDecorator):
+    """Convert incoming datetimes to naive (no-tzinfo) UTC values for
+    the database. Values read from the database are than converted to
+    timezone-aware Python datetime values."""
+
+    impl = sa.DateTime
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            # Assume UTC time if no timezone info is provided
+            if not value.tzinfo:
+                return value
+            value = value.astimezone(datetime.timezone.utc).replace(
+                tzinfo=None
+            )
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = value.replace(tzinfo=datetime.timezone.utc)
         return value
 
 
@@ -863,16 +887,18 @@ class BaseMixin:
         )
 
     query = DBSession.query_property()
-    id = sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.')
+    id = sa.Column(
+        sa.Integer, primary_key=True, doc="Unique object identifier."
+    )
     created_at = sa.Column(
-        sa.DateTime,
+        TZDateTime,
         nullable=False,
         default=utcnow,
         index=True,
         doc="UTC time of insertion of object's row into the database.",
     )
     modified = sa.Column(
-        sa.DateTime,
+        TZDateTime,
         default=utcnow,
         onupdate=utcnow,
         nullable=False,
@@ -882,9 +908,9 @@ class BaseMixin:
     @declared_attr
     def __tablename__(cls):
         """The name of this class's mapped database table."""
-        return cls.__name__.lower() + 's'
+        return cls.__name__.lower() + "s"
 
-    __mapper_args__ = {'confirm_deleted_rows': False}
+    __mapper_args__ = {"confirm_deleted_rows": False}
 
     def __str__(self):
         return to_json(self)
@@ -899,10 +925,12 @@ class BaseMixin:
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
             DBSession().refresh(self)
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        return {
+            k: v for k, v in self.__dict__.items() if not k.startswith("_")
+        }
 
     @classmethod
-    def get_if_readable_by(cls, ident, user_or_token, options=[]):
+    def get_if_owned_by(cls, ident, user_or_token, options=[]):
         """Return an object from the database if the requesting User or Token
         has access to read the object. If the requesting User or Token does not
         have access, raise an AccessError.
@@ -923,12 +951,12 @@ class BaseMixin:
         """
         obj = cls.query.options(options).get(ident)
 
-        if obj is not None and not obj.is_readable_by(user_or_token):
-            raise AccessError('Insufficient permissions.')
+        if obj is not None and not obj.is_owned_by(user_or_token):
+            raise AccessError("Insufficient permissions.")
 
         return obj
 
-    def is_readable_by(self, user_or_token):
+    def is_owned_by(self, user_or_token):
         """Return a boolean indicating whether a User or Token has read access
         to this object.
 
@@ -939,7 +967,7 @@ class BaseMixin:
 
         Returns
         -------
-        readable : bool
+        owned : bool
            Whether this object is readable to the user.
         """
         raise NotImplementedError("Ownership logic is application-specific")
@@ -972,8 +1000,8 @@ def join_model(
     model_2,
     column_1=None,
     column_2=None,
-    fk_1='id',
-    fk_2='id',
+    fk_1="id",
+    fk_2="id",
     base=Base,
 ):
     """Helper function to create a join table for a many-to-many relationship.
@@ -1008,7 +1036,7 @@ def join_model(
     table_1 = model_1.__tablename__
     table_2 = model_2.__tablename__
     if column_1 is None:
-        column_1 = f'{table_1[:-1]}_id'
+        column_1 = f"{table_1[:-1]}_id"
     if column_2 is None:
         column_2 = f'{table_2[:-1]}_id'
 
@@ -1034,12 +1062,12 @@ def join_model(
         {
             model_1.__name__.lower(): relationship(
                 model_1,
-                cascade='save-update, merge, refresh-expire, expunge',
+                cascade="save-update, merge, refresh-expire, expunge",
                 foreign_keys=[model_attrs[column_1]],
             ),
             model_2.__name__.lower(): relationship(
                 model_2,
-                cascade='save-update, merge, refresh-expire, expunge',
+                cascade="save-update, merge, refresh-expire, expunge",
                 foreign_keys=[model_attrs[column_2]],
             ),
             forward_ind_name: sa.Index(
@@ -1068,30 +1096,34 @@ class ACL(Base):
     and `Manage Groups`.
     """
 
-    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='ACL name.')
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc="ACL name."
+    )
 
 
 class Role(Base):
     """A collection of ACLs. Roles map Users to ACLs. One User may assume
     multiple Roles."""
 
-    id = sa.Column(sa.String, nullable=False, primary_key=True, doc='Role name.')
+    id = sa.Column(
+        sa.String, nullable=False, primary_key=True, doc="Role name."
+    )
     acls = relationship(
-        'ACL',
-        secondary='role_acls',
+        "ACL",
+        secondary="role_acls",
         passive_deletes=True,
-        doc='ACLs associated with the Role.',
+        doc="ACLs associated with the Role.",
     )
     users = relationship(
-        'User',
-        secondary='user_roles',
-        back_populates='roles',
+        "User",
+        secondary="user_roles",
+        back_populates="roles",
         passive_deletes=True,
-        doc='Users who have this Role.',
+        doc="Users who have this Role.",
     )
 
 
-RoleACL = join_model('role_acls', Role, ACL)
+RoleACL = join_model("role_acls", Role, ACL)
 RoleACL.__doc__ = "Join table class mapping Roles to ACLs."
 
 
@@ -1124,17 +1156,21 @@ class User(Base):
     )
 
     roles = relationship(
-        'Role',
-        secondary='user_roles',
-        back_populates='users',
+        "Role",
+        secondary="user_roles",
+        back_populates="users",
         passive_deletes=True,
-        doc='The roles assumed by this user.',
+        doc="The roles assumed by this user.",
     )
-    role_ids = association_proxy('roles', 'id', creator=lambda r: Role.query.get(r),)
+    role_ids = association_proxy(
+        "roles",
+        "id",
+        creator=lambda r: Role.query.get(r),
+    )
     tokens = relationship(
-        'Token',
-        cascade='save-update, merge, refresh-expire, expunge',
-        back_populates='created_by',
+        "Token",
+        cascade="save-update, merge, refresh-expire, expunge",
+        back_populates="created_by",
         passive_deletes=True,
         doc="This user's tokens.",
         foreign_keys="Token.created_by_id",
@@ -1152,9 +1188,9 @@ class User(Base):
         contact email is null, the username."""
         email = self.contact_email if self.contact_email is not None else self.username
 
-        digest = md5(email.lower().encode('utf-8')).hexdigest()
+        digest = md5(email.lower().encode("utf-8")).hexdigest()
         # return a transparent png if not found on gravatar
-        return f'https://secure.gravatar.com/avatar/{digest}?d=blank'
+        return f"https://secure.gravatar.com/avatar/{digest}?d=blank"
 
     @property
     def _acls_from_roles(self):
@@ -1186,9 +1222,8 @@ class User(Base):
 
     is_admin = property(is_admin)
 
-
-UserACL = join_model('user_acls', User, ACL)
-UserACL.__doc__ = 'Join table mapping Users to ACLs'
+UserACL = join_model("user_acls", User, ACL)
+UserACL.__doc__ = "Join table mapping Users to ACLs"
 
 
 class Token(Base):
@@ -1207,20 +1242,22 @@ class Token(Base):
     )
 
     created_by_id = sa.Column(
-        sa.ForeignKey('users.id', ondelete='CASCADE'),
+        sa.ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
         doc="The ID of the User that created the Token.",
     )
     created_by = relationship(
-        'User', back_populates='tokens', doc="The User that created the token."
+        "User", back_populates="tokens", doc="The User that created the token."
     )
     acls = relationship(
-        'ACL',
-        secondary='token_acls',
+        "ACL",
+        secondary="token_acls",
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
     )
-    acl_ids = association_proxy('acls', 'id', creator=lambda acl: ACL.query.get(acl))
+    acl_ids = association_proxy(
+        "acls", "id", creator=lambda acl: ACL.query.get(acl)
+    )
     permissions = acl_ids
 
     name = sa.Column(
@@ -1244,16 +1281,16 @@ class Token(Base):
 
         Returns
         -------
-        readable : bool
-           Whether this Token instance is readable by the User or Token.
+        owned : bool
+           Whether this Token instance is owned by the User or Token.
         """
         return user_or_token.id in [self.created_by_id, self.id]
 
 
-TokenACL = join_model('token_acls', Token, ACL)
-TokenACL.__doc__ = 'Join table mapping Tokens to ACLs'
-UserRole = join_model('user_roles', User, Role)
-UserRole.__doc__ = 'Join table mapping Users to Roles.'
+TokenACL = join_model("token_acls", Token, ACL)
+TokenACL.__doc__ = "Join table mapping Tokens to ACLs"
+UserRole = join_model("user_roles", User, Role)
+UserRole.__doc__ = "Join table mapping Users to Roles."
 
 
 class CronJobRun(Base):
