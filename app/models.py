@@ -930,7 +930,7 @@ class BaseMixin:
         }
 
     @classmethod
-    def get_if_owned_by(cls, ident, user_or_token, options=[]):
+    def get_if_readable_by(cls, ident, user_or_token, options=[]):
         """Return an object from the database if the requesting User or Token
         has access to read the object. If the requesting User or Token does not
         have access, raise an AccessError.
@@ -951,12 +951,12 @@ class BaseMixin:
         """
         obj = cls.query.options(options).get(ident)
 
-        if obj is not None and not obj.is_owned_by(user_or_token):
+        if obj is not None and not obj.is_readable_by(user_or_token):
             raise AccessError("Insufficient permissions.")
 
         return obj
 
-    def is_owned_by(self, user_or_token):
+    def is_readable_by(self, user_or_token):
         """Return a boolean indicating whether a User or Token has read access
         to this object.
 
@@ -967,7 +967,7 @@ class BaseMixin:
 
         Returns
         -------
-        owned : bool
+        readable : bool
            Whether this object is readable to the user.
         """
         raise NotImplementedError("Ownership logic is application-specific")
@@ -1281,8 +1281,8 @@ class Token(Base):
 
         Returns
         -------
-        owned : bool
-           Whether this Token instance is owned by the User or Token.
+        readable : bool
+           Whether this Token instance is readable by the User or Token.
         """
         return user_or_token.id in [self.created_by_id, self.id]
 
