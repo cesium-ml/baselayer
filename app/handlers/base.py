@@ -20,6 +20,7 @@ from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
 from ...log import make_log
+from ..custom_exceptions import AccessError
 
 env, cfg = load_env()
 log = make_log('basehandler')
@@ -33,6 +34,7 @@ log = make_log('basehandler')
 #
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+
 
 class PSABaseHandler(RequestHandler):
     """
@@ -53,7 +55,7 @@ class PSABaseHandler(RequestHandler):
             if sa is None:
                 # No SocialAuth entry; probably machine generated user
                 return user
-            if (sa.uid.encode('utf-8') == oauth_uid):
+            if sa.uid.encode('utf-8') == oauth_uid:
                 return user
 
     def login_user(self, user):
@@ -72,12 +74,74 @@ class PSABaseHandler(RequestHandler):
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
 for (name, fn) in inspect.getmembers(
-        PSABaseHandler, predicate=inspect.isfunction
+    PSABaseHandler, predicate=inspect.isfunction
 ):
     setattr(psa_handlers.BaseHandler, name, fn)
 
 
 class BaseHandler(PSABaseHandler):
+
+    def verify_permissions(self):
+        """Check that the current user has permission to create, read,
+        update, or delete rows that are present in the session. If not,
+        raise an AccessError (causing the transaction to fail and the API to
+        respond with 400).
+        """
+
+        user_or_token = self.current_user
+
+        # get items to be inserted
+        new_rows = [row for row in DBSession().new]
+
+        # get items to be updated
+        updated_rows = [
+            row for row in DBSession().dirty if DBSession().is_modified(row)
+        ]
+
+        # get items to be deleted
+        deleted_rows = [row for row in DBSession().deleted]
+
+        # get items that were read
+        read_rows = [
+            row
+            for row in set(DBSession().identity_map.values())
+            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
+        ]
+
+        # need to check delete permissions before flushing, as deleted records
+        # are not present in the transaction after flush (thus can't be used in
+        # joins). Read permissions can be checked here or below as they do not
+        # change on flush.
+        for mode, collection in zip(
+            ['read', 'update', 'delete'],
+            [read_rows, updated_rows, deleted_rows],
+        ):
+            for row in deleted_rows:
+                if not row.is_accessible_by(user_or_token, mode=mode):
+                    raise AccessError(
+                        f'Insufficient permissions for operation '
+                        f'"{type(user_or_token).__name__} {user_or_token.id} '
+                        f'{mode} {type(row).__name__} {row.id}".'
+                    )
+
+        # update transaction state in DB, but don't commit yet. this updates
+        # or adds rows in the database and uses their new state in joins,
+        # for permissions checking purposes.
+        DBSession().flush()
+
+        for mode, collection in zip(['create'], [new_rows]):
+            for row in collection:
+                if not row.is_accessible_by(user_or_token, mode=mode):
+                    raise AccessError(
+                        f'Insufficient permissions for operation '
+                        f'"{type(user_or_token).__name__} {user_or_token.id} '
+                        f'{mode} {type(row).__name__} {row.id}".'
+                    )
+
+    def finalize_transaction(self):
+        self.verify_permissions()
+        DBSession().commit()
+
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
@@ -85,9 +149,12 @@ class BaseHandler(PSABaseHandler):
         # Remove slash prefixes from arguments
         if self.path_args:
             self.path_args = [
-                arg.lstrip('/') if arg is not None else None for arg in self.path_args
+                arg.lstrip('/') if arg is not None else None
+                for arg in self.path_args
             ]
-            self.path_args = [arg if (arg != '') else None for arg in self.path_args]
+            self.path_args = [
+                arg if (arg != '') else None for arg in self.path_args
+            ]
 
         # If there are no arguments, make it explicit, otherwise
         # get / post / put / delete all have to accept an optional kwd argument
@@ -154,7 +221,9 @@ class BaseHandler(PSABaseHandler):
         try:
             json = tornado.escape.json_decode(self.request.body)
             if not isinstance(json, dict):
-                raise Exception('Please ensure posted data is of type application/json')
+                raise Exception(
+                    'Please ensure posted data is of type application/json'
+                )
             return json
         except JSONDecodeError:
             raise Exception(
@@ -194,7 +263,9 @@ class BaseHandler(PSABaseHandler):
 
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
-        self.write({"status": "error", "message": message, "data": data, **extra})
+        self.write(
+            {"status": "error", "message": message, "data": data, **extra}
+        )
 
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
@@ -259,7 +330,9 @@ class BaseHandler(PSABaseHandler):
 
         from distributed import Client
 
-        client = await Client('{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True)
+        client = await Client(
+            '{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True
+        )
 
         return client
 
