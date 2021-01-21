@@ -79,8 +79,8 @@ if __name__ == '__main__':
         'test_spec',
         nargs='?',
         default=None,
-        help='''Test spec. Example:
-    test_frontend.py skyportal/tests/api
+        help='''Test spec passed to py.test. Separate command line tokens with commas. Example:
+    test_frontend.py skyportal/tests/api,skyportal/tests/frontend
 ''',
     )
     parser.add_argument('--xml', action='store_true', help='Save JUnit xml output to `test-results/junit.xml`')
@@ -97,8 +97,8 @@ if __name__ == '__main__':
     app_name = cfg['app.factory'].split('.')[0]
     init_db(**cfg['database'])
 
-    if args.test_spec is not None:
-        test_spec = args.test_spec
+    if args.test_spec:
+        test_spec = ' '.join(args.test_spec.split(','))
     else:
         test_spec = basedir / app_name / 'tests'
 

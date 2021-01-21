@@ -17,6 +17,20 @@ SUPERVISORD_CFG=baselayer/conf/supervisor/supervisor.conf
 SUPERVISORD=$(PYTHON) -m supervisor.supervisord -s -c $(SUPERVISORD_CFG)
 SUPERVISORCTL=$(PYTHON) -m supervisor.supervisorctl -c $(SUPERVISORD_CFG)
 
+# Set the test spec to the empty string by default,
+# which causes the make test_headless and make test
+# commands to run all the tests. To run only specific
+# tests, set this variable in the invocation of make,
+# e.g.,
+#
+#   make test_headless TEST_SPEC="app/tests/api"
+#
+# or, for multiple folders,
+#
+#   make test_headless TEST_SPEC="app/tests/api,app/tests/frontend"
+
+TEST_SPEC ?= ""
+
 LOG=@$(PYTHON) -c "from baselayer.log import make_log; spl = make_log('baselayer'); spl('$1')"
 
 # Bold
@@ -133,11 +147,11 @@ status:
 
 test_headless: ## Run tests headlessly
 test_headless: system_setup
-	@PYTHONPATH='.' baselayer/tools/test_frontend.py --headless --xml
+	@PYTHONPATH='.' baselayer/tools/test_frontend.py --headless --xml $(TEST_SPEC)
 
 test: ## Run tests.
 test: system_setup
-	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml
+	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml $(TEST_SPEC)
 
 test_report: ## Print report on failed tests
 test_report:
