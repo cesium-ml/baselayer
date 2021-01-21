@@ -16,7 +16,15 @@ section_end "install.base.requirements"
 section "install.baselayer.requirements"
 cd ..
 git clone git://github.com/cesium-ml/baselayer_template_app
+git clone git://github.com/skyportal/skyportal
 cp -rf baselayer baselayer_template_app/
+cp -rf baselayer skyportal/
+
+# this line should be deleted before the PR is merged,
+# only here now because the SkyPortal permissions PR
+# hasn't been merged to master yet, so can't use master
+# to get the permissions model tests
+cd skyportal && git checkout a11fdf3 && cd - 
 cd baselayer_template_app
 npm -g install npm@next
 npm --version
