@@ -16,7 +16,12 @@ section_end "install.base.requirements"
 section "install.baselayer.requirements"
 cd ..
 git clone git://github.com/cesium-ml/baselayer_template_app
-git clone git://github.com/skyportal/skyportal
+
+# this line should be modified to skyportal/skyportal before the PR is
+# merged, only here now because the SkyPortal permissions PR hasn't
+# been merged to master yet, so can't use master to get the
+# permissions model tests
+git clone git://github.com/dannygoldstein/skyportal
 cp -rf baselayer baselayer_template_app/
 cp -rf baselayer skyportal/
 
