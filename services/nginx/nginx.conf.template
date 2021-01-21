@@ -74,7 +74,12 @@ http {
     error_log log/nginx-error.log warn;
     # one of: debug, info, notice, warn, error, crit, alert, emerg
 
-    access_log log/nginx-bad-access.log elb_log if=$loggable;
+{% if log.api_calls %}
+    {% set log_cond = "" %}
+{% else %}
+    {% set log_cond = "if=$loggable" %}
+{% endif %}
+    access_log log/nginx-access.log elb_log {{ log_cond }};
   }
 
   # Set an array of temp and cache file options that will otherwise default to

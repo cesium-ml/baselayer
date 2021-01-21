@@ -50,6 +50,12 @@ services:
 
     # You can use disabled to disable specific services, or '*' to disable them all
 
+
+log:
+    # if true, log all API calls, including successful ones, if false,
+    # log only those that trigger a warning / error
+    api_calls: False
+
 ports:
     websocket: 64000
     fake_oauth: 63000
