@@ -116,7 +116,7 @@ def load_config(config_files=[]):
             "Warning: You are running on the default configuration. To configure your system, "
             "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit."
         )
-    else:
+    elif os.path.exists(basedir / "../config.yaml"):
         ensure_yaml_structure_matches_defaults(
             basedir / "../config.yaml",
             basedir / "../config.yaml.defaults",
