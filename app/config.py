@@ -1,11 +1,33 @@
-import yaml
 import os
 from pathlib import Path
 import collections.abc as collections
+from deepdiff import DeepDiff
+import yaml
+from pprint import pprint
 
 from ..log import make_log
 
 log = make_log('baselayer')
+
+
+def ensure_yaml_structure_matches_defaults(config_path, defaults_config_path):
+    # Borrowed from https://github.com/dmitryduev/kowalski/blob/master/kowalski.py
+    # check contents of config WRT config.yaml.defaults
+    with open(defaults_config_path) as defaults_yaml:
+        config_defaults = yaml.load(defaults_yaml, Loader=yaml.FullLoader)
+    with open(config_path) as config_yaml:
+        config_wildcard = yaml.load(config_yaml, Loader=yaml.FullLoader)
+    deep_diff = DeepDiff(config_wildcard, config_defaults, ignore_order=True)
+    difference = {
+        k: v
+        for k, v in deep_diff.items()
+        if k in ("dictionary_item_added", "dictionary_item_removed", "iterable_item_added")
+    }
+    if len(difference) > 0:
+        print("config.yaml structure differs from config.yaml.defaults")
+        pprint(difference)
+        raise KeyError("Fix config.yaml before proceeding")
+    print("config.yaml structure matches that of config.yaml.defaults")
 
 
 def recursive_update(d, u):
@@ -87,12 +109,17 @@ class Config(dict):
 def load_config(config_files=[]):
     basedir = Path(os.path.dirname(__file__)) / '..'
     missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
-    for f in missing:
+    if missing:
         log(f'Missing config files: {", ".join(missing)}; continuing.')
     if 'config.yaml' in missing:
         log(
             "Warning: You are running on the default configuration. To configure your system, "
             "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit."
+        )
+    else:
+        ensure_yaml_structure_matches_defaults(
+            basedir / "../config.yaml",
+            basedir / "../config.yaml.defaults",
         )
 
     # Always load the default configuration values first, and override
