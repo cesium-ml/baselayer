@@ -10,7 +10,7 @@ from ..log import make_log
 log = make_log('baselayer')
 
 
-def ensure_yaml_structure_matches_defaults(config_path, defaults_config_path):
+def ensure_yaml_routes_matches_defaults(config_path, defaults_config_path):
     # Borrowed from https://github.com/dmitryduev/kowalski/blob/master/kowalski.py
     # check contents of config WRT config.yaml.defaults
     with open(defaults_config_path) as defaults_yaml:
@@ -21,13 +21,15 @@ def ensure_yaml_structure_matches_defaults(config_path, defaults_config_path):
     difference = {
         k: v
         for k, v in deep_diff.items()
-        if k in ("dictionary_item_added", "dictionary_item_removed", "iterable_item_added")
+        if k
+        in ("dictionary_item_added", "dictionary_item_removed", "iterable_item_added")
+        and "routes" in str(v)
     }
     if len(difference) > 0:
-        print("config.yaml structure differs from config.yaml.defaults")
+        print("  config.yaml app.routes differs from config.yaml.defaults:")
         pprint(difference)
         raise KeyError("Fix config.yaml before proceeding")
-    print("config.yaml structure matches that of config.yaml.defaults")
+    print("config.yaml app.routes matches that of config.yaml.defaults")
 
 
 def recursive_update(d, u):
@@ -117,9 +119,8 @@ def load_config(config_files=[]):
             "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit."
         )
     elif os.path.exists(basedir / "../config.yaml"):
-        ensure_yaml_structure_matches_defaults(
-            basedir / "../config.yaml",
-            basedir / "../config.yaml.defaults",
+        ensure_yaml_routes_matches_defaults(
+            basedir / "../config.yaml", basedir / "../config.yaml.defaults",
         )
 
     # Always load the default configuration values first, and override
