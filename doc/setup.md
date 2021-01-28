@@ -8,7 +8,7 @@ Clone that application, and then proceed with the following instructions.
 
 ## Installation
 
-- A **Python 3.6** or later installation is required.
+- A **Python 3.8** or later installation is required.
 - Install the following dependencies: Supervisor, NGINX, PostgreSQL, Node.JS
 
 ### On macOS
