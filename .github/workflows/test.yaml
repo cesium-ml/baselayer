@@ -66,8 +66,8 @@ jobs:
 
           echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
           chmod 600 ~/.pgpass
-          createdb -h localhost -U baselayer baselayer_test
-          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE baselayer_test TO baselayer;" template_app_test
+          createdb -h localhost -U baselayer template_app_test
+          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app_test TO baselayer;" template_app_test
 
       - name: Install system dependencies
         run: |
