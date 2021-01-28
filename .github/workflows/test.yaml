@@ -44,31 +44,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Write Baselayer config
-        run: |
-          cat << EOF > config.yaml
-            database:
-              database: template_app_test
-              user: baselayer
-              host: localhost
-              port: 5432
-              password: anything
-          EOF
-
-          cat << EOF > test_config.yaml
-            database:
-              database: template_app_test
-              user: baselayer
-              host: localhost
-              port: 5432
-              password: anything
-          EOF
-
-          echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
-          chmod 600 ~/.pgpass
-          createdb -h localhost -U baselayer template_app_test
-          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app_test TO baselayer;" template_app_test
-
       - name: Install system dependencies
         run: |
           curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
@@ -104,14 +79,39 @@ jobs:
           pip install --upgrade selenium
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
-      - name: Install and test template app
+      - name: Install template app
         run: |
-
           cd ..
           git clone git://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
           cd baselayer_template_app
 
-          make db_init
+      - name: Write configuration
+        run: |
+          cat << EOF > config.yaml
+            database:
+              database: template_app_test
+              user: baselayer
+              host: localhost
+              port: 5432
+              password: anything
+          EOF
 
+          cat << EOF > test_config.yaml
+            database:
+              database: template_app_test
+              user: baselayer
+              host: localhost
+              port: 5432
+              password: anything
+          EOF
+
+          echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
+          chmod 600 ~/.pgpass
+          createdb -h localhost -U baselayer template_app_test
+          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app_test TO baselayer;" template_app_test
+
+      - name: Test template app
+        run: |
+          make db_init
           (make log &) && make test
