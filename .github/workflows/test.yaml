@@ -6,6 +6,10 @@ on:
       - master
     pull_request:
 
+defaults:
+  run:
+    working-directory: ..
+
 jobs:
   test:
     name: Test Baselayer
@@ -46,6 +50,8 @@ jobs:
 
       - name: Install system dependencies
         run: |
+          cd baselayer
+
           curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
 
           sudo apt install -y wget nodejs unzip firefox nginx
@@ -81,13 +87,12 @@ jobs:
 
       - name: Install template app
         run: |
-          cd ..
           git clone git://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
       - name: Write configuration & build DB
         run: |
-          cd ../baselayer_template_app
+          cd baselayer_template_app
 
           cat << EOF > config.yaml
             database:
@@ -120,7 +125,7 @@ jobs:
 
       - name: Test template app
         run: |
-          cd ../baselayer_template_app
+          cd baselayer_template_app
           (make log &) && make test
 
       - name: Upload logs
@@ -128,4 +133,4 @@ jobs:
         if: ${{ always() }}
         with:
           name: logs
-          path: ../baselayer_template_app/log
+          path: baselayer_template_app/log
