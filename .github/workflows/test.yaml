@@ -46,6 +46,15 @@ jobs:
 
       - name: Write Baselayer config
         run: |
+          cat << EOF > config.yaml
+            database:
+              database: template_app_test
+              user: baselayer
+              host: localhost
+              port: 5432
+              password: anything
+          EOF
+
           cat << EOF > test_config.yaml
             database:
               database: template_app_test
@@ -58,7 +67,7 @@ jobs:
           echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
           chmod 600 ~/.pgpass
           createdb -h localhost -U baselayer baselayer_test
-          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE baselayer_test TO baselayer;" 
+          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE baselayer_test TO baselayer;" template_app_test
 
       - name: Install system dependencies
         run: |
