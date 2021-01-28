@@ -128,4 +128,4 @@ jobs:
         if: ${{ always() }}
         with:
           name: logs
-          path: log
+          path: ../baselayer_template_app/log
