@@ -122,3 +122,10 @@ jobs:
         run: |
           cd ../baselayer_template_app
           (make log &) && make test
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v2
+        if: ${{ always() }}
+        with:
+          name: logs
+          path: log
