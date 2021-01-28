@@ -20,6 +20,26 @@ def md5sum(fn):
     return file_hash.hexdigest()
 
 
+def version(module):
+    import importlib
+    m = importlib.import_module(module)
+    return getattr(m, '__version__', '')
+
+
+def hash_filter(string, htype):
+    import hashlib
+    h = hashlib.new(htype)
+    h.update(string.encode('utf-8'))
+    return h.hexdigest()
+
+
+custom_filters = {
+    'md5sum': md5sum,
+    'version': version,
+    'hash': hash_filter
+}
+
+
 def fill_config_file_values(template_paths):
     log('Compiling configuration templates')
     env, cfg = load_env()
@@ -30,7 +50,8 @@ def fill_config_file_values(template_paths):
             env = jinja2.Environment(
                 loader=jinja2.FileSystemLoader(tpath),
             )
-            env.filters['md5sum'] = md5sum
+            for (name, func) in custom_filters.items():
+                env.filters[name] = func
             template = env.get_template(tfile)
             rendered = template.render(cfg)
 
