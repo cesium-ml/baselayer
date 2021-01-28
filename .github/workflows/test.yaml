@@ -1,0 +1,136 @@
+name: Test Baselayer
+
+on:
+  push:
+    branches:
+      - master
+    pull_request:
+
+defaults:
+  run:
+    working-directory: ..
+
+jobs:
+  test:
+    name: Test Baselayer
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: baselayer
+          POSTGRES_PASSWORD: anything
+        ports:
+          - 5432:5432
+        # needed because the postgres container does not provide a
+        # healthcheck
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+
+      - uses: actions/setup-python@v1
+        with:
+          python-version: "3.8"
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache
+            ~/.local
+            ~/.npm
+          key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install system dependencies
+        run: |
+          cd baselayer
+
+          curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+
+          sudo apt install -y wget nodejs unzip firefox nginx
+
+          pip install --upgrade pip
+          pip install wheel
+
+          export NPM_PACKAGES="${HOME}/.npm-packages"
+          export PATH=${NPM_PACKAGES}/bin:$PATH
+          export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
+
+          sudo npm -g install npm@next
+
+          which python; python --version
+          echo npm $(npm --version)
+          echo node $(node --version)
+          nginx -v
+          firefox --version
+
+      - name: Install Geckodriver / Selenium
+        run: |
+          GECKO_VER=0.27.0
+          CACHED_DOWNLOAD_DIR=~/.local/downloads
+          FILENAME=geckodriver-v${GECKO_VER}-linux64.tar.gz
+
+          if [[ ! -f ${CACHED_DOWNLOAD_DIR=}/${FILENAME} ]]; then
+            wget https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VER}/${FILENAME} --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
+          fi
+          sudo tar -xzf ${CACHED_DOWNLOAD_DIR}/geckodriver-v${GECKO_VER}-linux64.tar.gz -C /usr/local/bin
+          geckodriver --version
+          pip install --upgrade selenium
+          python -c "import selenium; print(f'Selenium {selenium.__version__}')"
+
+      - name: Install template app
+        run: |
+          git clone git://github.com/cesium-ml/baselayer_template_app
+          cp -rf baselayer baselayer_template_app/
+
+      - name: Write configuration & build DB
+        run: |
+          cd baselayer_template_app
+
+          cat << EOF > config.yaml
+            database:
+              database: template_app
+              user: baselayer
+              host: localhost
+              port: 5432
+              password: anything
+          EOF
+
+          cat << EOF > test_config.yaml
+            database:
+              database: template_app_test
+              user: baselayer
+              host: localhost
+              port: 5432
+              password: anything
+          EOF
+
+          echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
+          chmod 600 ~/.pgpass
+
+          createdb -h localhost -U baselayer template_app
+          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app TO baselayer;" template_app
+
+          createdb -h localhost -U baselayer template_app_test
+          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app_test TO baselayer;" template_app_test
+
+          make db_init
+
+      - name: Test template app
+        run: |
+          cd baselayer_template_app
+          make test_headless
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v2
+        if: ${{ always() }}
+        with:
+          name: logs
+          path: baselayer_template_app/log

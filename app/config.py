@@ -1,7 +1,7 @@
 import yaml
 import os
 from pathlib import Path
-import collections
+import collections.abc as collections
 
 from ..log import make_log
 
