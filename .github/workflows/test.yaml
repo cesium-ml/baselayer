@@ -85,7 +85,7 @@ jobs:
           git clone git://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
-      - name: Write configuration
+      - name: Write configuration & build DB
         run: |
           cd ../baselayer_template_app
 
@@ -109,11 +109,16 @@ jobs:
 
           echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
           chmod 600 ~/.pgpass
+
+          createdb -h localhost -U baselayer template_app
+          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app TO baselayer;" template_app
+
           createdb -h localhost -U baselayer template_app_test
           psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app_test TO baselayer;" template_app_test
+
+          make db_init
 
       - name: Test template app
         run: |
           cd ../baselayer_template_app
-          make db_init
           (make log &) && make test
