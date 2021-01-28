@@ -84,10 +84,11 @@ jobs:
           cd ..
           git clone git://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
-          cd baselayer_template_app
 
       - name: Write configuration
         run: |
+          cd ../baselayer_template_app
+
           cat << EOF > config.yaml
             database:
               database: template_app_test
@@ -113,5 +114,6 @@ jobs:
 
       - name: Test template app
         run: |
+          cd ../baselayer_template_app
           make db_init
           (make log &) && make test
