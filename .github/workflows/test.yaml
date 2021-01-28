@@ -91,7 +91,7 @@ jobs:
 
           cat << EOF > config.yaml
             database:
-              database: template_app_test
+              database: template_app
               user: baselayer
               host: localhost
               port: 5432
