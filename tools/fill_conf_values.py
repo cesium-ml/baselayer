@@ -50,8 +50,7 @@ def fill_config_file_values(template_paths):
             env = jinja2.Environment(
                 loader=jinja2.FileSystemLoader(tpath),
             )
-            for (name, func) in custom_filters.items():
-                env.filters[name] = func
+            env.filters.update(custom_filters)
             template = env.get_template(tfile)
             rendered = template.render(cfg)
 
