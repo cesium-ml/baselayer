@@ -8,6 +8,7 @@ from dateutil.parser import parse as parse_time
 
 from baselayer.app.env import load_env
 from baselayer.log import make_log
+from baselayer.app.models import DBSession, CronJobRun, init_db
 
 
 log = make_log('cron')
@@ -15,6 +16,7 @@ log = make_log('cron')
 env, cfg = load_env()
 jobs = cfg['cron'] or []
 
+init_db(**cfg['database'])
 
 timestamp_file = '.jobs_timestamps.yaml'
 
@@ -78,10 +80,18 @@ while True:
             log(f'Executing {script}')
             tc.reset(key)
             try:
-                subprocess.Popen(
+                proc = subprocess.Popen(
                     script, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
                 )
+                _, _ = proc.communicate()
             except Exception as e:
                 log(f'Error executing {script}: {e}')
+                DBSession().add(CronJobRun(script=script, exit_status=1))
+            else:
+                DBSession().add(
+                    CronJobRun(script=script, exit_status=proc.returncode)
+                )
+            finally:
+                DBSession().commit()
 
     time.sleep(60)
