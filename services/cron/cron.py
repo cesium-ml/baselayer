@@ -83,13 +83,13 @@ while True:
                 proc = subprocess.Popen(
                     script, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
                 )
-                _, _ = proc.communicate()
+                output, _ = proc.communicate()
             except Exception as e:
                 log(f'Error executing {script}: {e}')
                 DBSession().add(CronJobRun(script=script, exit_status=1))
             else:
                 DBSession().add(
-                    CronJobRun(script=script, exit_status=proc.returncode)
+                    CronJobRun(script=script, exit_status=proc.returncode, proc_output=output.decode('utf-8').strip())
                 )
             finally:
                 DBSession().commit()
