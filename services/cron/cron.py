@@ -86,10 +86,10 @@ while True:
                 output, _ = proc.communicate()
             except Exception as e:
                 log(f'Error executing {script}: {e}')
-                DBSession().add(CronJobRun(script=script, exit_status=1))
+                DBSession().add(CronJobRun(script=script, exit_status=1, output=str(e)))
             else:
                 DBSession().add(
-                    CronJobRun(script=script, exit_status=proc.returncode, proc_output=output.decode('utf-8').strip())
+                    CronJobRun(script=script, exit_status=proc.returncode, output=output.decode('utf-8').strip())
                 )
             finally:
                 DBSession().commit()

@@ -1171,7 +1171,7 @@ class CronJobRun(Base):
         nullable=True,
         doc="Exit status of cron job subprocess (e.g. 0 or 1).",
     )
-    proc_output = sa.Column(
+    output = sa.Column(
         sa.String,
-        doc="Cron job's subprocess output.",
+        doc="Cron job's subprocess output, or exception string.",
     )
