@@ -772,6 +772,7 @@ class BaseMixin:
         sa.DateTime,
         nullable=False,
         default=utcnow,
+        index=True,
         doc="UTC time of insertion of object's row into the database.",
     )
     modified = sa.Column(
