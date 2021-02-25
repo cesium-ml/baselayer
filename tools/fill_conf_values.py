@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import os
-from status import status
 
+from baselayer.tools.status import status
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
