@@ -68,6 +68,8 @@ log(f'Monitoring {len(jobs)} jobs')
 
 tc = TimeCache()
 
+env = os.environ.copy()
+
 while True:
     for job in jobs:
         interval = job['interval']
@@ -81,7 +83,7 @@ while True:
             tc.reset(key)
             try:
                 proc = subprocess.Popen(
-                    script, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                    script, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
                 )
                 output, _ = proc.communicate()
             except Exception as e:
@@ -89,7 +91,11 @@ while True:
                 DBSession().add(CronJobRun(script=script, exit_status=1, output=str(e)))
             else:
                 DBSession().add(
-                    CronJobRun(script=script, exit_status=proc.returncode, output=output.decode('utf-8').strip())
+                    CronJobRun(
+                        script=script,
+                        exit_status=proc.returncode,
+                        output=output.decode('utf-8').strip(),
+                    )
                 )
             finally:
                 DBSession().commit()
