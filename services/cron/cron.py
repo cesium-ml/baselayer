@@ -1,9 +1,10 @@
-import yaml
 import time
 import os
+import sys
 import subprocess
-
 from datetime import datetime
+
+import yaml
 from dateutil.parser import parse as parse_time
 
 from baselayer.app.env import load_env
@@ -81,7 +82,9 @@ while True:
             tc.reset(key)
             try:
                 proc = subprocess.Popen(
-                    script, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+                    [script, *sys.argv[1:]],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
                 )
                 output, _ = proc.communicate()
             except Exception as e:
@@ -89,7 +92,11 @@ while True:
                 DBSession().add(CronJobRun(script=script, exit_status=1, output=str(e)))
             else:
                 DBSession().add(
-                    CronJobRun(script=script, exit_status=proc.returncode, output=output.decode('utf-8').strip())
+                    CronJobRun(
+                        script=script,
+                        exit_status=proc.returncode,
+                        output=output.decode('utf-8').strip(),
+                    )
                 )
             finally:
                 DBSession().commit()
