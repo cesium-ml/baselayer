@@ -22,4 +22,3 @@ phonenumbers>=8.12.15
 python-slugify>=4.0.1
 numpy>=0.17
 deepdiff>=5.0.2
-watchdog>=2

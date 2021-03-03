@@ -29,6 +29,7 @@ def ensure_yaml_routes_matches_defaults(config_path, defaults_config_path):
         print("  config.yaml app.routes differs from config.yaml.defaults:")
         pprint(difference)
         raise KeyError("Fix config.yaml before proceeding")
+    print("config.yaml app.routes matches that of config.yaml.defaults")
 
 
 def recursive_update(d, u):
