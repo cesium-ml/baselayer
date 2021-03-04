@@ -27,10 +27,15 @@ http {
     ''      close;
   }
 
+  map $request_method $loggable_404 {
+    HEAD    0;
+    default 1;
+  }
+
   map $status $loggable {
       ~^[23]  0;
       ~^[101] 0;
-      404 0;
+      404 $loggable_404;
       default 1;
   }
 
