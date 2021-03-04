@@ -259,7 +259,8 @@ class BaseHandler(PSABaseHandler):
         extra : dict
             Extra fields to be included in the response.
         """
-        log(f'Error response returned by [{self.request.path}]: [{message}]')
+        if not (status == 404 and self.request.method == "HEAD"):
+            log(f'Error response returned by [{self.request.path}]: [{message}]')
 
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
