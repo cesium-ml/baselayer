@@ -1,4 +1,4 @@
-error_log log/error.log info;
+error_log log/error.log error;
 pid run/nginx.pid;
 
 
@@ -30,6 +30,7 @@ http {
   map $status $loggable {
       ~^[23]  0;
       ~^[101] 0;
+      404 0;
       default 1;
   }
 
