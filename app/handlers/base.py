@@ -2,6 +2,7 @@ import time
 import inspect
 import tornado.escape
 from tornado.web import RequestHandler
+from tornado.log import app_log
 from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
@@ -70,6 +71,17 @@ class PSABaseHandler(RequestHandler):
         else:
             err = "An unknown error occurred"
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
+
+    def log_exception(self, typ=None, value=None, tb=None):
+        if "Authentication Error:" in str(value):
+            log(value)
+        else:
+            app_log.error(
+                "Uncaught exception %s\n%r",
+                self._request_summary(),
+                self.request,
+                exc_info=(typ, value, tb),
+            )
 
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
