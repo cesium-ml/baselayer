@@ -53,7 +53,7 @@ for test in tests:
         message = test['failure']['@message']
         text = test['failure']['#text']
 
-        filename = test['@file']
+        filename = test["@classname"].replace('.', '/') + '.py'
         test_name = test['@name']
 
         first_error = []
