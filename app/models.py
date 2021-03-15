@@ -132,6 +132,25 @@ class UserAccessControl:
 
         raise NotImplementedError
 
+    def __not__(self):
+        """Return a UserAccessControl that is the logical NOT of another
+        UserAccessControl.
+
+        Examples
+        --------
+
+        Grant access if the querying user DOES NOT match the 'owner'
+        relationship of this record.
+
+            >>>> not AccessibleIfUserMatches('owner')
+            >>>> ~AccessibleIfUserMatches('owner')
+        """
+
+        return Not(self)
+
+    # makes bitwise not produce the same effect as logical not.
+    __invert__ = __not__
+
     def __and__(self, other):
         """Return a policy that is the logical AND of two UserAccessControls.
 
@@ -145,7 +164,6 @@ class UserAccessControl:
         composed: ComposedAccessControl
             The UserAccessControl representing the logical AND of the input access
             controls.
-
 
         Examples
         --------
@@ -570,6 +588,86 @@ class ComposedAccessControl(UserAccessControl):
             query = query.filter(
                 sa.or_(*[col.isnot(None) for col in accessible_id_cols])
             )
+
+        return query
+
+
+class Not(UserAccessControl):
+    def __init__(self, access_control):
+        """A UserAccessControl that is the logical NOT of another
+        UserAccessControl.
+
+        Parameters
+        ----------
+        access_control: `UserAccessControl`
+            The access control to return the logical NOT of.
+
+        Examples
+        --------
+
+        Grant access if the querying user DOES NOT match the 'owner'
+        relationship of this record.
+
+            >>>> Not(AccessibleIfUserMatches('owner'))
+        """
+        self.access_control = access_control
+
+    @property
+    def access_control(self):
+        return self._access_control
+
+    @access_control.setter
+    def access_control(self, value):
+        """Validate the input access controls."""
+        error = ValueError(
+            f'access_controls must be a '
+            f'UserAccessControl, got {value.__class__.__name__}'
+        )
+        if not isinstance(value, UserAccessControl):
+            raise error
+        self._access_control = value
+
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Query object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls: `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns: list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        query: sqlalchemy.Query
+            Query for the accessible rows.
+        """
+
+        # retrieve specified columns if requested
+        if columns is not None:
+            query = DBSession().query(*columns).select_from(cls)
+        else:
+            query = DBSession().query(cls)
+
+        target_alias = sa.orm.aliased(cls)
+
+        # join against the first access control using a subquery. from a
+        # performance perspective this should be about as performant as
+        # aliasing the related table, but is much better for avoiding
+        # name collisions. The subquery is automatically de-subbed by
+        # postgres and uses all available indices.
+        ids_to_exclude = self.access_control.query_accessible_rows(
+            target_alias, user_or_token, columns=[target_alias.id]
+        ).subquery()
+
+        # do an anti join against the rows made accessible by the ACL to be
+        # negated. implemented as a subquery here but could be re-implemented
+        # as an outer join. psql can de-sub these automatically.
+        query = query.filter(cls.id.notin_(ids_to_exclude))
 
         return query
 
