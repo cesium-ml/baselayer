@@ -612,6 +612,39 @@ class Restricted(UserAccessControl):
 restricted = Restricted()
 
 
+class CustomAccessibilityQuery(UserAccessControl):
+
+    def __init__(self, query):
+        self.query = query
+
+    def query_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Query object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls: `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns: list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        query: sqlalchemy.Query
+            Query for the accessible rows.
+        """
+
+        # retrieve specified columns if requested
+        if columns is not None:
+            query = DBSession().query(*columns).select_from(self.query)
+        else:
+            query = DBSession().query(self.query)
+
+        return query
+
 class BaseMixin:
 
     # permission control logic
