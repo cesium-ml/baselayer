@@ -615,6 +615,34 @@ restricted = Restricted()
 class CustomAccessibilityQuery(UserAccessControl):
 
     def __init__(self, query):
+        """
+
+        Parameters
+        ----------
+        query: `sqlalchemy.Query`
+            A query object that, when executed, returns the records
+            accessible to the querying user under the access control policy.
+
+        Examples
+        --------
+        Only permit access to departments in which all employees are managers
+
+            >>>> CustomAccessibilityQuery(
+                DBSession().query(Department).join(Employee).group_by(
+                    Department.id
+                ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
+            )
+
+        Only permit access to departments in which at least one employee
+        is a manager
+
+            >>>> CustomAccessibilityQuery(
+                DBSession().query(Department).join(Employee).group_by(
+                    Department.id
+                ).having(sa.func.bool_or(Employee.is_manager.is_(True)))
+            )
+
+        """
         self.query = query
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
@@ -644,6 +672,7 @@ class CustomAccessibilityQuery(UserAccessControl):
             query = DBSession().query(self.query)
 
         return query
+
 
 class BaseMixin:
 
