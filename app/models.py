@@ -619,7 +619,7 @@ class CustomAccessibilityQuery(UserAccessControl):
 
         Parameters
         ----------
-        query: `sqlalchemy.Query`
+        query: `sqlalchemy.orm.Query`
             A query object that, when executed, returns the records
             accessible to the querying user under the access control policy.
 
@@ -643,6 +643,10 @@ class CustomAccessibilityQuery(UserAccessControl):
             )
 
         """
+        if not isinstance(query, sa.orm.Query):
+            raise TypeError(f'Invalid type for query: {type(query).__name__}, '
+                            f'expected `sqlalchemy.orm.Query`.')
+        
         self.query = query
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
