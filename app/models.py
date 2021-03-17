@@ -612,42 +612,69 @@ class Restricted(UserAccessControl):
 restricted = Restricted()
 
 
-class CustomAccessibilityQuery(UserAccessControl):
+class CustomUserAccessControl(UserAccessControl):
 
-    def __init__(self, query):
-        """
+    def __init__(self, query_or_query_generator):
+        """A UserAccessControl that uses explicit, user-provided logic to
+        designate accessible records.
 
         Parameters
         ----------
-        query: `sqlalchemy.orm.Query`
-            A query object that, when executed, returns the records
-            accessible to the querying user under the access control policy.
+        query_or_query_generator: `sqlalchemy.orm.Query` or func
+
+            The logic for determining which records are accessible to a
+            user.
+
+            In cases where the access control logic is the same for all
+            users, this class can be directly initialized from an SQLAlchemy
+            Query object. The query should render a SELECT on the table on
+            which access permissions are to be enforced, returning only rows
+            that are accessible under the policy (See Example 1 below).
+
+            In cases where the access control logic is different for
+            different users, the class should be instantiated with a function
+            that takes two arguments, cls (the mapped class corresponding to
+            the table on which access permissions are to be enforced) and
+            user_or_token, the instance of `baselayer.app.models.User` or
+            `baselayer.app.models.Token` to check permissions for (See Example 2
+            below). The function should then return a `sqlalchemy.orm.Query`
+            object that, when executed, returns the rows accessible to that User
+            or Token.
 
         Examples
         --------
-        Only permit access to departments in which all employees are managers
+        (1) Only permit access to departments in which all employees are
+        managers
 
-            >>>> CustomAccessibilityQuery(
+            >>>> CustomUserAccessControl(
                 DBSession().query(Department).join(Employee).group_by(
                     Department.id
                 ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
             )
 
-        Only permit access to departments in which at least one employee
-        is a manager
+        (2) Permit access to all records for system admins, otherwise, only
+        permit access to departments in which all employees are managers
 
-            >>>> CustomAccessibilityQuery(
-                DBSession().query(Department).join(Employee).group_by(
-                    Department.id
-                ).having(sa.func.bool_or(Employee.is_manager.is_(True)))
-            )
+             >>>> def access_logic(cls, user_or_token):
+             ...      if user_or_token.is_system_admin:
+             ...         return DBSession().query(cls)
+             ...      return DBSession().query(cls).join(Employee).group_by(
+             ...             cls.id
+             ...      ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
+
+            >>>> CustomUserAccessControl(access_logic)
 
         """
-        if not isinstance(query, sa.orm.Query):
-            raise TypeError(f'Invalid type for query: {type(query).__name__}, '
-                            f'expected `sqlalchemy.orm.Query`.')
-        
-        self.query = query
+        if isinstance(query_or_query_generator, sa.orm.Query):
+            self.query = query_or_query_generator
+            self.query_generator = None
+        elif hasattr(query_or_query_generator, '__call__'):
+            self.query = None
+            self.query_generator = query_or_query_generator
+        else:
+            raise TypeError(f'Invalid type for query: '
+                            f'{type(query_or_query_generator).__name__}, '
+                            f'expected `sqlalchemy.orm.Query` or func.')
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
@@ -669,11 +696,16 @@ class CustomAccessibilityQuery(UserAccessControl):
             Query for the accessible rows.
         """
 
+        if self.query is not None:
+            source = self.query
+        else:
+            source = self.query_generator(cls, user_or_token)
+
         # retrieve specified columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(self.query)
+            query = DBSession().query(*columns).select_from(source)
         else:
-            query = DBSession().query(self.query)
+            query = DBSession().query(source)
 
         return query
 
