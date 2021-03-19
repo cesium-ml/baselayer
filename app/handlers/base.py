@@ -128,7 +128,7 @@ class BaseHandler(PSABaseHandler):
             ['read', 'update', 'delete'],
             [read_rows, updated_rows, deleted_rows],
         ):
-            for row in deleted_rows:
+            for row in collection:
                 if not row.is_accessible_by(user_or_token, mode=mode):
                     raise AccessError(
                         f'Insufficient permissions for operation '
