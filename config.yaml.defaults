@@ -67,6 +67,7 @@ ports:
     websocket_path_out: 'ipc://run/message_flow_out'
     status: 64500
     migration_manager: 64501
+    test_server: 64502
 
 external_logging:
     papertrail:
@@ -78,6 +79,19 @@ external_logging:
        port:
        # which log files, if any do you not want to send over to the 3rd party?
        excluded_log_files: [""]
+
+test_server:
+    # The Python module to import for the test server microservice
+    # The module here should have a make_app() function which returns a 
+    # Tornado Application instance.
+    #
+    # To make use of the test_server service, you can load in a test_config.yaml
+    # when running `make test` or `make run_testing` which overrides URLs for 
+    # external APIs to point to http://localhost:{configs[ports.test_server]}.
+    # The test_server microservice can then return mock responses to the test
+    # baselayer app. 
+    module: example_test_server
+    path: services/test_server/example_test_server.py
 
 # You can schedule jobs to run at a certain time interval (given in minutes).
 #
