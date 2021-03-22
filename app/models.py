@@ -697,15 +697,13 @@ class CustomUserAccessControl(UserAccessControl):
         """
 
         if self.query is not None:
-            source = self.query
+            query = self.query
         else:
-            source = self.query_generator(cls, user_or_token)
+            query = self.query_generator(cls, user_or_token)
 
         # retrieve specified columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(source)
-        else:
-            query = DBSession().query(source)
+            query = query.with_entities(*columns)
 
         return query
 
