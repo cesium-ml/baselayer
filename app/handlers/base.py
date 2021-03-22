@@ -159,7 +159,7 @@ class BaseHandler(PSABaseHandler):
         self.flow = Flow()
 
         # clear any objects that may remain in the session from
-        # initialization of the app
+        # stale transactions (e.g., app startup) 
         DBSession.remove()
 
         # Remove slash prefixes from arguments
