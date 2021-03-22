@@ -158,6 +158,10 @@ class BaseHandler(PSABaseHandler):
         self.cfg = self.application.cfg
         self.flow = Flow()
 
+        # clear any objects that may remain in the session from
+        # initialization of the app
+        DBSession.remove()
+
         # Remove slash prefixes from arguments
         if self.path_args:
             self.path_args = [
