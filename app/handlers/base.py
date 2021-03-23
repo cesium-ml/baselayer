@@ -5,6 +5,10 @@ from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
 
+import uuid
+
+from baselayer.app.models import session_context_id
+
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
 #
@@ -157,6 +161,12 @@ class BaseHandler(PSABaseHandler):
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
+
+        session_context_id.set(
+            self.request.headers.get('request-id') or str(uuid.uuid4())
+        )
+
+        
 
         # Remove slash prefixes from arguments
         if self.path_args:

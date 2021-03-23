@@ -11,10 +11,19 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
+import contextvars
+
 from .custom_exceptions import AccessError
 from .json_util import to_json
 
-DBSession = scoped_session(sessionmaker())
+session_context_id = contextvars.ContextVar('request_id', default=None)
+
+
+def session_scope_func():
+    return session_context_id.get()
+
+
+DBSession = scoped_session(sessionmaker(), scopefunc=session_scope_func)
 
 # https://docs.sqlalchemy.org/en/13/dialects/postgresql.html#psycopg2-fast-execution-helpers
 # executemany_values_page_size arguments control how many parameter sets
