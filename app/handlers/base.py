@@ -166,8 +166,6 @@ class BaseHandler(PSABaseHandler):
             self.request.headers.get('request-id') or str(uuid.uuid4())
         )
 
-        
-
         # Remove slash prefixes from arguments
         if self.path_args:
             self.path_args = [
@@ -255,6 +253,7 @@ class BaseHandler(PSABaseHandler):
 
     def on_finish(self):
         DBSession.remove()
+        session_context_id.set(None)
         return super(BaseHandler, self).on_finish()
 
     def error(self, message, data={}, status=400, extra={}):
