@@ -12,7 +12,6 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
-
 from .custom_exceptions import AccessError
 from .json_util import to_json
 

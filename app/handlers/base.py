@@ -1,12 +1,10 @@
+import uuid
 import time
 import inspect
 import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
-
-import uuid
-
 from baselayer.app.models import session_context_id
 
 # The Python Social Auth base handler gives us:
@@ -253,7 +251,6 @@ class BaseHandler(PSABaseHandler):
 
     def on_finish(self):
         DBSession.remove()
-        session_context_id.set(None)
         return super(BaseHandler, self).on_finish()
 
     def error(self, message, data={}, status=400, extra={}):
