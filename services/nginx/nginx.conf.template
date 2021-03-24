@@ -54,6 +54,7 @@ http {
       proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
       proxy_set_header        X-Forwarded-Proto $scheme;
 
+
       # Buffer sizes; see
       # https://www.getpagespeed.com/server-setup/nginx/tuning-proxy_buffer_size-in-nginx
 
