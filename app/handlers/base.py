@@ -159,7 +159,6 @@ class BaseHandler(PSABaseHandler):
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
-
         session_context_id.set(
             self.request.headers.get('request-id') or str(uuid.uuid4())
         )
