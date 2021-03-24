@@ -5,7 +5,7 @@ import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
-from baselayer.app.models import session_context_id
+from ..models import session_context_id
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
