@@ -150,10 +150,6 @@ class BaseHandler(PSABaseHandler):
                         f'{mode} {type(row).__name__} {row.id}".'
                     )
 
-    def finalize_transaction(self):
-        self.verify_permissions()
-        DBSession().commit()
-
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
