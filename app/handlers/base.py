@@ -1,9 +1,11 @@
+import uuid
 import time
 import inspect
 import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
+from ..models import session_context_id
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -157,10 +159,7 @@ class BaseHandler(PSABaseHandler):
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
-
-        # clear any objects that may remain in the session from
-        # initialization of the app
-        DBSession.remove()
+        session_context_id.set(str(uuid.uuid4()))
 
         # Remove slash prefixes from arguments
         if self.path_args:
