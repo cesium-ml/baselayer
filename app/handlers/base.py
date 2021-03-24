@@ -159,7 +159,7 @@ class BaseHandler(PSABaseHandler):
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
-        session_context_id.set(str(uuid.uuid4()))
+        session_context_id.set(uuid.uuid4().hex)
 
         # Remove slash prefixes from arguments
         if self.path_args:
