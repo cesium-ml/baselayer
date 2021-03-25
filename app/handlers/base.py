@@ -150,13 +150,16 @@ class BaseHandler(PSABaseHandler):
                         f'{mode} {type(row).__name__} {row.id}".'
                     )
 
+    def verify_and_commit(self):
+        """Verify permissions on the current database session and commit if
+        successful, otherwise raise an AccessError.
+        """
+        self.verify_permissions()
+        DBSession().commit()
+
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
-
-        # clear any objects that may remain in the session from
-        # initialization of the app
-        DBSession.remove()
 
         # Remove slash prefixes from arguments
         if self.path_args:
@@ -202,13 +205,6 @@ class BaseHandler(PSABaseHandler):
         # Don't push messages if current user is a token
         if hasattr(self.current_user, 'username'):
             self.flow.push(self.current_user.id, action, payload)
-
-    def verify_and_commit(self):
-        """Verify permissions on the current database session and commit if
-        successful, otherwise raise an AccessError.
-        """
-        self.verify_permissions()
-        DBSession().commit()
 
     def push_all(self, action, payload={}):
         """Broadcast a message to all frontend users.
