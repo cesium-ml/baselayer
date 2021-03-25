@@ -152,7 +152,10 @@ class BaseHandler(PSABaseHandler):
                         f'{mode} {type(row).__name__} {row.id}".'
                     )
 
-    def finalize_transaction(self):
+    def verify_and_commit(self):
+        """Verify permissions on the current database session and commit if
+        successful, otherwise raise an AccessError.
+        """
         self.verify_permissions()
         DBSession().commit()
 
