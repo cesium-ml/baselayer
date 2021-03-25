@@ -203,6 +203,13 @@ class BaseHandler(PSABaseHandler):
         if hasattr(self.current_user, 'username'):
             self.flow.push(self.current_user.id, action, payload)
 
+    def verify_and_commit(self):
+        """Verify permissions on the current database session and commit if
+        successful, otherwise raise an AccessError.
+        """
+        self.verify_permissions()
+        DBSession().commit()
+
     def push_all(self, action, payload={}):
         """Broadcast a message to all frontend users.
 
