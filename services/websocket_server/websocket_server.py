@@ -119,7 +119,11 @@ class WebSocket(websocket.WebSocketHandler):
 
     def authenticate(self, auth_token):
         try:
-            token_payload = jwt.decode(auth_token, secret, algorithms=["HS256"])
+            token_payload = jwt.decode(
+                auth_token,
+                secret,
+                algorithms=["HS256"]
+            )
             user_id = token_payload.get('user_id', None)
             if not user_id:
                 raise jwt.DecodeError("No user_id field found")
