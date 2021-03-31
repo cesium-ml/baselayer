@@ -33,7 +33,7 @@ def verify(mode, row, accessor):
     in mode `mode` (can be create, read, update, or delete)."""
 
     if not row.is_accessible_by(accessor, mode=mode):
-        tb = ''.join(traceback.extract_stack().format()[-3:-1])
+        tb = ''.join(traceback.extract_stack().format()[:-1])
         tb = f'```{tb}```'
         err_msg = (
             f'Insufficient permissions for operation '
