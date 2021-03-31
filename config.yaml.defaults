@@ -80,10 +80,10 @@ external_logging:
        excluded_log_files: [""]
 
 security:
-	strict: true
-	slack:
-		enabled: false
-		url: null
+  strict: true
+  slack:
+    enabled: false
+    url: null
 
 
 # You can schedule jobs to run at a certain time interval (given in minutes).
