@@ -79,6 +79,13 @@ external_logging:
        # which log files, if any do you not want to send over to the 3rd party?
        excluded_log_files: [""]
 
+security:
+	strict: true
+	slack:
+		enabled: false
+		url: null
+
+
 # You can schedule jobs to run at a certain time interval (given in minutes).
 #
 # If baselayer is not running at the time the job is supposed to run,

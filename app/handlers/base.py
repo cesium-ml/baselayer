@@ -1,6 +1,9 @@
 import uuid
 import time
 import inspect
+import warnings
+import traceback
+import requests
 import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
@@ -27,6 +30,10 @@ from ..custom_exceptions import AccessError
 
 env, cfg = load_env()
 log = make_log('basehandler')
+
+strict = cfg['security']['strict']
+use_webhook = cfg['security']['webhook']['enabled']
+webhook_url = cfg['security']['webhook']['url']
 
 
 # Monkey-patch Python Social Auth's base handler
@@ -93,6 +100,33 @@ for (name, fn) in inspect.getmembers(
     setattr(psa_handlers.BaseHandler, name, fn)
 
 
+def verify(mode, row, accessor):
+    """Verifies that User or Token `accessor` can access `Base` row
+    in mode `mode` (can be create, read, update, or delete)."""
+
+    if not row.is_accessible_by(accessor, mode=mode):
+        tb = traceback.print_stack()
+        err_msg = (
+            f'Insufficient permissions for operation '
+            f'"{type(accessor).__name__} {accessor.id} '
+            f'{mode} {type(row).__name__} {row.id}". Original traceback: {tb}'
+        )
+        err = AccessError(err_msg)
+
+        if use_webhook:
+            try:
+                requests.post(webhook_url, json={'text': err_msg})
+            except requests.HTTPError as e:
+                post_fail_warn_msg = f'Encountered HTTPError "{e.args[0]}" ' \
+                                     f'attempting to post AccessError "{err_msg}"' \
+                                     f'to {webhook_url}.'
+                warnings.warn(post_fail_warn_msg)
+        else:
+            warnings.warn(err_msg)
+        if strict:
+            raise err
+
+
 class BaseHandler(PSABaseHandler):
 
     def verify_permissions(self):
@@ -131,26 +165,15 @@ class BaseHandler(PSABaseHandler):
             [read_rows, updated_rows, deleted_rows],
         ):
             for row in collection:
-                if not row.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f'Insufficient permissions for operation '
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {type(row).__name__} {row.id}".'
-                    )
+                verify(mode, row, self.current_user)
 
         # update transaction state in DB, but don't commit yet. this updates
         # or adds rows in the database and uses their new state in joins,
         # for permissions checking purposes.
         DBSession().flush()
 
-        for mode, collection in zip(['create'], [new_rows]):
-            for row in collection:
-                if not row.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f'Insufficient permissions for operation '
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {type(row).__name__} {row.id}".'
-                    )
+        for row in new_rows:
+            verify('create', row, self.current_user)
 
     def verify_and_commit(self):
         """Verify permissions on the current database session and commit if
