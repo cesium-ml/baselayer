@@ -1,9 +1,6 @@
 import uuid
 import time
 import inspect
-import warnings
-import traceback
-import requests
 import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
@@ -21,20 +18,15 @@ import social_tornado.handlers as psa_handlers
 # Initialize PSA tornado models
 from .. import psa  # noqa
 
-from ..models import DBSession, User
+from ..models import DBSession, User, verify
 from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
 from ...log import make_log
-from ..custom_exceptions import AccessError
+
 
 env, cfg = load_env()
 log = make_log('basehandler')
-
-strict = cfg['security']['strict']
-use_webhook = cfg['security']['webhook']['enabled']
-webhook_url = cfg['security']['webhook']['url']
-
 
 # Monkey-patch Python Social Auth's base handler
 #
@@ -100,33 +92,6 @@ for (name, fn) in inspect.getmembers(
     setattr(psa_handlers.BaseHandler, name, fn)
 
 
-def verify(mode, row, accessor):
-    """Verifies that User or Token `accessor` can access `Base` row
-    in mode `mode` (can be create, read, update, or delete)."""
-
-    if not row.is_accessible_by(accessor, mode=mode):
-        tb = traceback.print_stack()
-        err_msg = (
-            f'Insufficient permissions for operation '
-            f'"{type(accessor).__name__} {accessor.id} '
-            f'{mode} {type(row).__name__} {row.id}". Original traceback: {tb}'
-        )
-        err = AccessError(err_msg)
-
-        if use_webhook:
-            try:
-                requests.post(webhook_url, json={'text': err_msg})
-            except requests.HTTPError as e:
-                post_fail_warn_msg = f'Encountered HTTPError "{e.args[0]}" ' \
-                                     f'attempting to post AccessError "{err_msg}"' \
-                                     f'to {webhook_url}.'
-                warnings.warn(post_fail_warn_msg)
-        else:
-            warnings.warn(err_msg)
-        if strict:
-            raise err
-
-
 class BaseHandler(PSABaseHandler):
 
     def verify_permissions(self):
@@ -135,8 +100,6 @@ class BaseHandler(PSABaseHandler):
         raise an AccessError (causing the transaction to fail and the API to
         respond with 400).
         """
-
-        user_or_token = self.current_user
 
         # get items to be inserted
         new_rows = [row for row in DBSession().new]
