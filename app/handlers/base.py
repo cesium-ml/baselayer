@@ -18,16 +18,15 @@ import social_tornado.handlers as psa_handlers
 # Initialize PSA tornado models
 from .. import psa  # noqa
 
-from ..models import DBSession, User
+from ..models import DBSession, User, verify
 from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
 from ...log import make_log
-from ..custom_exceptions import AccessError
+
 
 env, cfg = load_env()
 log = make_log('basehandler')
-
 
 # Monkey-patch Python Social Auth's base handler
 #
@@ -102,8 +101,6 @@ class BaseHandler(PSABaseHandler):
         respond with 400).
         """
 
-        user_or_token = self.current_user
-
         # get items to be inserted
         new_rows = [row for row in DBSession().new]
 
@@ -131,26 +128,15 @@ class BaseHandler(PSABaseHandler):
             [read_rows, updated_rows, deleted_rows],
         ):
             for row in collection:
-                if not row.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f'Insufficient permissions for operation '
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {type(row).__name__} {row.id}".'
-                    )
+                verify(mode, row, self.current_user)
 
         # update transaction state in DB, but don't commit yet. this updates
         # or adds rows in the database and uses their new state in joins,
         # for permissions checking purposes.
         DBSession().flush()
 
-        for mode, collection in zip(['create'], [new_rows]):
-            for row in collection:
-                if not row.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f'Insufficient permissions for operation '
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {type(row).__name__} {row.id}".'
-                    )
+        for row in new_rows:
+            verify('create', row, self.current_user)
 
     def verify_and_commit(self):
         """Verify permissions on the current database session and commit if
