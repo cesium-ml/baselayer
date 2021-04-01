@@ -28,30 +28,42 @@ use_webhook = cfg['security']['slack']['enabled']
 webhook_url = cfg['security']['slack']['url']
 
 
+def handle_inaccessible(mode, row_or_rows, accessor):
+    tb = ''.join(traceback.extract_stack().format())
+    tb = f'```{tb}```'
+
+    # format the error message
+    original_shape = np.asarray(row_or_rows).shape
+    standardized = np.atleast_1d(row_or_rows).tolist()
+    row_typename = type(standardized[0]).__name__
+    row_id_or_ids = np.asarray([r.id for r in standardized]).reshape(original_shape).tolist()
+
+    err_msg = (
+        f'Insufficient permissions for operation '
+        f'"{type(accessor).__name__} {accessor.id} '
+        f'{mode} {row_typename} {row_id_or_ids}".'
+    )
+    err_msg_w_traceback = err_msg + f'Original traceback: {tb}'
+
+    if use_webhook:
+        try:
+            requests.post(webhook_url, json={'text': err_msg_w_traceback})
+        except requests.HTTPError as e:
+            post_fail_warn_msg = f'Encountered HTTPError "{e.args[0]}" ' \
+                                 f'attempting to post AccessError "{err_msg}"' \
+                                 f'to {webhook_url}.'
+            warnings.warn(post_fail_warn_msg)
+    else:
+        warnings.warn(err_msg)
+    if strict:
+        raise AccessError(err_msg)
+
+
 def verify(mode, row, accessor):
     """Verifies that User or Token `accessor` can access `Base` row
     in mode `mode` (can be create, read, update, or delete)."""
-
     if not row.is_accessible_by(accessor, mode=mode):
-        tb = ''.join(traceback.extract_stack().format()[:-1])
-        tb = f'```{tb}```'
-        err_msg = (
-            f'Insufficient permissions for operation '
-            f'"{type(accessor).__name__} {accessor.id} '
-            f'{mode} {type(row).__name__} {row.id}". Original traceback: {tb}'
-        )
-        if use_webhook:
-            try:
-                requests.post(webhook_url, json={'text': err_msg})
-            except requests.HTTPError as e:
-                post_fail_warn_msg = f'Encountered HTTPError "{e.args[0]}" ' \
-                                     f'attempting to post AccessError "{err_msg}"' \
-                                     f'to {webhook_url}.'
-                warnings.warn(post_fail_warn_msg)
-        else:
-            warnings.warn(err_msg)
-        if strict:
-            raise AccessError(err_msg)
+        handle_inaccessible(mode, row, accessor)
 
 
 # https://docs.sqlalchemy.org/en/13/dialects/postgresql.html#psycopg2-fast-execution-helpers
