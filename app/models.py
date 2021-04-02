@@ -59,13 +59,6 @@ def handle_inaccessible(mode, row_or_rows, accessor):
         raise AccessError(err_msg)
 
 
-def verify(mode, row, accessor):
-    """Verifies that User or Token `accessor` can access `Base` row
-    in mode `mode` (can be create, read, update, or delete)."""
-    if not row.is_accessible_by(accessor, mode=mode):
-        handle_inaccessible(mode, row, accessor)
-
-
 # https://docs.sqlalchemy.org/en/13/dialects/postgresql.html#psycopg2-fast-execution-helpers
 # executemany_values_page_size arguments control how many parameter sets
 # should be represented in each execution of an INSERT
