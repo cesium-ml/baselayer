@@ -23,9 +23,9 @@ session_context_id = contextvars.ContextVar('request_id', default=None)
 DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 env, cfg = load_env()
-strict = cfg['security']['strict']
-use_webhook = cfg['security']['slack']['enabled']
-webhook_url = cfg['security']['slack']['url']
+strict = cfg['security.strict']
+use_webhook = cfg['security.slack.enabled']
+webhook_url = cfg['security.slack.url']
 
 
 def handle_inaccessible(mode, row_or_rows, accessor):
