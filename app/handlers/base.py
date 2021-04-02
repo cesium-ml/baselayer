@@ -113,17 +113,21 @@ def bulk_verify(mode, collection, accessor):
 
         # vectorized query for ids of rows in the session that
         # are accessible
-        accessible_row_ids = record_cls.query_records_accessible_by(
+        accessible_row_ids_sq = record_cls.query_records_accessible_by(
             accessor, mode=mode, columns=[record_cls.id]
-        ).filter(record_cls.id.in_(collection_ids))
+        ).subquery()
+
+        inaccessible_row_ids = DBSession().query(record_cls.id).outerjoin(
+            accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+        ).filter(record_cls.id.in_(collection_ids)).filter(
+            accessible_row_ids_sq.c.id.is_(None)
+        )
 
         # compare the accessible ids with the ids that are in the session
-        accessible_row_ids = set(id for id, in accessible_row_ids)
-        inaccessible_row_ids = collection_ids - accessible_row_ids
+        inaccessible_row_ids = set(id for id, in inaccessible_row_ids)
 
         # if any of the rows in the session are inaccessible, handle
         if len(inaccessible_row_ids) > 0:
-
             inaccessible_rows = record_cls.query.get(inaccessible_row_ids)
             handle_inaccessible(mode, inaccessible_rows, accessor)
 
