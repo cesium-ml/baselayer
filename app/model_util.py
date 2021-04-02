@@ -74,3 +74,13 @@ def create_tables(retry=5, add=True):
 def clear_tables():
     drop_tables()
     create_tables()
+
+
+def recursive_to_dict(obj):
+    if isinstance(obj, dict):
+        return {k: recursive_to_dict(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [recursive_to_dict(el) for el in obj]
+    if hasattr(obj, "__table__"):  # SQLAlchemy model
+        return recursive_to_dict(obj.to_dict())
+    return obj
