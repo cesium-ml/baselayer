@@ -28,20 +28,14 @@ use_webhook = cfg['security.slack.enabled']
 webhook_url = cfg['security.slack.url']
 
 
-def handle_inaccessible(mode, row_or_rows, accessor):
+def handle_inaccessible(mode, row_ids, row_type, accessor):
     tb = ''.join(traceback.extract_stack().format())
     tb = f'```{tb}```'
-
-    # format the error message
-    original_shape = np.asarray(row_or_rows).shape
-    standardized = np.atleast_1d(row_or_rows).tolist()
-    row_typename = type(standardized[0]).__name__
-    row_id_or_ids = np.asarray([r.id for r in standardized]).reshape(original_shape).tolist()
 
     err_msg = (
         f'Insufficient permissions for operation '
         f'"{type(accessor).__name__} {accessor.id} '
-        f'{mode} {row_typename} {row_id_or_ids}".'
+        f'{mode} {row_type.__name__} {row_ids}".'
     )
     err_msg_w_traceback = err_msg + f'Original traceback: {tb}'
 
