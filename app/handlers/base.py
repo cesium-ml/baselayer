@@ -128,8 +128,7 @@ def bulk_verify(mode, collection, accessor):
 
         # if any of the rows in the session are inaccessible, handle
         if len(inaccessible_row_ids) > 0:
-            inaccessible_rows = record_cls.query.get(inaccessible_row_ids)
-            handle_inaccessible(mode, inaccessible_rows, accessor)
+            handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
 
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
