@@ -469,6 +469,9 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
             join_target = relationship.entity.class_
             logic = getattr(join_target, mode)
 
+            if isinstance(logic, Public):
+                continue
+
             # create a subquery for the accessible rows of the related table
             # and join that subquery to the related table on the PK/FK.
             # from a performance perspective this should be about as performant
