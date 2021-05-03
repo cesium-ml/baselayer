@@ -69,8 +69,13 @@ utcnow = func.timezone("UTC", func.current_timestamp())
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
 def init_db(
-        user, database, password=None, host=None, port=None, autoflush=True,
-        engine_args={}
+    user,
+    database,
+    password=None,
+    host=None,
+    port=None,
+    autoflush=True,
+    engine_args={},
 ):
     """
     Parameters
@@ -94,14 +99,16 @@ def init_db(
     url = url.format(user, password or "", host or "", port or "", database)
 
     default_engine_args = {
-            'pool_size': 5, 'max_overflow': 10, 'pool_recycle': 3600
-        }
+        "pool_size": 5,
+        "max_overflow": 10,
+        "pool_recycle": 3600,
+    }
     conn = sa.create_engine(
         url,
         client_encoding="utf8",
         executemany_mode="values",
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
-        **{**default_engine_args, **engine_args}
+        **{**default_engine_args, **engine_args},
     )
 
     DBSession.configure(bind=conn, autoflush=autoflush)
@@ -1323,11 +1330,10 @@ class User(Base):
 
     is_admin = property(is_admin)
 
-UserACL = join_model("user_acls", User, ACL)
-UserACL.__doc__ = "Join table mapping Users to ACLs"
 
 UserACL = join_model("user_acls", User, ACL)
 UserACL.__doc__ = "Join table mapping Users to ACLs"
+
 
 class Token(Base):
     """A command line token that can be used to programmatically access the API
