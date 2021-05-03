@@ -1,9 +1,12 @@
+import uuid
 import time
 import inspect
 import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
+from ..models import session_context_id
+from collections import defaultdict
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -16,16 +19,15 @@ import social_tornado.handlers as psa_handlers
 # Initialize PSA tornado models
 from .. import psa  # noqa
 
-from ..models import DBSession, User
+from ..models import DBSession, User, handle_inaccessible
 from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
 from ...log import make_log
-from ..custom_exceptions import AccessError
+
 
 env, cfg = load_env()
 log = make_log('basehandler')
-
 
 # Monkey-patch Python Social Auth's base handler
 #
@@ -84,6 +86,51 @@ class PSABaseHandler(RequestHandler):
             )
 
 
+def bulk_verify(mode, collection, accessor):
+    """Vectorized permission check for a heterogeneous set of records. If an
+    access leak is detected, it will be handled according to the `security`
+    section of the application's configuration.
+
+    Parameters
+    ----------
+    mode: str
+        The access mode to check. Can be create, read, update, or delete.
+    collection: collection of `baselayer.app.models.Base`.
+        The records to check. These records will be grouped by type, and
+        a single database query will be issued to check access for each
+        record type.
+    accessor: baselayer.app.models.User or baselayer.app.models.Token
+        The user or token to check.
+    """
+
+    grouped_collection = defaultdict(list)
+    for row in collection:
+        grouped_collection[type(row)].append(row)
+
+    # check all rows of the same type with a single database query
+    for record_cls, collection in grouped_collection.items():
+        collection_ids = set(record.id for record in collection)
+
+        # vectorized query for ids of rows in the session that
+        # are accessible
+        accessible_row_ids_sq = record_cls.query_records_accessible_by(
+            accessor, mode=mode, columns=[record_cls.id]
+        ).subquery()
+
+        inaccessible_row_ids = DBSession().query(record_cls.id).outerjoin(
+            accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+        ).filter(record_cls.id.in_(collection_ids)).filter(
+            accessible_row_ids_sq.c.id.is_(None)
+        )
+
+        # compare the accessible ids with the ids that are in the session
+        inaccessible_row_ids = set(id for id, in inaccessible_row_ids)
+
+        # if any of the rows in the session are inaccessible, handle
+        if len(inaccessible_row_ids) > 0:
+            handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
+
+
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
 for (name, fn) in inspect.getmembers(
     PSABaseHandler, predicate=inspect.isfunction
@@ -99,8 +146,6 @@ class BaseHandler(PSABaseHandler):
         raise an AccessError (causing the transaction to fail and the API to
         respond with 400).
         """
-
-        user_or_token = self.current_user
 
         # get items to be inserted
         new_rows = [row for row in DBSession().new]
@@ -128,35 +173,25 @@ class BaseHandler(PSABaseHandler):
             ['read', 'update', 'delete'],
             [read_rows, updated_rows, deleted_rows],
         ):
-            for row in collection:
-                if not row.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f'Insufficient permissions for operation '
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {type(row).__name__} {row.id}".'
-                    )
+            bulk_verify(mode, collection, self.current_user)
 
         # update transaction state in DB, but don't commit yet. this updates
         # or adds rows in the database and uses their new state in joins,
         # for permissions checking purposes.
         DBSession().flush()
+        bulk_verify('create', new_rows, self.current_user)
 
-        for mode, collection in zip(['create'], [new_rows]):
-            for row in collection:
-                if not row.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f'Insufficient permissions for operation '
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {type(row).__name__} {row.id}".'
-                    )
-
-    def finalize_transaction(self):
+    def verify_and_commit(self):
+        """Verify permissions on the current database session and commit if
+        successful, otherwise raise an AccessError.
+        """
         self.verify_permissions()
         DBSession().commit()
 
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
+        session_context_id.set(uuid.uuid4().hex)
 
         # Remove slash prefixes from arguments
         if self.path_args:

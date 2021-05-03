@@ -1,9 +1,13 @@
 import datetime
 import uuid
+import contextvars
 from hashlib import md5
+import warnings
 
 import numpy as np
 import sqlalchemy as sa
+import traceback
+import requests
 from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -14,8 +18,43 @@ from sqlalchemy_utils import EmailType, PhoneNumberType
 
 from .custom_exceptions import AccessError
 from .json_util import to_json
+from .env import load_env
 
-DBSession = scoped_session(sessionmaker())
+session_context_id = contextvars.ContextVar("request_id", default=None)
+DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
+
+env, cfg = load_env()
+strict = cfg["security.strict"]
+use_webhook = cfg["security.slack.enabled"]
+webhook_url = cfg["security.slack.url"]
+
+
+def handle_inaccessible(mode, row_ids, row_type, accessor):
+    tb = "".join(traceback.extract_stack().format())
+    tb = f"```{tb}```"
+
+    err_msg = (
+        f"Insufficient permissions for operation "
+        f'"{type(accessor).__name__} {accessor.id} '
+        f'{mode} {row_type.__name__} {row_ids}".'
+    )
+    err_msg_w_traceback = err_msg + f"Original traceback: {tb}"
+
+    if use_webhook:
+        try:
+            requests.post(webhook_url, json={"text": err_msg_w_traceback})
+        except requests.HTTPError as e:
+            post_fail_warn_msg = (
+                f'Encountered HTTPError "{e.args[0]}" '
+                f'attempting to post AccessError "{err_msg}"'
+                f"to {webhook_url}."
+            )
+            warnings.warn(post_fail_warn_msg)
+    else:
+        warnings.warn(err_msg)
+    if strict:
+        raise AccessError(err_msg)
+
 
 # https://docs.sqlalchemy.org/en/13/dialects/postgresql.html#psycopg2-fast-execution-helpers
 # executemany_values_page_size arguments control how many parameter sets
@@ -29,15 +68,40 @@ utcnow = func.timezone("UTC", func.current_timestamp())
 
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
-def init_db(user, database, password=None, host=None, port=None):
+def init_db(
+        user, database, password=None, host=None, port=None, autoflush=True,
+        engine_args={}
+):
+    """
+    Parameters
+    ----------
+    engine_args : dict
+        - `pool_size`:
+          The number of connections maintained to the DB. Default 5.
+
+        - `max_overflow`:
+          The number of additional connections that will be made as needed.
+           Once these extra connections have been used, they are discarded.
+          Default 10.
+
+        - `pool_recycle`:
+           Prevent the pool from using any connection that is older than this
+           (specified in seconds).
+           Default 3600.
+
+    """
     url = "postgresql://{}:{}@{}:{}/{}"
     url = url.format(user, password or "", host or "", port or "", database)
 
+    default_engine_args = {
+            'pool_size': 5, 'max_overflow': 10, 'pool_recycle': 3600
+        }
     conn = sa.create_engine(
         url,
         client_encoding="utf8",
         executemany_mode="values",
         executemany_values_page_size=EXECUTEMANY_PAGESIZE,
+        **{**default_engine_args, **engine_args}
     )
 
     DBSession.configure(bind=conn, autoflush=autoflush)
@@ -106,8 +170,8 @@ class UserAccessControl:
             if not hasattr(cls, attr):
                 raise TypeError(
                     f'{cls} does not have the attribute "{attr}", '
-                    f'and thus does not expose the interface that is needed '
-                    f'to check for access.'
+                    f"and thus does not expose the interface that is needed "
+                    f"to check for access."
                 )
 
     @staticmethod
@@ -130,8 +194,8 @@ class UserAccessControl:
             return user_or_token.created_by_id
         else:
             raise ValueError(
-                'user_or_token must be an instance of User or Token, '
-                f'got {user_or_token.__class__.__name__}.'
+                "user_or_token must be an instance of User or Token, "
+                f"got {user_or_token.__class__.__name__}."
             )
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
@@ -182,7 +246,7 @@ class UserAccessControl:
         """
 
         try:
-            retval = ComposedAccessControl(self, other, logic='and')
+            retval = ComposedAccessControl(self, other, logic="and")
         except TypeError:
             raise TypeError(
                 f"unsupported operand type(s) for &: '{type(self).__name__}' "
@@ -215,7 +279,7 @@ class UserAccessControl:
             >>>> access_control = accessible_if_is_owner | accessible_if_is_last_modifier
         """
         try:
-            retval = ComposedAccessControl(self, other, logic='or')
+            retval = ComposedAccessControl(self, other, logic="or")
         except TypeError:
             raise TypeError(
                 f"unsupported operand type(s) for |: '{type(self).__name__}' "
@@ -310,7 +374,9 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         # system admins automatically get full access
         if user_or_token.is_admin:
-            return public.query_accessible_rows(cls, user_or_token, columns=columns)
+            return public.query_accessible_rows(
+                cls, user_or_token, columns=columns
+            )
 
         # return only selected columns if requested
         if columns is not None:
@@ -321,7 +387,9 @@ class AccessibleIfUserMatches(UserAccessControl):
         # traverse the relationship chain via sequential JOINs
         for relationship_name in self.relationship_names:
             self.check_cls_for_attributes(cls, [relationship_name])
-            relationship = sa.inspect(cls).mapper.relationships[relationship_name]
+            relationship = sa.inspect(cls).mapper.relationships[
+                relationship_name
+            ]
 
             # not a private attribute, just has an underscore to avoid name
             # collision with python keyword
@@ -344,23 +412,23 @@ class AccessibleIfUserMatches(UserAccessControl):
         users attempt to pass incorrectly formatted chain strings."""
         if not isinstance(value, str):
             raise ValueError(
-                f'Invalid value for relationship chain: {value}, expected str, '
-                f'got {value.__class__.__name__}'
+                f"Invalid value for relationship chain: {value}, expected str, "
+                f"got {value.__class__.__name__}"
             )
-        relationship_names = value.split('.')
+        relationship_names = value.split(".")
         if len(relationship_names) < 1:
-            raise ValueError('Need at least 1 relationship to join on.')
+            raise ValueError("Need at least 1 relationship to join on.")
         self._relationship_key = value
 
     @property
     def relationship_names(self):
         """List of names of each relationship in the chain."""
-        return self.relationship_chain.split('.')
+        return self.relationship_chain.split(".")
 
 
-accessible_by_owner = AccessibleIfUserMatches('owner')
-accessible_by_created_by = AccessibleIfUserMatches('created_by')
-accessible_by_user = AccessibleIfUserMatches('user')
+accessible_by_owner = AccessibleIfUserMatches("owner")
+accessible_by_created_by = AccessibleIfUserMatches("created_by")
+accessible_by_user = AccessibleIfUserMatches("user")
 
 
 class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
@@ -403,8 +471,8 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
         raise if not."""
         if not isinstance(value, dict):
             raise ValueError(
-                f'properties_and_modes must be an instance of dict, '
-                f'got {value.__class__.__name__}'
+                f"properties_and_modes must be an instance of dict, "
+                f"got {value.__class__.__name__}"
             )
         if len(value) == 0:
             raise ValueError("Need at least 1 property to check.")
@@ -449,12 +517,15 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
             mode = self.properties_and_modes[prop]
             relationship = sa.inspect(cls).mapper.relationships[prop]
 
-            # join the target table to the related table on the relationship
-            base = base.join(relationship.class_attribute)
-
             # get the rows of the target table that are accessible
             join_target = relationship.entity.class_
             logic = getattr(join_target, mode)
+
+            if isinstance(logic, Public):
+                continue
+
+            # join the target table to the related table on the relationship
+            base = base.join(relationship.class_attribute)
 
             # create a subquery for the accessible rows of the related table
             # and join that subquery to the related table on the PK/FK.
@@ -506,8 +577,8 @@ class ComposedAccessControl(UserAccessControl):
     def access_controls(self, value):
         """Validate the input access controls."""
         error = ValueError(
-            f'access_controls must be a list or tuple of '
-            f'UserAccessControl, got {value.__class__.__name__}'
+            f"access_controls must be a list or tuple of "
+            f"UserAccessControl, got {value.__class__.__name__}"
         )
         if not isinstance(value, (list, tuple)):
             raise error
@@ -523,7 +594,7 @@ class ComposedAccessControl(UserAccessControl):
     @logic.setter
     def logic(self, value):
         """Validate the input logic."""
-        if value not in ['and', 'or']:
+        if value not in ["and", "or"]:
             raise ValueError(
                 f'composition logic must be either "and" or "or", got {value}.'
             )
@@ -560,6 +631,11 @@ class ComposedAccessControl(UserAccessControl):
         accessible_id_cols = []
 
         for access_control in self.access_controls:
+
+            # Just ignore public ACLs
+            if isinstance(access_control, Public):
+                continue
+
             # use an alias to avoid name collisions.
             target_alias = sa.orm.aliased(cls)
 
@@ -574,10 +650,10 @@ class ComposedAccessControl(UserAccessControl):
 
             # join on the FK
             join_condition = accessible.c.id == cls.id
-            if self.logic == 'and':
+            if self.logic == "and":
                 # for and logic, we want an INNER join
                 query = query.join(accessible, join_condition)
-            elif self.logic == 'or':
+            elif self.logic == "or":
                 # for OR logic we dont want to lose rows where there is no
                 # for one particular type of access control, so use outer join
                 # here
@@ -590,7 +666,7 @@ class ComposedAccessControl(UserAccessControl):
 
         # in the case of or logic, require that only one of the conditions be
         # met for each row
-        if self.logic == 'or':
+        if self.logic == "or":
             query = query.filter(
                 sa.or_(*[col.isnot(None) for col in accessible_id_cols])
             )
@@ -623,12 +699,17 @@ class Restricted(UserAccessControl):
 
         # system admins have access to restricted records
         if user_or_token.is_admin:
-            return public.query_accessible_rows(cls, user_or_token, columns=columns)
+            return public.query_accessible_rows(
+                cls, user_or_token, columns=columns
+            )
 
         # otherwise, all records are inaccessible
         if columns is not None:
             return (
-                DBSession().query(*columns).select_from(cls).filter(sa.literal(False))
+                DBSession()
+                .query(*columns)
+                .select_from(cls)
+                .filter(sa.literal(False))
             )
         return DBSession().query(cls).filter(sa.literal(False))
 
@@ -637,7 +718,6 @@ restricted = Restricted()
 
 
 class CustomUserAccessControl(UserAccessControl):
-
     def __init__(self, query_or_query_generator):
         """A UserAccessControl that uses explicit, user-provided logic to
         designate accessible records.
@@ -692,13 +772,15 @@ class CustomUserAccessControl(UserAccessControl):
         if isinstance(query_or_query_generator, sa.orm.Query):
             self.query = query_or_query_generator
             self.query_generator = None
-        elif hasattr(query_or_query_generator, '__call__'):
+        elif hasattr(query_or_query_generator, "__call__"):
             self.query = None
             self.query_generator = query_or_query_generator
         else:
-            raise TypeError(f'Invalid type for query: '
-                            f'{type(query_or_query_generator).__name__}, '
-                            f'expected `sqlalchemy.orm.Query` or func.')
+            raise TypeError(
+                f"Invalid type for query: "
+                f"{type(query_or_query_generator).__name__}, "
+                f"expected `sqlalchemy.orm.Query` or func."
+            )
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
@@ -761,7 +843,7 @@ class BaseMixin:
         logic = getattr(cls, mode)
 
         # Construct the join from which accessibility can be selected.
-        accessibility_target = (sa.func.count('*') > 0).label(f'{mode}_ok')
+        accessibility_target = (sa.func.count("*") > 0).label(f"{mode}_ok")
         accessibility_table = logic.query_accessible_rows(
             cls, user_or_token, columns=[accessibility_target]
         ).filter(cls.id == self.id)
@@ -772,7 +854,7 @@ class BaseMixin:
 
         if not isinstance(result, bool):
             raise RuntimeError(
-                f'Non-boolean result ({result}) from operation '
+                f"Non-boolean result ({result}) from operation "
                 f'"{type(user_or_token).__name__} {user_or_token.id} '
                 f'{mode} {cls.__name__} {self.id}".'
             )
@@ -781,7 +863,12 @@ class BaseMixin:
 
     @classmethod
     def get_if_accessible_by(
-        cls, cls_id, user_or_token, mode="read", raise_if_none=False, options=[],
+        cls,
+        cls_id,
+        user_or_token,
+        mode="read",
+        raise_if_none=False,
+        options=[],
     ):
         """Return a database record if it is accessible to the specified User or
         Token. If no record exists, return None. If the record exists but is
@@ -815,12 +902,12 @@ class BaseMixin:
             if instance is not None:
                 if not instance.is_accessible_by(user_or_token, mode=mode):
                     raise AccessError(
-                        f'Insufficient permissions for operation '
+                        f"Insufficient permissions for operation "
                         f'"{type(user_or_token).__name__} {user_or_token.id} '
                         f'{mode} {cls.__name__} {instance.id}".'
                     )
             elif raise_if_none:
-                raise AccessError(f'Invalid {cls.__name__} id: {pk}')
+                raise AccessError(f"Invalid {cls.__name__} id: {pk}")
             result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
@@ -877,14 +964,14 @@ class BaseMixin:
 
         if not isinstance(user_or_token, (User, Token)):
             raise ValueError(
-                'user_or_token must be an instance of User or Token, '
-                f'got {user_or_token.__class__.__name__}.'
+                "user_or_token must be an instance of User or Token, "
+                f"got {user_or_token.__class__.__name__}."
             )
 
         logic = getattr(cls, mode)
-        return logic.query_accessible_rows(cls, user_or_token, columns=columns).options(
-            options
-        )
+        return logic.query_accessible_rows(
+            cls, user_or_token, columns=columns
+        ).options(options)
 
     query = DBSession.query_property()
     id = sa.Column(
@@ -1038,22 +1125,24 @@ def join_model(
     if column_1 is None:
         column_1 = f"{table_1[:-1]}_id"
     if column_2 is None:
-        column_2 = f'{table_2[:-1]}_id'
+        column_2 = f"{table_2[:-1]}_id"
 
-    forward_ind_name = f'{join_table}_forward_ind'
-    reverse_ind_name = f'{join_table}_reverse_ind'
+    forward_ind_name = f"{join_table}_forward_ind"
+    reverse_ind_name = f"{join_table}_reverse_ind"
 
     model_attrs = {
-        '__tablename__': join_table,
-        'id': sa.Column(sa.Integer, primary_key=True, doc='Unique object identifier.'),
+        "__tablename__": join_table,
+        "id": sa.Column(
+            sa.Integer, primary_key=True, doc="Unique object identifier."
+        ),
         column_1: sa.Column(
             column_1,
-            sa.ForeignKey(f'{table_1}.{fk_1}', ondelete='CASCADE'),
+            sa.ForeignKey(f"{table_1}.{fk_1}", ondelete="CASCADE"),
             nullable=False,
         ),
         column_2: sa.Column(
             column_2,
-            sa.ForeignKey(f'{table_2}.{fk_2}', ondelete='CASCADE'),
+            sa.ForeignKey(f"{table_2}.{fk_2}", ondelete="CASCADE"),
             nullable=False,
         ),
     }
@@ -1082,9 +1171,11 @@ def join_model(
         }
     )
 
-    model = type(model_1.__name__ + model_2.__name__, (base, JoinModel), model_attrs)
+    model = type(
+        model_1.__name__ + model_2.__name__, (base, JoinModel), model_attrs
+    )
     model.read = model.create = AccessibleIfRelatedRowsAreAccessible(
-        **{model_1.__name__.lower(): 'read', model_2.__name__.lower(): 'read'}
+        **{model_1.__name__.lower(): "read", model_2.__name__.lower(): "read"}
     )
     return model
 
@@ -1138,17 +1229,23 @@ class User(Base):
         SlugifiedStr, nullable=False, unique=True, doc="The user's username."
     )
 
-    first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
-    last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
+    first_name = sa.Column(
+        sa.String, nullable=True, doc="The User's first name."
+    )
+    last_name = sa.Column(
+        sa.String, nullable=True, doc="The User's last name."
+    )
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
-        doc="The phone number at which the user prefers to receive " "communications.",
+        doc="The phone number at which the user prefers to receive "
+        "communications.",
     )
     contact_phone = sa.Column(
         PhoneNumberType(),
         nullable=True,
-        doc="The email at which the user prefers to receive " "communications.",
+        doc="The email at which the user prefers to receive "
+        "communications.",
     )
     oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(
@@ -1186,7 +1283,11 @@ class User(Base):
     def gravatar_url(self):
         """The Gravatar URL inferred from the user's contact email, or, if the
         contact email is null, the username."""
-        email = self.contact_email if self.contact_email is not None else self.username
+        email = (
+            self.contact_email
+            if self.contact_email is not None
+            else self.username
+        )
 
         digest = md5(email.lower().encode("utf-8")).hexdigest()
         # return a transparent png if not found on gravatar
@@ -1225,6 +1326,8 @@ class User(Base):
 UserACL = join_model("user_acls", User, ACL)
 UserACL.__doc__ = "Join table mapping Users to ACLs"
 
+UserACL = join_model("user_acls", User, ACL)
+UserACL.__doc__ = "Join table mapping Users to ACLs"
 
 class Token(Base):
     """A command line token that can be used to programmatically access the API
@@ -1295,6 +1398,7 @@ UserRole.__doc__ = "Join table mapping Users to Roles."
 
 class CronJobRun(Base):
     """A record of a run (or attempted run) of a cron job."""
+
     script = sa.Column(
         sa.String,
         nullable=False,
