@@ -133,7 +133,7 @@ class SlugifiedStr(sa.types.TypeDecorator):
 
 class TZDateTime(sa.types.TypeDecorator):
     """Convert incoming datetimes to naive (no-tzinfo) UTC values for
-    the database. Values read from the database are than converted to
+    the database. Values read from the database are then converted to
     timezone-aware Python datetime values."""
 
     impl = sa.DateTime
