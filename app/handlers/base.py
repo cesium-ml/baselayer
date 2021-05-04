@@ -309,6 +309,8 @@ class BaseHandler(PSABaseHandler):
         if not (status == 404 and self.request.method == "HEAD"):
             log(f'Error response returned by [{self.request.path}]: [{message}]')
 
+        if message.startswith("Access Error: Invalid"):
+            status = 404
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write(
