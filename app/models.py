@@ -893,7 +893,7 @@ class BaseMixin:
                         f'{mode} {cls.__name__} {instance.id}".'
                     )
             elif raise_if_none:
-                raise AccessError(f"Invalid {cls.__name__} id: {pk}")
+                raise AccessError(f"Access Error: Invalid {cls.__name__} id: {pk}")
             result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
