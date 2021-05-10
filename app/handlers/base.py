@@ -20,6 +20,7 @@ import social_tornado.handlers as psa_handlers
 from .. import psa  # noqa
 
 from ..models import DBSession, User, handle_inaccessible
+from ..custom_exceptions import AccessError, ResourceNotFoundError
 from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
@@ -367,10 +368,12 @@ class BaseHandler(PSABaseHandler):
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
             err_cls, err, traceback = exc_info
+            if err_cls == ResourceNotFoundError:
+                status_code = 404
         else:
             err = 'An unknown error occurred'
 
-        self.error(str(err))
+        self.error(str(err), status=status_code)
 
     async def _get_client(self):
         IP = '127.0.0.1'
