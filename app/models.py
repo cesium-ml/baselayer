@@ -845,6 +845,8 @@ class BaseMixin:
         # Query for the value of the access_func for this particular record and
         # return the result.
         result = accessibility_table.scalar()
+        if result is None:
+            result = False
 
         if not isinstance(result, bool):
             raise RuntimeError(
