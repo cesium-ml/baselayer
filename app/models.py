@@ -15,7 +15,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
-from .custom_exceptions import AccessError, ResourceNotFoundError
+from .custom_exceptions import AccessError
 from .json_util import to_json
 from .env import load_env
 
@@ -895,13 +895,13 @@ class BaseMixin:
             instance = cls.query.options(options).get(pk.item())
             if instance is not None:
                 if not instance.is_accessible_by(user_or_token, mode=mode):
-                    raise ResourceNotFoundError(
+                    raise AccessError(
                         f"Insufficient permissions for operation "
                         f'"{type(user_or_token).__name__} {user_or_token.id} '
                         f'{mode} {cls.__name__} {instance.id}".'
                     )
             elif raise_if_none:
-                raise ResourceNotFoundError(f"Invalid {cls.__name__} id: {pk}")
+                raise AccessError(f"Invalid {cls.__name__} id: {pk}")
             result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
