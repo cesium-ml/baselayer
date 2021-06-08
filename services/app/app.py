@@ -63,7 +63,7 @@ while not migrated_db(port):
     timeout = max(timeout * 2, 30)
 
 port = cfg['ports.app_internal'] + (env.process or 0)
-app.listen(port)
+app.listen(port, xheaders=True)
 
 log(f'Listening on port {port}')
 tornado.ioloop.IOLoop.current().start()
