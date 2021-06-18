@@ -951,7 +951,7 @@ class BaseMixin:
 
     query = DBSession.query_property()
     id = sa.Column(
-        sa.Integer, primary_key=True, doc="Unique object identifier."
+        sa.Integer, primary_key=True, autoincrement=True, doc="Unique object identifier."
     )
     created_at = sa.Column(
         sa.DateTime,
