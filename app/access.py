@@ -26,13 +26,13 @@ def auth_or_token(method):
             if token is not None:
                 self.current_user = token
                 if not token.created_by.is_active():
-                    raise tornado.web.HTTPError(403, "User account expired")
+                    raise tornado.web.HTTPError(401, "User account expired")
             else:
-                raise tornado.web.HTTPError(403)
+                raise tornado.web.HTTPError(401)
             return method(self, *args, **kwargs)
         else:
             if not self.current_user.is_active():
-                raise tornado.web.HTTPError(403, "User account expired")
+                raise tornado.web.HTTPError(401, "User account expired")
             return tornado.web.authenticated(method)(self, *args, **kwargs)
 
     return wrapper
@@ -51,7 +51,7 @@ def permissions(acl_list):
                 set(acl_list).issubset(self.current_user.permissions)
                 or "System admin" in self.current_user.permissions
             ):
-                raise tornado.web.HTTPError(403)
+                raise tornado.web.HTTPError(401)
             return method(self, *args, **kwargs)
 
         return wrapper
