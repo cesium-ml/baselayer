@@ -5,10 +5,6 @@ import time
 import io
 import numpy as np
 
-from baselayer.log import make_log
-
-log = make_log('cache')
-
 
 def array_to_bytes(array):
     """Convert np.array-like object to bytes (for use w/ caching infrastructure).
@@ -71,7 +67,6 @@ class Cache:
         if not cache_file.exists():
             return None
 
-        log(f"hit [{name}]")
         cache_file.touch()  # Make newest in cache
 
         return cache_file
@@ -94,8 +89,6 @@ class Cache:
         with open(fn, 'wb') as f:
             f.write(data)
 
-        log(f"save [{name}] to [{os.path.basename(fn)}]")
-
         self.clean_cache()
 
     def _remove(self, filenames):
@@ -110,7 +103,6 @@ class Cache:
         for f in filenames:
             try:
                 os.remove(f)
-                log(f'cleanup [{os.path.basename(f)}]')
             except FileNotFoundError:
                 pass
         # fmt: on
@@ -133,7 +125,7 @@ class Cache:
             self._remove(removed_by_time)
 
         if self._max_items is not None:
-            oldest = cached_files[self._max_items :]
+            oldest = cached_files[self._max_items:]
             self._remove([filename for (mtime, filename) in oldest])
 
     def __len__(self):
