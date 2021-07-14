@@ -5,8 +5,18 @@ pid run/nginx.pid;
 http {
   sendfile on;
 
+  geo $limit {
+    default 1;
+    127.0.0.1/32 0;
+  }
+
+  map $limit $limit_key {
+    0 "";
+    1 $http_authorization;
+  }
+
   # Per-token API rate limiting
-  limit_req_zone $http_authorization zone=custom_rate_limit:1m rate=5r/s;
+  limit_req_zone $limit_key zone=custom_rate_limit:1m rate=5r/s;
 
   upstream websocket_server {
     server localhost:{{ ports.websocket }};
