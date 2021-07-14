@@ -85,6 +85,11 @@ security:
     enabled: false
     url: null
 
+misc:
+  # Minimum interval during which 100 requests will be allowed per API token,
+  # per app instance (tokens with "System admin" ACL are not limited)
+  rate_limit_100_requests_per_n_seconds: 30
+
 
 # You can schedule jobs to run at a certain time interval (given in minutes).
 #

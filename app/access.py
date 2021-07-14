@@ -1,7 +1,28 @@
+import time
+from collections import defaultdict
 import functools
 import tornado.web
 from baselayer.app.custom_exceptions import AccessError
 from baselayer.app.models import Role, User, Token
+from baselayer.app.env import load_env
+
+
+_, cfg = load_env()
+token_request_times = defaultdict(list)
+
+
+def rate_limit_exceeded(token_id):
+    """Return boolean indicating whether rate limit has been exceeded by specified token, while updating per-token requests tracking cache."""
+    token_request_times[token_id] = [
+        t
+        for t in token_request_times[token_id]
+        if (time.time() - t)
+        < float(cfg["misc"]["rate_limit_100_requests_per_n_seconds"])
+    ]
+    if len(token_request_times[token_id]) >= 100:
+        return True
+    token_request_times[token_id].append(time.time())
+    return False
 
 
 def auth_or_token(method):
@@ -27,6 +48,12 @@ def auth_or_token(method):
                 self.current_user = token
                 if not token.created_by.is_active():
                     raise tornado.web.HTTPError(403, "User account expired")
+                if not token.is_admin:
+                    if rate_limit_exceeded(token.id):
+                        raise tornado.web.HTTPError(
+                            503,
+                            "API rate limit exceeded; please throttle your requests",
+                        )
             else:
                 raise tornado.web.HTTPError(401)
             return method(self, *args, **kwargs)
