@@ -5,6 +5,9 @@ pid run/nginx.pid;
 http {
   sendfile on;
 
+  # Per-token API rate limiting
+  limit_req_zone $http_authorization zone=custom_rate_limit:1m rate=5r/s;
+
   upstream websocket_server {
     server localhost:{{ ports.websocket }};
   }
@@ -47,6 +50,9 @@ http {
     client_max_body_size 10M;
 
     location / {
+      # API rate limiting
+      limit_req zone=custom_rate_limit burst=20 nodelay;
+
       proxy_pass http://frontends;
 
       proxy_set_header        Host $http_host;
