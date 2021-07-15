@@ -61,7 +61,7 @@ http {
 
     location / {
       # API rate limiting
-      limit_req zone=custom_rate_limit burst=20 nodelay;
+      limit_req zone=custom_rate_limit burst=10 nodelay;
 
       proxy_pass http://frontends;
 
