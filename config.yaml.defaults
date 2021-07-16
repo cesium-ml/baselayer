@@ -21,6 +21,10 @@ paths:
 server:
     ssl: False
     processes: 1
+    # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)
+    rate_limit: 5
+    # Rate limit burst size (https://www.nginx.com/blog/rate-limiting-nginx/#bursts)
+    burst: 10
     # In addition to localhost, specify any IP addresses that are to be
     # exempt from API rate limiting
     whitelisted_ips:
