@@ -8,6 +8,11 @@ http {
   geo $limit {
     default 1;
     127.0.0.1/32 0;
+    {% for ip in server.whitelisted_ips -%}
+      {% if ip -%}
+        {{ ip }} 0;
+      {% endif %}
+    {% endfor %}
   }
 
   map $limit $limit_key {

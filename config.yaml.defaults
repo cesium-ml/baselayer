@@ -21,6 +21,10 @@ paths:
 server:
     ssl: False
     processes: 1
+    # In addition to localhost, specify any IP addresses that are to be
+    # exempt from API rate limiting
+    whitelisted_ips:
+      -
 
     # From https://console.developers.google.com/
     #
