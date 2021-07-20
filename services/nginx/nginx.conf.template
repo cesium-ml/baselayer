@@ -57,7 +57,7 @@ http {
       default 1;
   }
 
-  log_format elb_log '$proxy_add_x_forwarded_for - $remote_user [$time_local] ' '"$request" $status $body_bytes_sent "$http_referer" ' '"$http_user_agent"';
+  log_format elb_log '$proxy_add_x_forwarded_for - $remote_user $http_authorization [$time_local] ' '"$request" $status $body_bytes_sent "$http_referer" ' '"$http_user_agent"';
 
   server {
     listen {{ ports.app }};
