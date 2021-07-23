@@ -16,7 +16,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
-from .custom_exceptions import AccessError
+from .custom_exceptions import AccessError, ResourceNotFoundError
 from .json_util import to_json
 from .env import load_env
 
@@ -893,7 +893,7 @@ class BaseMixin:
                         f'{mode} {cls.__name__} {instance.id}".'
                     )
             elif raise_if_none:
-                raise AccessError(f"Access Error: Invalid {cls.__name__} id: {pk}")
+                raise ResourceNotFoundError(f"Access Error: Invalid {cls.__name__} id: {pk}")
             result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
