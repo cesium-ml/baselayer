@@ -31,8 +31,9 @@ def auth_or_token(method):
                 raise tornado.web.HTTPError(401)
             return method(self, *args, **kwargs)
         else:
-            if not self.current_user.is_active():
-                raise tornado.web.HTTPError(403, "User account expired")
+            if self.current_user is not None:
+                if not self.current_user.is_active():
+                    raise tornado.web.HTTPError(403, "User account expired")
             return tornado.web.authenticated(method)(self, *args, **kwargs)
 
     return wrapper
