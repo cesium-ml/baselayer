@@ -45,15 +45,16 @@ http {
     ''      close;
   }
 
-  map $request_method $loggable_404 {
+  map $request_method $exclude_head_requests {
     HEAD    0;
     default 1;
   }
 
   map $status $loggable {
-      ~^[23]  0;
+      ~^[2]   $exclude_head_requests;
+      ~^[3]   0;
       ~^[101] 0;
-      404 $loggable_404;
+      404     $exclude_head_requests;
       default 1;
   }
 
