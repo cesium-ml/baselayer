@@ -5,8 +5,8 @@ pid run/nginx.pid;
 http {
   sendfile on;
 
-  {% for cidr in server.loadbalancer_ips -%}
-    set_real_ip_from {{ cidr }};
+  {% for ip in server.loadbalancer_ips -%}
+    set_real_ip_from {{ ip }};
   {% endfor %}
   real_ip_header X-Forwarded-For;
   real_ip_recursive on;
@@ -15,9 +15,7 @@ http {
     default 1;
     127.0.0.1/32 0;
     {% for ip in server.whitelisted_ips -%}
-      {% if ip -%}
-        {{ ip }} 0;
-      {% endif %}
+      {{ ip }} 0;
     {% endfor %}
   }
 
