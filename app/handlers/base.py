@@ -5,7 +5,6 @@ import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
-from ..custom_exceptions import AccessError, ResourceNotFoundError
 from ..models import session_context_id
 from collections import defaultdict
 
@@ -309,6 +308,7 @@ class BaseHandler(PSABaseHandler):
         """
         if not (status == 404 and self.request.method == "HEAD"):
             log(f'Error response returned by [{self.request.path}]: [{message}]')
+
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write(
@@ -367,12 +367,10 @@ class BaseHandler(PSABaseHandler):
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
             err_cls, err, traceback = exc_info
-            if err_cls == ResourceNotFoundError:
-                status_code = 404
         else:
             err = 'An unknown error occurred'
 
-        self.error(str(err), status=status_code)
+        self.error(str(err))
 
     async def _get_client(self):
         IP = '127.0.0.1'
