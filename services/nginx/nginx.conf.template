@@ -35,9 +35,20 @@ http {
     server localhost:{{ ports.fake_oauth }};
   }
 
-  upstream frontends {
+  upstream frontend {
     least_conn;
     {% for p in range(server.processes) -%}
+      server 127.0.0.1:{{ ports.app_internal + p }} fail_timeout=5s;
+    {% endfor %}
+    server 127.0.0.1:{{ ports.status }} backup max_fails=0;
+  }
+
+  # Only a subset of processes are available for token authenticated API
+  # requests.  This ensures that even when the system is being
+  # hit by API requests, the frontend remains responsive.
+  upstream api {
+    least_conn;
+    {% for p in range(server.dedicated_frontend_processes, server.processes) -%}
       server 127.0.0.1:{{ ports.app_internal + p }} fail_timeout=5s;
     {% endfor %}
     server 127.0.0.1:{{ ports.status }} backup max_fails=0;
@@ -47,6 +58,11 @@ http {
   map $http_upgrade $connection_upgrade {
     default upgrade;
     ''      close;
+  }
+
+  map $http_authorization $pool {
+    default frontend;
+    '~.' api;
   }
 
   map $request_method $exclude_head_requests {
@@ -79,7 +95,7 @@ http {
       limit_req zone=custom_rate_limit burst={{ server.burst }} nodelay;
       limit_req_status 429;
 
-      proxy_pass http://frontends;
+      proxy_pass http://$pool;
 
       proxy_set_header        Host $http_host;
       proxy_set_header        X-Real-IP $remote_addr;
