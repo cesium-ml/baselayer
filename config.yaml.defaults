@@ -19,12 +19,24 @@ paths:
     downloads_folder: '/tmp'
 
 server:
+    # Whether the base URL is http or https
+    #
+    # If you are behind a load balancer that connects to the app via http,
+    # this should be set to False.
     ssl: False
-    processes: 2
+
+    # According to the Tornado docs at
+    # https://www.tornadoweb.org/en/stable/guide/running.html#processes-and-ports:
+    #
+    # Due to the Python GIL (Global Interpreter Lock), it is necessary
+    # to run multiple Python processes to take full advantage of
+    # multi-CPU machines. Typically it is best to run one process per
+    # CPU.
+    processes: 4
 
     # How many of the above processes should be dedicated to
     # frontend only (i.e., no token authorized API requests)
-    dedicated_frontend_processes: 1
+    dedicated_frontend_processes: 2
 
     # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)
     rate_limit: 5
