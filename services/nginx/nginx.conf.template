@@ -1,9 +1,32 @@
 error_log log/error.log error;
 pid run/nginx.pid;
 
+# Choose number of NGINX worker processes based on number of CPUs
+worker_processes auto;
 
 http {
+  # See https://www.netguru.com/blog/nginx-tutorial-performance
   sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+
+  # Enable compression of outgoing data
+  gzip on;
+  gzip_min_length 1000;
+  gzip_proxied any;
+  gzip_types text/plain
+             text/html
+             text/css
+             application/x-javascript
+             application/xml
+             text/javascript;
+
+  # Only retry if there was a communication error, not a timeout
+  # on the Tornado server (to avoid propagating "queries of death"
+  # to all frontends)
+  #
+  # See https://www.tornadoweb.org/en/stable/guide/running.html
+  proxy_next_upstream error;
 
   {% for ip in server.loadbalancer_ips -%}
     set_real_ip_from {{ ip }};
@@ -97,11 +120,10 @@ http {
 
       proxy_pass http://$pool;
 
-      proxy_set_header        Host $http_host;
-      proxy_set_header        X-Real-IP $remote_addr;
-      proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header        X-Forwarded-Proto $scheme;
-
+      proxy_set_header Host $http_host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
 
       # Buffer sizes; see
       # https://www.getpagespeed.com/server-setup/nginx/tuning-proxy_buffer_size-in-nginx
@@ -111,6 +133,18 @@ http {
 
       # Buffer responses up to 256k
       proxy_buffers 32 8k;
+
+      # Serve static files directly
+      location /static/ {
+        root .;
+        if ($query_string) {
+          expires max;
+        }
+      }
+      location /favicon.png {
+        root static;
+        expires max;
+      }
     }
 
     location /websocket {
@@ -147,4 +181,9 @@ http {
 }
 
 events {
+  worker_connections 1024;
+
+  # Use an efficient connection processing method:
+  # http://nginx.org/en/docs/events.html
+  use epoll;
 }
