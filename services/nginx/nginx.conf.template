@@ -180,8 +180,4 @@ http {
 
 events {
   worker_connections 1024;
-
-  # Use an efficient connection processing method:
-  # http://nginx.org/en/docs/events.html
-  use epoll;
 }
