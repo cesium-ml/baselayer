@@ -135,7 +135,7 @@ http {
       # Serve static files directly
       location /static/ {
         root .;
-        include /etc/nginx/mime.types;
+        include mime.types;
         if ($query_string) {
           expires max;
         }
