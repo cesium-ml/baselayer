@@ -1,5 +1,5 @@
 import pkg_resources
-from pkg_resources import DistributionNotFound, VersionConflict
+from pkg_resources import DistributionNotFound, VersionConflict, Requirement
 
 import sys
 import subprocess
@@ -19,9 +19,12 @@ for req_file in all_req_files:
         requirements.extend(f.readlines())
 
 
-def pip(req_file):
+def pip(req_files):
+    args = ['pip', 'install']
+    for req_file in req_files:
+        args.extend(['-r', req_file])
     p = subprocess.Popen(
-        ['pip', 'install', '-r', req_file],
+        args,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
@@ -38,9 +41,18 @@ def pip(req_file):
 
 try:
     with status('Verifying Python package dependencies'):
-        pkg_resources.require(requirements)
+        pkg_resources.working_set.resolve(
+            [Requirement.parse(r) for r in requirements]
+        )
 
-except (DistributionNotFound, VersionConflict) as e:
+except DistributionNotFound as e:
     print(e.report())
     for req_file in all_req_files:
-        pip(req_file)
+        pip(all_req_files)
+
+except VersionConflict as e:
+    print()
+    print(f'Cannot satisfy requirements from {all_req_files}:')
+    print(e.report())
+    print()
+    sys.exit(-1)
