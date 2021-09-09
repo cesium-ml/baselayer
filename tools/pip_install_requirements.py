@@ -45,14 +45,6 @@ try:
             [Requirement.parse(r) for r in requirements]
         )
 
-except DistributionNotFound as e:
+except (DistributionNotFound, VersionConflict) as e:
     print(e.report())
-    for req_file in all_req_files:
-        pip(all_req_files)
-
-except VersionConflict as e:
-    print()
-    print(f'Cannot satisfy requirements from {all_req_files}:')
-    print(e.report())
-    print()
-    sys.exit(-1)
+    pip(all_req_files)
