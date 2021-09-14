@@ -35,7 +35,10 @@ def auth_or_token(method):
                 if not self.current_user.is_active():
                     raise tornado.web.HTTPError(403, "User account expired")
             else:
-                raise tornado.web.HTTPError(403, "Credentials missing or malformed")
+                raise tornado.web.HTTPError(
+                    401,
+                    'Credentials malformed; expected form "Authorization: token abc123"'
+                )
             return tornado.web.authenticated(method)(self, *args, **kwargs)
 
     return wrapper
