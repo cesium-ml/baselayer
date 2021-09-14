@@ -20,7 +20,7 @@ def auth_or_token(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         token_header = self.request.headers.get("Authorization", None)
-        if token_header and token_header.startswith("token "):
+        if token_header is not None and token_header.startswith("token "):
             token_id = token_header.replace("token", "").strip()
             token = Token.query.get(token_id)
             if token is not None:
@@ -34,6 +34,11 @@ def auth_or_token(method):
             if self.current_user is not None:
                 if not self.current_user.is_active():
                     raise tornado.web.HTTPError(403, "User account expired")
+            else:
+                raise tornado.web.HTTPError(
+                    401,
+                    'Credentials malformed; expected form "Authorization: token abc123"'
+                )
             return tornado.web.authenticated(method)(self, *args, **kwargs)
 
     return wrapper
