@@ -20,6 +20,7 @@ import social_tornado.handlers as psa_handlers
 from .. import psa  # noqa
 
 from ..models import DBSession, User, handle_inaccessible
+from ..custom_exceptions import AccessError
 from ..json_util import to_json
 from ..flow import Flow
 from ..env import load_env
@@ -144,7 +145,7 @@ class BaseHandler(PSABaseHandler):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
         raise an AccessError (causing the transaction to fail and the API to
-        respond with 400).
+        respond with 401).
         """
 
         # get items to be inserted
@@ -367,10 +368,12 @@ class BaseHandler(PSABaseHandler):
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
             err_cls, err, traceback = exc_info
+            if isinstance(err_cls, AccessError):
+                status_code = 401
         else:
             err = 'An unknown error occurred'
 
-        self.error(str(err))
+        self.error(str(err), status=status_code)
 
     async def _get_client(self):
         IP = '127.0.0.1'
