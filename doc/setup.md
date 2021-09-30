@@ -14,9 +14,11 @@ Clone that application, and then proceed with the following instructions.
 ### On macOS
 
 - Using [Homebrew](http://brew.sh/): `brew install supervisor nginx postgresql node`
-- Start the postgresql server:
-  - to start automatically at login: `brew services start postgresql`
-  - to start manually: `pg_ctl -D /usr/local/var/postgres start`
+  - Start the postgresql server:
+    - to start automatically at login: `brew services start postgresql`
+    - to start manually: `pg_ctl -D /usr/local/var/postgres start`
+- Using [MacPorts](https://www.macports.org): `port install nginx +realip postgresql13-server npm7`
+  - Start the postgresql server: `port load postgresql13-server`
 
 ### On Linux
 
