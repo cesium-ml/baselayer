@@ -96,11 +96,19 @@ and running.  A simple example of such an application is provides as a
 <section id="on-macos">
 <h3>On macOS<a class="headerlink" href="#on-macos" title="Permalink to this headline"></a></h3>
 <ul class="simple">
-<li><p>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">nginx</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></p></li>
+<li><p>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">nginx</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></p>
+<ul>
 <li><p>Start the postgresql server:</p>
 <ul>
 <li><p>to start automatically at login: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">services</span> <span class="pre">start</span> <span class="pre">postgresql</span></code></p></li>
 <li><p>to start manually: <code class="docutils literal notranslate"><span class="pre">pg_ctl</span> <span class="pre">-D</span> <span class="pre">/usr/local/var/postgres</span> <span class="pre">start</span></code></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Using <a class="reference external" href="https://www.macports.org">MacPorts</a>: <code class="docutils literal notranslate"><span class="pre">port</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">+realip</span> <span class="pre">postgresql13-server</span> <span class="pre">npm7</span></code></p>
+<ul>
+<li><p>Start the postgresql server: <code class="docutils literal notranslate"><span class="pre">port</span> <span class="pre">load</span> <span class="pre">postgresql13-server</span></code></p></li>
 </ul>
 </li>
 </ul>
