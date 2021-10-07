@@ -4,6 +4,7 @@ import subprocess
 import sys
 import argparse
 import textwrap
+import shutil
 from baselayer.app.env import load_env
 
 from status import status
@@ -56,12 +57,15 @@ def test_db(database):
 
 
 plat = run('uname').stdout
+sudo = ''
 if b'Darwin' in plat:
-    print('* Configuring MacOS postgres')
-    sudo = ''
+    print('* Configuring MacOS postgres [no sudo]')
 else:
-    print('* Configuring Linux postgres [may ask for sudo password]')
-    sudo = 'sudo -u postgres'
+    if shutil.which('sudo'):
+        print('* Configuring Linux postgres [sudo will ask password]')
+        sudo = 'sudo -u postgres'
+    else:
+        print('* Configuring Linux postgres [no sudo]')
 
 # Ask for sudo password here so that it is printed on its own line
 # (better than inside a `with status` section)
