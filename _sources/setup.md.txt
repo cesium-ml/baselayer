@@ -25,7 +25,7 @@ Clone that application, and then proceed with the following instructions.
 - Using `apt-get`:
   `sudo apt-get install nginx supervisor postgresql libpq-dev npm nodejs-legacy`
 - It may be necessary to configure your database permissions: at
-  the end of your `pg_hba.conf` (typically in `/etc/postgresql/9.6/main`),
+  the end of your `pg_hba.conf` (typically in `/etc/postgresql/13.3/main`),
   add the following lines and restart PostgreSQL
   (`sudo service postgresql restart`):
   ```
