@@ -24,7 +24,7 @@ deps = {
         # It must be >= 1.7
         '1.7',
     ),
-    'psql': (['psql', '--version'], lambda v: v.split('\n')[-1].split()[2], '9.6',),
+    'psql': (['psql', '--version'], lambda v: v.split('\n')[-1].split()[2], '12.0',),
     'node (npm)': (['npm', '-v'], lambda v: v, '5.8.0'),
     'python': (['python', '--version'], lambda v: v.split()[1], '3.8'),
 }
