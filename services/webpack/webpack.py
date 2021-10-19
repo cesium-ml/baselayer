@@ -26,5 +26,5 @@ if env.debug:
     sys.exit(p.returncode)
 else:
     log("Rebuilding main JavaScript bundle")
-    p = run(['npx', 'webpack', '--mode=production', '--devtool=none'])
+    p = run(['npx', 'webpack', '--watch', '--mode=production', '--devtool=none'])
     sys.exit(p.returncode)
