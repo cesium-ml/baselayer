@@ -6,11 +6,11 @@ import sys
 from baselayer.app.env import load_env, parser
 from baselayer.log import make_log
 
-parser.description = 'Launch webpack microservice'
+parser.description = 'Launch TypeScript compiler microservice'
 
 env, cfg = load_env()
 
-log = make_log('service/webpack')
+log = make_log('service/tsc')
 
 
 def run(cmd):
@@ -21,10 +21,10 @@ def run(cmd):
 
 
 if env.debug:
-    log("debug mode detected, launching webpack monitor")
-    p = run(['npx', 'webpack', '--watch'])
+    log("debug mode detected, launching tsc in watch mode")
+    p = run(['npx', 'tsc', '--watch'])
     sys.exit(p.returncode)
 else:
-    log("Rebuilding main JavaScript bundle")
-    p = run(['npx', 'webpack', '--watch', '--mode=production', '--devtool=none'])
+    log("Transpiling TypeScript sources")
+    p = run(['npx', 'tsc'])
     sys.exit(p.returncode)
