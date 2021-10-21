@@ -1,7 +1,12 @@
+__all__ = ['BaseHandler']
+
 import uuid
 import time
 import inspect
+import traceback
 import tornado.escape
+import requests
+import warnings
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
@@ -19,7 +24,7 @@ import social_tornado.handlers as psa_handlers
 # Initialize PSA tornado models
 from .. import psa  # noqa
 
-from ..models import DBSession, User, handle_inaccessible
+from ..models import DBSession, User
 from ..custom_exceptions import AccessError
 from ..json_util import to_json
 from ..flow import Flow
@@ -38,6 +43,39 @@ log = make_log('basehandler')
 #
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+
+
+# This is a Slack webhook for reporting failures
+use_webhook = cfg["security.slack.enabled"]
+webhook_url = cfg["security.slack.url"]
+strict = cfg["security.strict"]
+
+
+def _handle_inaccessible(mode, row_ids, row_type, accessor):
+    tb = "".join(traceback.extract_stack().format())
+    tb = f"```{tb}```"
+
+    err_msg = (
+        f"Insufficient permissions for operation "
+        f'"{type(accessor).__name__} {accessor.id} '
+        f'{mode} {row_type.__name__} {row_ids}".'
+    )
+    err_msg_w_traceback = err_msg + f"Original traceback: {tb}"
+
+    if use_webhook:
+        try:
+            requests.post(webhook_url, json={"text": err_msg_w_traceback})
+        except requests.HTTPError as e:
+            post_fail_warn_msg = (
+                f'Encountered HTTPError "{e.args[0]}" '
+                f'attempting to post AccessError "{err_msg}"'
+                f"to {webhook_url}."
+            )
+            warnings.warn(post_fail_warn_msg)
+    else:
+        warnings.warn(err_msg)
+    if strict:
+        raise AccessError(err_msg)
 
 
 class PSABaseHandler(RequestHandler):
@@ -129,7 +167,7 @@ def bulk_verify(mode, collection, accessor):
 
         # if any of the rows in the session are inaccessible, handle
         if len(inaccessible_row_ids) > 0:
-            handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
+            _handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
 
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
