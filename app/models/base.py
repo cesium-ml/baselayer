@@ -1,3 +1,5 @@
+__all__ = ['Base']
+
 import sqlalchemy as sa
 from sqlalchemy import func
 from sqlalchemy.ext.declarative import declarative_base, declared_attr

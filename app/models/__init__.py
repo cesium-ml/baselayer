@@ -16,3 +16,5 @@ UserACL = join_model("user_acls", User, ACL)
 UserACL.__doc__ = "Join table mapping Users to ACLs"
 UserRole = join_model("user_roles", User, Role)
 UserRole.__doc__ = "Join table mapping Users to Roles."
+
+del access, acl, base, cron_job_run, join, session, token, user, util
