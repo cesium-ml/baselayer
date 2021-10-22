@@ -10,7 +10,7 @@ import warnings
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
-from ..models import session_context_id
+from ..models.session import session_context_id
 from collections import defaultdict
 
 # The Python Social Auth base handler gives us:
