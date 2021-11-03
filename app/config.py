@@ -20,7 +20,7 @@ def ensure_yaml_routes_matches_defaults(config_path, defaults_config_path):
     routesmatch = True
     if ( 'app' in config_wildcard ) and ( 'routes' in config_wildcard['app'] ):
         # In python 3.8+, we should just be able to do
-        #   config_wildcard['app']['route'] == config_defaults['app']['route']
+        #   config_wildcard['app']['routes'] == config_defaults['app']['routes']
         difference = DeepDiff( config_wildcard['app']['routes'],
                                config_defaults['app']['routes'],
                                ignore_order=True)
