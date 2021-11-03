@@ -17,15 +17,16 @@ def ensure_yaml_routes_matches_defaults(config_path, defaults_config_path):
         config_defaults = yaml.load(defaults_yaml, Loader=yaml.FullLoader)
     with open(config_path) as config_yaml:
         config_wildcard = yaml.load(config_yaml, Loader=yaml.FullLoader)
-    deep_diff = DeepDiff(config_wildcard, config_defaults, ignore_order=True)
-    difference = {
-        k: v
-        for k, v in deep_diff.items()
-        if k
-        in ("dictionary_item_added", "dictionary_item_removed", "iterable_item_added")
-        and "routes" in str(v)
-    }
-    if len(difference) > 0:
+    routesmatch = True
+    if ( 'app' in config_wildcard ) and ( 'routes' in config_wildcard['app'] ):
+        # In python 3.8+, we should just be able to do
+        #   config_wildcard['app']['route'] == config_defaults['app']['route']
+        difference = DeepDiff( config_wildcard['app']['routes'],
+                               config_defaults['app']['routes'],
+                               ignore_order=True)
+        if difference:
+            routesmatch = False
+    if not routesmatch:
         print("  config.yaml app.routes differs from config.yaml.defaults:")
         pprint(difference)
         raise KeyError("Fix config.yaml before proceeding")
