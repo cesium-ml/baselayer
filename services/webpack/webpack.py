@@ -2,6 +2,9 @@
 
 import subprocess
 import sys
+import time
+import os
+from pathlib import Path
 
 from baselayer.app.env import load_env, parser
 from baselayer.log import make_log
@@ -26,5 +29,5 @@ if env.debug:
     sys.exit(p.returncode)
 else:
     log("Rebuilding main JavaScript bundle")
-    p = run(["npx", "webpack", "--watch", "--mode=production"])
+    p = run(["npx", "webpack", "--mode=production"])
     sys.exit(p.returncode)
