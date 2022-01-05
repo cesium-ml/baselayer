@@ -1363,7 +1363,6 @@ class Token(Base):
     name = sa.Column(
         sa.String,
         nullable=False,
-        unique=True,
         default=lambda: str(uuid.uuid4()),
         doc="The name of the token.",
     )
@@ -1385,6 +1384,8 @@ class Token(Base):
            Whether this Token instance is readable by the User or Token.
         """
         return user_or_token.id in [self.created_by_id, self.id]
+
+    __table_args__ = (sa.UniqueConstraint("created_by_id", "name", name="token_name_userid_unique_constraint"),)
 
 
 TokenACL = join_model("token_acls", Token, ACL)
