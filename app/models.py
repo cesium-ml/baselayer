@@ -621,7 +621,7 @@ class ComposedAccessControl(UserAccessControl):
                 continue
 
             # use an alias to avoid name collisions.
-            target_alias = sa.orm.aliased(cls)
+            # target_alias = sa.orm.aliased(cls)
 
             # join against the first access control using a subquery. from a
             # performance perspective this should be about as performant as
@@ -629,7 +629,7 @@ class ComposedAccessControl(UserAccessControl):
             # name collisions. The subquery is automatically de-subbed by
             # postgres and uses all available indices.
             accessible = access_control.query_accessible_rows(
-                target_alias, user_or_token, columns=[target_alias.id]
+                cls, user_or_token, columns=[cls.id]
             ).subquery()
 
             # join on the FK
