@@ -56,29 +56,14 @@ def test_db(database):
     return (p.returncode == 0)
 
 
-plat = run('uname').stdout
-sudo = ''
-if b'Darwin' in plat:
-    print('* Configuring MacOS postgres [no sudo]')
-else:
-    if shutil.which('sudo'):
-        print('* Configuring Linux postgres [sudo will ask password]')
-        sudo = 'sudo -u postgres'
-    else:
-        print('* Configuring Linux postgres [no sudo]')
-
-# Ask for sudo password here so that it is printed on its own line
-# (better than inside a `with status` section)
-run(f'{sudo} echo -n')
-
 with status(f'Creating user {user}'):
-    run(f'{sudo} {psql_cmd} {flags} -c "CREATE USER {user};"')
+    run(f'{psql_cmd} {flags} -c "CREATE USER {user};"')
 
 if args.force:
     try:
         with status('Removing existing databases'):
             for current_db in all_dbs:
-                p = run(f'{sudo} {psql_cmd} {flags}\
+                p = run(f'{psql_cmd} {flags}\
                           -c "DROP DATABASE {current_db};"')
                 if p.returncode != 0:
                     raise RuntimeError()
@@ -95,7 +80,7 @@ with status('Creating databases'):
         if test_db(current_db):
             continue
 
-        p = run(f'{sudo} {psql_cmd} {flags}\
+        p = run(f'{psql_cmd} {flags}\
                   -c "CREATE DATABASE {current_db};"')
         if p.returncode == 0:
             run(f'{psql_cmd} {flags}\
