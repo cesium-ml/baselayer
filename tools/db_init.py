@@ -34,7 +34,7 @@ flags = f'-U {user}'
 
 if password:
     psql_cmd = f'PGPASSWORD="{password}" {psql_cmd}'
-flags += f' --no-password'
+flags += ' --no-password'
 
 if host:
     flags += f' -h {host}'
@@ -72,13 +72,14 @@ else:
 run(f'{sudo} echo -n')
 
 with status(f'Creating user {user}'):
-    run(f'{sudo} createuser {user}')
+    run(f'{sudo} {psql_cmd} {flags} -c "CREATE USER {user};"')
 
 if args.force:
     try:
         with status('Removing existing databases'):
             for current_db in all_dbs:
-                p = run(f'{sudo} dropdb {current_db}')
+                p = run(f'{sudo} {psql_cmd} {flags}\
+                          -c "DROP DATABASE {current_db};"')
                 if p.returncode != 0:
                     raise RuntimeError()
     except RuntimeError:
@@ -86,7 +87,7 @@ if args.force:
               f'{textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  ")}\n')
         sys.exit(1)
 
-with status(f'Creating databases'):
+with status('Creating databases'):
     for current_db in all_dbs:
         # We allow this to fail, because oftentimes because of complicated db setups
         # users want to create their own databases
@@ -94,11 +95,12 @@ with status(f'Creating databases'):
         if test_db(current_db):
             continue
 
-        p = run(f'{sudo} createdb -w {current_db}')
+        p = run(f'{sudo} {psql_cmd} {flags}\
+                  -c "CREATE DATABASE {current_db};"')
         if p.returncode == 0:
             run(f'{psql_cmd} {flags}\
-              -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"\
-              {current_db}')
+                 -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"\
+                 {current_db}')
         else:
             print()
             print(f'Warning: could not create db {current_db}')
