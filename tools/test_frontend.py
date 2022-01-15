@@ -88,14 +88,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Initialize the test database connection
-    log('Initializing test database')
+    log('Connecting to test database')
     from baselayer.app.models import init_db
     from baselayer.app.config import load_config
 
     basedir = pathlib.Path(os.path.dirname(__file__)) / '..' / '..'
     cfg = load_config([basedir / TEST_CONFIG])
     app_name = cfg['app.factory'].split('.')[0]
-    init_db(**cfg['database'])
+    engine = init_db(**cfg['database'])
+    engine.connect()
 
     if args.test_spec is not None:
         test_spec = args.test_spec
@@ -113,6 +114,7 @@ if __name__ == '__main__':
     if args.headless:
         os.environ['BASELAYER_TEST_HEADLESS'] = '1'
 
+    log('Clearing test database...')
     clear_tables()
 
     web_client = subprocess.Popen(
