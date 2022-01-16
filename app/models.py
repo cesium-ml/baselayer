@@ -28,6 +28,10 @@ strict = cfg["security.strict"]
 use_webhook = cfg["security.slack.enabled"]
 webhook_url = cfg["security.slack.url"]
 
+# SQLA1.4 fix to return SQLA1.3-style aliased entity
+def safe_aliased(entity):
+    return sa.orm.aliased(sa.inspect(entity).mapper)
+
 
 def handle_inaccessible(mode, row_ids, row_type, accessor):
     tb = "".join(traceback.extract_stack().format())
@@ -621,7 +625,7 @@ class ComposedAccessControl(UserAccessControl):
                 continue
 
             # use an alias to avoid name collisions.
-            target_alias = sa.orm.aliased(cls)
+            target_alias = safe_aliased(cls)
 
             # join against the first access control using a subquery. from a
             # performance perspective this should be about as performant as
