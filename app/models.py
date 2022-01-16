@@ -28,6 +28,7 @@ strict = cfg["security.strict"]
 use_webhook = cfg["security.slack.enabled"]
 webhook_url = cfg["security.slack.url"]
 
+
 # SQLA1.4 fix to return SQLA1.3-style aliased entity
 def safe_aliased(entity):
     return sa.orm.aliased(sa.inspect(entity).mapper)
