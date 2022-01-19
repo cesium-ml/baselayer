@@ -121,6 +121,7 @@ class SlugifiedStr(sa.types.TypeDecorator):
     """Slugified string"""
 
     impl = sa.String
+    cache_ok = True
 
     # Used with INSERT
     def process_bind_param(self, value, dialect):
