@@ -48,7 +48,7 @@ timeout = 1
 while not migrated_db(port):
     log(f'Database not migrated, or could not verify; trying again in {timeout}s')
     time.sleep(timeout)
-    timeout = max(timeout * 2, 30)
+    timeout = min(timeout * 2, 30)
 
 
 module, app_factory = app_factory.rsplit('.', 1)
