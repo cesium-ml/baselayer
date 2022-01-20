@@ -5,9 +5,7 @@ import time
 import tornado.ioloop
 import tornado.web
 
-from baselayer.app.models import init_db
 from baselayer.app.env import load_env
-from baselayer.app.model_util import create_tables
 from baselayer.log import make_log
 
 env, cfg = load_env()
@@ -138,13 +136,6 @@ if __name__ == "__main__":
             migrate()
     except Exception as e:
         log(f'Uncaught exception: {e}')
-
-    # If tables are found in the database, new tables will only be added
-    # in debug mode.  In production, we leave the tables alone, since
-    # migrations might be used.
-    log('Refreshing tables')
-    init_db(**cfg['database'])
-    create_tables(add=env.debug)
 
     migration_manager = make_app()
 

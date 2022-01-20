@@ -27,18 +27,6 @@ from baselayer.app.app_server import (
 app_factory = cfg['app.factory']
 baselayer_settings['cookie_secret'] = cfg['app.secret_key']
 baselayer_settings['autoreload'] = env.debug
-# if env.debug:
-#     import logging
-#     logging.basicConfig()
-#     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-
-module, app_factory = app_factory.rsplit('.', 1)
-app_factory = getattr(importlib.import_module(module), app_factory)
-
-app = app_factory(cfg, baselayer_handlers, baselayer_settings,
-                  process=env.process if env.process else 0,
-                  env=env)
-app.cfg = cfg
 
 
 def migrated_db(migration_manager_port):
@@ -53,14 +41,23 @@ def migrated_db(migration_manager_port):
     return status["migrated"]
 
 
-# Before serving, ask migration_manager whether the DB is ready
+# Before creating the app, ask migration_manager whether the DB is ready
 log('Verifying database migration status')
 port = cfg['ports.migration_manager']
 timeout = 1
 while not migrated_db(port):
     log(f'Database not migrated, or could not verify; trying again in {timeout}s')
     time.sleep(timeout)
-    timeout = max(timeout * 2, 30)
+    timeout = min(timeout * 2, 30)
+
+
+module, app_factory = app_factory.rsplit('.', 1)
+app_factory = getattr(importlib.import_module(module), app_factory)
+
+app = app_factory(cfg, baselayer_handlers, baselayer_settings,
+                  process=env.process if env.process else 0,
+                  env=env)
+app.cfg = cfg
 
 port = cfg['ports.app_internal'] + (env.process or 0)
 app.listen(port, xheaders=True)
