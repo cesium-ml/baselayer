@@ -12,8 +12,8 @@ env, cfg = load_env()
 log = make_log('migration_manager')
 
 
-conf_file = env.config[0]
-conf_flags = ['-x', f'config={conf_file}'] if conf_file else []
+conf_files = env.config
+conf_flags = ['-x', f'config={":".join(conf_files)}'] if conf_files else []
 
 
 class timeout_cache:
