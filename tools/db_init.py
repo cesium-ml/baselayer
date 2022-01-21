@@ -5,9 +5,12 @@ import argparse
 import textwrap
 import shutil
 from baselayer.app.env import load_env
+from baselayer.log import make_log
 
 from status import status
 
+
+log = make_log('db_init')
 
 parser = argparse.ArgumentParser(description='Create or re-create the database.')
 parser.add_argument(
@@ -21,7 +24,8 @@ args, unknown = parser.parse_known_args()
 env, cfg = load_env()
 
 db = cfg['database.database']
-all_dbs = (db, db + '_test')
+test_db = db + '_test'
+all_dbs = (db, test_db)
 
 user = cfg['database.user'] or db
 host = cfg['database.host']
@@ -57,13 +61,15 @@ def test_db(database):
     return (p.returncode == 0)
 
 
-with status(f'Creating user {user}'):
+log('Initializing databases')
+
+with status(f'Creating user [{user}]'):
     run(f'{psql_cmd} {admin_flags} -c "CREATE USER {user};"')
 
 if args.force:
     try:
-        with status('Removing existing databases'):
-            for current_db in all_dbs:
+        for current_db in all_dbs:
+            with status(f'Removing database [{current_db}]'):
                 p = run(f'{psql_cmd} {admin_flags}\
                           -c "DROP DATABASE {current_db};"')
                 if p.returncode != 0:
@@ -73,8 +79,8 @@ if args.force:
               f'{textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  ")}\n')
         sys.exit(1)
 
-with status('Creating databases'):
-    for current_db in all_dbs:
+for current_db in all_dbs:
+    with status(f'Creating database [{current_db}]'):
         # We allow this to fail, because oftentimes because of complicated db setups
         # users want to create their own databases
 
@@ -102,9 +108,10 @@ with status('Creating databases'):
             print()
 
 try:
-    with status('Testing database connection'):
-        if not test_db(db):
-            raise RuntimeError()
+    for current_db in all_dbs:
+        with status(f'Testing database connection to [{current_db}]'):
+            if not test_db(current_db):
+                raise RuntimeError()
 except RuntimeError:
     print(textwrap.dedent(
         f'''
@@ -132,3 +139,5 @@ except RuntimeError:
            {test_cmd + db}
         '''))
     sys.exit(1)
+
+print()
