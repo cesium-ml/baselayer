@@ -84,6 +84,7 @@ for current_db in all_dbs:
         # We allow this to fail, because oftentimes because of complicated db setups
         # users want to create their own databases
 
+        # If database already exists and we can connect to it, there's nothing to do
         if test_db(current_db):
             continue
 
@@ -107,31 +108,33 @@ for current_db in all_dbs:
                   f' {current_db}')
             print()
 
+# We only test the connection to the main database, since
+# the test database may not exist in production
 try:
-    for current_db in all_dbs:
-        with status(f'Testing database connection to [{current_db}]'):
-            if not test_db(current_db):
-                raise RuntimeError()
+    with status(f'Testing database connection to [{db}]'):
+        if not test_db(db):
+            raise RuntimeError()
+
 except RuntimeError:
     print(textwrap.dedent(
         f'''
-         !!! Error accessing database:
+        !!! Error accessing database:
 
-         The most common cause of database connection errors is a
-         misconfigured `pg_hba.conf`.
+        The most common cause of database connection errors is a
+        misconfigured `pg_hba.conf`.
 
-         We tried to connect to the database with the following parameters:
+        We tried to connect to the database with the following parameters:
 
-           database: {db}
-           username: {user}
-           host:     {host}
-           port:     {port}
+          database: {db}
+          username: {user}
+          host:     {host}
+          port:     {port}
 
-         The postgres client exited with the following error message:
+        The postgres client exited with the following error message:
 
-         {'-' * 78}
-         {p.stderr.decode('utf-8').strip()}
-         {'-' * 78}
+        {'-' * 78}
+        {p.stderr.decode('utf-8').strip()}
+                   {'-' * 78}
 
          Please modify your `pg_hba.conf`, and use the following command to
          check your connection:
