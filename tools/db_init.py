@@ -134,12 +134,12 @@ except RuntimeError:
 
         {'-' * 78}
         {p.stderr.decode('utf-8').strip()}
-                   {'-' * 78}
+        {'-' * 78}
 
-         Please modify your `pg_hba.conf`, and use the following command to
-         check your connection:
+        Please modify your `pg_hba.conf`, and use the following command to
+        check your connection:
 
-           {test_cmd + db}
+          {test_cmd + db}
         '''))
     sys.exit(1)
 
