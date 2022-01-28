@@ -24,10 +24,9 @@ def run(cmd):
 
 
 if env.debug:
-    log("debug mode detected, launching webpack monitor")
+    log("Debug mode detected, launching webpack monitor")
     p = run(["npx", "webpack", "--watch"])
     sys.exit(p.returncode)
 else:
-    log("Rebuilding main JavaScript bundle")
-    p = run(["npx", "webpack", "--mode=production"])
-    sys.exit(p.returncode)
+    log("Production mode; not building JavaScript bundle")
+    log("Use `make bundle` to produce it from scratch")
