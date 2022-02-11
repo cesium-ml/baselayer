@@ -13,7 +13,7 @@ from selenium.common.exceptions import (
     JavascriptException,
     StaleElementReferenceException,
 )
-from seleniumrequests.request import RequestMixin
+from seleniumrequests.request import RequestsSessionMixin
 
 from baselayer.app import models
 from baselayer.app.config import load_config
@@ -27,7 +27,7 @@ def set_server_url(server_url):
     MyCustomWebDriver.server_url = server_url
 
 
-class MyCustomWebDriver(RequestMixin, webdriver.Firefox):
+class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
     @property
     def server_url(self):
         if not hasattr(self, "_server_url"):
