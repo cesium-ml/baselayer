@@ -392,3 +392,9 @@ class BaseHandler(PSABaseHandler):
             action='baselayer/SHOW_NOTIFICATION',
             payload={'note': note, 'type': notification_type},
         )
+
+    def get_query_argument(self, name, default=RequestHandler._ARG_DEFAULT, strip=True):
+        ret = RequestHandler.get_query_argument(self, name, default, strip)
+        if type(default) == bool:
+            ret = type(ret) == str and ret.lower() in ['true', 'yes', 't', '1']
+        return ret
