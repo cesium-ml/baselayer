@@ -40,6 +40,10 @@ log = make_log('basehandler')
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
 
 
+class NoValue:
+    pass
+
+
 class PSABaseHandler(RequestHandler):
     """
     Mixin used by Python Social Auth
@@ -393,13 +397,10 @@ class BaseHandler(PSABaseHandler):
             payload={'note': note, 'type': notification_type},
         )
 
-    class NoValue:
-        pass
-
-    def get_query_argument(self, default=NoValue, **kwargs):
+    def get_query_argument(self, value, default=NoValue, **kwargs):
         if default != NoValue:
             kwargs['default'] = default
-        arg = super().get_query_argument(**kwargs)
+        arg = super().get_query_argument(value, **kwargs)
         if type(kwargs.get('default', None)) == bool:
             arg = str(arg).lower() in ['true', 'yes', 't', '1']
         return arg
