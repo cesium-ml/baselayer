@@ -26,6 +26,8 @@ from ..flow import Flow
 from ..env import load_env
 from ...log import make_log
 
+class NoValue:
+    pass
 
 env, cfg = load_env()
 log = make_log('basehandler')
@@ -393,8 +395,10 @@ class BaseHandler(PSABaseHandler):
             payload={'note': note, 'type': notification_type},
         )
 
-    def get_query_argument(self, *args, **kwargs):
-        arg = super().get_query_argument(*args, **kwargs)
+    def get_query_argument(self, value, default=NoValue, **kwargs):
+        if default != NoValue:
+            kwargs['default'] = default
+        arg = super().get_query_argument(value, **kwargs)
         if type(kwargs.get('default', None)) == bool:
             arg = str(arg).lower() in ['true', 'yes', 't', '1']
         return arg
