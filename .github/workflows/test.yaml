@@ -37,16 +37,25 @@ jobs:
         with:
           python-version: "3.8"
 
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install template app
+        run: |
+          git clone git://github.com/cesium-ml/baselayer_template_app
+          cp -rf baselayer baselayer_template_app/
+
       - uses: actions/cache@v2
         with:
           path: |
-            ~/.cache
-            ~/.local
             ~/.npm
-          key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+          key: ${{ runner.os }}-npm-${{ hashFiles('baselayer_template_app/package.json') }}
 
-      - name: Checkout
-        uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/pip
+          key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
 
       - name: Install system dependencies
         run: |
@@ -84,11 +93,6 @@ jobs:
           geckodriver --version
           pip install --upgrade selenium
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
-
-      - name: Install template app
-        run: |
-          git clone git://github.com/cesium-ml/baselayer_template_app
-          cp -rf baselayer baselayer_template_app/
 
       - name: Write configuration & build DB
         run: |
