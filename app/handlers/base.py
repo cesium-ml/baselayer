@@ -393,9 +393,13 @@ class BaseHandler(PSABaseHandler):
             payload={'note': note, 'type': notification_type},
         )
 
-    def get_query_argument(self, *args, **kwargs):
-        arg = super().get_query_argument(*args, **kwargs)
-        if (len(args) > 1 and type(args[1]) == bool
-                or type(kwargs.get('default', None)) == bool):
+    class NoValue:
+        pass
+
+    def get_query_argument(self, default=NoValue, **kwargs):
+        if default != NoValue:
+            kwargs['default'] = default
+        arg = super().get_query_argument(**kwargs)
+        if type(kwargs.get('default', None)) == bool:
             arg = str(arg).lower() in ['true', 'yes', 't', '1']
         return arg
