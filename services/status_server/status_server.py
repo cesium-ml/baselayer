@@ -10,7 +10,7 @@ env, cfg = load_env()
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_status(503)
-        self.write("<h2>SkyPortal is being provisioned</h2>")
+        self.write(f"<h2>{cfg['app.title']} is being provisioned</h2>")
 
 
 class MainAPIHandler(tornado.web.RequestHandler):
