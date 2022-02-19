@@ -379,14 +379,14 @@ class BaseHandler(PSABaseHandler):
 
         self.error(str(err), status=status_code)
 
-    async def _get_client(self):
+    async def _get_client(self, timeout=5):
         IP = '127.0.0.1'
         PORT_SCHEDULER = self.cfg['ports.dask']
 
         from distributed import Client
 
         client = await Client(
-            '{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True
+            '{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True, timeout=timeout
         )
 
         return client

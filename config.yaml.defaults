@@ -1,4 +1,5 @@
 app:
+    title: Baselayer Example App
     secret_key: abc01234  # This secret key can be any random string of
                           # characters.
                           #
