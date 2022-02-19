@@ -26,8 +26,6 @@ from ..flow import Flow
 from ..env import load_env
 from ...log import make_log
 
-class NoValue:
-    pass
 
 env, cfg = load_env()
 log = make_log('basehandler')
@@ -40,6 +38,10 @@ log = make_log('basehandler')
 #
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+
+
+class NoValue:
+    pass
 
 
 class PSABaseHandler(RequestHandler):
