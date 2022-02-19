@@ -394,7 +394,7 @@ class BaseHandler(PSABaseHandler):
         )
 
     def get_query_argument(self, *args, **kwargs):
-        arg = super().get_query_argument(self, *args, **kwargs)
+        arg = super().get_query_argument(*args, **kwargs)
         if type(kwargs.get('default', None)) == bool:
             arg = str(arg).lower() in ['true', 'yes', 't', '1']
         return arg
