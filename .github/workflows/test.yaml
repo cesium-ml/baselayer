@@ -63,7 +63,7 @@ jobs:
           export PATH=${NPM_PACKAGES}/bin:$PATH
           export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
 
-          sudo npm -g install npm@next
+          sudo npm -g install npm@latest
 
           which python; python --version
           echo npm $(npm --version)
