@@ -43,7 +43,7 @@ class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
     def get(self, uri):
         webdriver.Firefox.get(self, self.server_url + uri)
         try:
-            self.find_element_by_id("websocketStatus")
+            self.find_element(By.ID, "websocketStatus")
             self.wait_for_xpath(
                 "//*[@id='websocketStatus' and contains(@title,'connected')]"
             )
@@ -147,18 +147,16 @@ class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
 def driver(request):
     from selenium import webdriver
 
-    options = webdriver.FirefoxOptions()
+    options = webdriver.firefox.options.Options()
     if "BASELAYER_TEST_HEADLESS" in os.environ:
         options.headless = True
     options.set_preference('devtools.console.stdout.content', True)
-
-    profile = webdriver.FirefoxProfile()
-    profile.set_preference("browser.download.manager.showWhenStarting", False)
-    profile.set_preference("browser.download.folderList", 2)
-    profile.set_preference(
+    options.set_preference("browser.download.manager.showWhenStarting", False)
+    options.set_preference("browser.download.folderList", 2)
+    options.set_preference(
         "browser.download.dir", os.path.abspath(cfg["paths.downloads_folder"])
     )
-    profile.set_preference(
+    options.set_preference(
         "browser.helperApps.neverAsk.saveToDisk",
         (
             "text/csv,text/plain,application/octet-stream,"
@@ -167,8 +165,7 @@ def driver(request):
     )
 
     driver = MyCustomWebDriver(
-        firefox_profile=profile,
-        options=options,
+        options=options
     )
     driver.set_window_size(1920, 1200)
     login(driver)
