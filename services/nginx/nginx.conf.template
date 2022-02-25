@@ -7,13 +7,13 @@ worker_processes auto;
 http {
   sendfile on;
   tcp_nopush on;
+  types_hash_max_size 4096;
 
   # Enable compression of outgoing data
   gzip on;
   gzip_min_length 1000;
   gzip_proxied any;
   gzip_types text/plain
-             text/html
              text/css
              application/x-javascript
              application/xml
