@@ -5,6 +5,7 @@ import tornado.escape
 from tornado.web import RequestHandler
 from tornado.log import app_log
 from json.decoder import JSONDecodeError
+import sqlalchemy as sa
 from ..models import session_context_id
 from collections import defaultdict
 
@@ -122,11 +123,11 @@ def bulk_verify(mode, collection, accessor):
             accessor, mode=mode, columns=[record_cls.id]
         ).subquery()
 
-        inaccessible_row_ids = DBSession().query(record_cls.id).outerjoin(
+        inaccessible_row_ids = DBSession().execute(sa.select(record_cls.id).outerjoin(
             accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
-        ).filter(record_cls.id.in_(collection_ids)).filter(
+        ).where(record_cls.id.in_(collection_ids)).where(
             accessible_row_ids_sq.c.id.is_(None)
-        )
+        ))
 
         # compare the accessible ids with the ids that are in the session
         inaccessible_row_ids = set(id for id, in inaccessible_row_ids)
@@ -379,14 +380,14 @@ class BaseHandler(PSABaseHandler):
 
         self.error(str(err), status=status_code)
 
-    async def _get_client(self, timeout=5):
+    async def _get_client(self):
         IP = '127.0.0.1'
         PORT_SCHEDULER = self.cfg['ports.dask']
 
         from distributed import Client
 
         client = await Client(
-            '{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True, timeout=timeout
+            '{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True
         )
 
         return client
