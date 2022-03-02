@@ -124,7 +124,8 @@ def bulk_verify(mode, collection, accessor):
         ).subquery()
 
         inaccessible_row_ids = DBSession().execute(sa.select(record_cls.id).outerjoin(
-            accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+            accessible_row_ids_sq,
+            record_cls.id == accessible_row_ids_sq.c.id
         ).where(record_cls.id.in_(collection_ids)).where(
             accessible_row_ids_sq.c.id.is_(None)
         ))

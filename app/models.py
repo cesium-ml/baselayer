@@ -835,9 +835,10 @@ class BaseMixin:
             cls, user_or_token
         ).where(cls.id == self.id).subquery()
 
+        query = sa.select(sa.func.count(accessibility_table.columns.id))
         # Query for the value of the access_func for this particular record and
         # return the result.
-        result = DBSession().execute(sa.select(sa.func.count(accessibility_table.columns.id))).scalar_one() > 0
+        result = DBSession().execute(query).scalar_one() > 0
         if result is None:
             result = False
 
@@ -958,7 +959,8 @@ class BaseMixin:
             )
 
         logic = getattr(cls, mode)
-        query = logic.query_accessible_rows(cls, user_or_token, columns=columns)
+        query = logic.query_accessible_rows(cls,
+                                            user_or_token, columns=columns)
         for option in options:
             query = query.options(option)
         return query
