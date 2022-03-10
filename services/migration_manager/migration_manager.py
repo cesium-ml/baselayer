@@ -1,6 +1,7 @@
 import subprocess
 import os
 import time
+import shutil
 
 import tornado.ioloop
 import tornado.web
@@ -53,17 +54,15 @@ def _alembic(*options):
 
 
 def migrations_exist():
-    try:
-        _alembic()
-    except FileNotFoundError:
-        log('`alembic` executable not found; continuing')
-        return False
-
     if not os.path.isdir('./alembic/versions'):
         log('No migrations present; continuing')
         return False
-    else:
-        return True
+
+    if shutil.which('alembic') is None:
+        log('`alembic` executable not found; continuing')
+        return False
+
+    return True
 
 
 def migrate():
