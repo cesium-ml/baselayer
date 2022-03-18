@@ -300,9 +300,11 @@ class Public(UserAccessControl):
         query: sqlalchemy.Query
             Query for the accessible rows.
         """
+        # return only selected columns if requested
         if columns is not None:
-            return DBSession().query(*columns).select_from(cls)
-        return DBSession().query(cls)
+            return sa.select(*columns).select_from(cls)
+        else:
+            return sa.select(cls)
 
 
 public = Public()
@@ -370,9 +372,9 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         # return only selected columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
+            query = sa.select(*columns).select_from(cls)
         else:
-            query = DBSession().query(cls)
+            query = sa.select(cls)
 
         # traverse the relationship chain via sequential JOINs
         for relationship_name in self.relationship_names:
@@ -389,7 +391,7 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         # filter for records with at least one matching user
         user_id = self.user_id_from_user_or_token(user_or_token)
-        query = query.filter(cls.id == user_id)
+        query = query.where(cls.id == user_id)
         return query
 
     @property
@@ -488,11 +490,11 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
             Query for the accessible rows.
         """
 
-        # only return specified columns if requested
+        # return only selected columns if requested
         if columns is None:
-            base = DBSession().query(cls)
+            base = sa.select(cls)
         else:
-            base = DBSession().query(*columns).select_from(cls)
+            base = sa.select(*columns).select_from(cls)
 
         # ensure the target class has all the relationships referred to
         # in this instance
@@ -612,9 +614,9 @@ class ComposedAccessControl(UserAccessControl):
 
         # retrieve specified columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
+            query = sa.select(*columns).select_from(cls)
         else:
-            query = DBSession().query(cls)
+            query = sa.select(cls)
 
         # keep track of columns that will be null in the case of an unsuccessful
         # match for OR logic.
@@ -657,7 +659,7 @@ class ComposedAccessControl(UserAccessControl):
         # in the case of or logic, require that only one of the conditions be
         # met for each row
         if self.logic == "or":
-            query = query.filter(
+            query = query.where(
                 sa.or_(*[col.isnot(None) for col in accessible_id_cols])
             )
 
@@ -695,13 +697,9 @@ class Restricted(UserAccessControl):
 
         # otherwise, all records are inaccessible
         if columns is not None:
-            return (
-                DBSession()
-                .query(*columns)
-                .select_from(cls)
-                .filter(sa.literal(False))
-            )
-        return DBSession().query(cls).filter(sa.literal(False))
+            return (DBSession().execute(sa.select(*columns).select_from(cls)
+                                        .where(sa.literal(False))))
+        return DBSession().execute(sa.select(cls).where(sa.literal(False)))
 
 
 restricted = Restricted()
@@ -799,7 +797,7 @@ class CustomUserAccessControl(UserAccessControl):
 
         # retrieve specified columns if requested
         if columns is not None:
-            query = query.with_entities(*columns)
+            query = sa.select(*columns).select_from(query.subquery())
 
         return query
 
@@ -833,14 +831,14 @@ class BaseMixin:
         logic = getattr(cls, mode)
 
         # Construct the join from which accessibility can be selected.
-        accessibility_target = (sa.func.count("*") > 0).label(f"{mode}_ok")
         accessibility_table = logic.query_accessible_rows(
-            cls, user_or_token, columns=[accessibility_target]
-        ).filter(cls.id == self.id)
+            cls, user_or_token
+        ).where(cls.id == self.id).subquery()
 
+        query = sa.select(sa.func.count(accessibility_table.columns.id))
         # Query for the value of the access_func for this particular record and
         # return the result.
-        result = accessibility_table.scalar()
+        result = DBSession().execute(query).scalar_one() > 0
         if result is None:
             result = False
 
@@ -926,9 +924,9 @@ class BaseMixin:
             The records accessible to the specified user or token.
 
         """
-        return cls.query_records_accessible_by(
+        return DBSession().execute(cls.query_records_accessible_by(
             user_or_token, mode=mode, options=options, columns=columns
-        ).all()
+        )).all()
 
     @classmethod
     def query_records_accessible_by(
@@ -961,9 +959,11 @@ class BaseMixin:
             )
 
         logic = getattr(cls, mode)
-        return logic.query_accessible_rows(
-            cls, user_or_token, columns=columns
-        ).options(options)
+        query = logic.query_accessible_rows(cls,
+                                            user_or_token, columns=columns)
+        for option in options:
+            query = query.options(option)
+        return query
 
     query = DBSession.query_property()
     id = sa.Column(
