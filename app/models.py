@@ -889,6 +889,8 @@ class BaseMixin:
         # TODO: vectorize this
         for pk in standardized:
             instance = cls.query.options(options).get(pk.item())
+            print(pk)
+            print(instance)
             if instance is not None:
                 if not instance.is_accessible_by(user_or_token, mode=mode):
                     raise AccessError(
@@ -1199,6 +1201,7 @@ class Role(Base):
         secondary="role_acls",
         passive_deletes=True,
         doc="ACLs associated with the Role.",
+        lazy='subquery',
     )
     users = relationship(
         "User",
@@ -1253,6 +1256,7 @@ class User(Base):
         back_populates="users",
         passive_deletes=True,
         doc="The roles assumed by this user.",
+        lazy='subquery',
     )
     role_ids = association_proxy(
         "roles",
@@ -1272,6 +1276,7 @@ class User(Base):
         secondary="user_acls",
         passive_deletes=True,
         doc="ACLs granted to user, separate from role-level ACLs",
+        lazy='subquery',
     )
     expiration_date = sa.Column(
         sa.DateTime,
@@ -1353,16 +1358,20 @@ class Token(Base):
         doc="The ID of the User that created the Token.",
     )
     created_by = relationship(
-        "User", back_populates="tokens", doc="The User that created the token."
+        "User",
+        back_populates="tokens",
+        doc="The User that created the token.",
+        lazy='subquery',
     )
     acls = relationship(
         "ACL",
         secondary="token_acls",
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
+        lazy='subquery',
     )
     acl_ids = association_proxy(
-        "acls", "id", creator=lambda acl: ACL.query.get(acl)
+        "acls", "id", creator=lambda acl: ACL.query.get(acl),
     )
     permissions = acl_ids
 
