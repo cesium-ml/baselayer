@@ -889,8 +889,6 @@ class BaseMixin:
         # TODO: vectorize this
         for pk in standardized:
             instance = cls.query.options(options).get(pk.item())
-            print(pk)
-            print(instance)
             if instance is not None:
                 if not instance.is_accessible_by(user_or_token, mode=mode):
                     raise AccessError(
