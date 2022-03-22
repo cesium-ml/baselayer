@@ -91,7 +91,7 @@ log:
 ports:
     websocket: 64000
     fake_oauth: 63000
-    app: 5000
+    app: 5700
     app_http_proxy: 5001
     app_internal: 65000  # nginx forwards this port to ports:app
     dask: 63500
