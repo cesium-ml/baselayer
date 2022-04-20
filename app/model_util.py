@@ -2,30 +2,31 @@ import time
 from contextlib import contextmanager
 
 import sqlalchemy as sa
+
 from baselayer.app import models
 
 # Do not remove this "unused" import; it is required for
 # psa to initialize the Tornado models
-from . import psa
+from . import psa  # noqa: F401
 
 
 @contextmanager
 def status(message):
-    print(f'[·] {message}', end='')
+    print(f"[·] {message}", end="")
     try:
         yield
-    except:
-        print(f'\r[✗] {message}')
+    except:  # noqa: E722
+        print(f"\r[✗] {message}")
         raise
     else:
-        print(f'\r[✓] {message}')
+        print(f"\r[✓] {message}")
     finally:
         models.DBSession().commit()
 
 
 def drop_tables():
-    conn = models.DBSession.session_factory.kw['bind']
-    print(f'Dropping tables on database {conn.url.database}')
+    conn = models.DBSession.session_factory.kw["bind"]
+    print(f"Dropping tables on database {conn.url.database}")
     meta = sa.MetaData()
     meta.reflect(bind=conn)
     meta.drop_all(bind=conn)
@@ -44,7 +45,7 @@ def create_tables(retry=5, add=True):
         tables.
 
     """
-    conn = models.DBSession.session_factory.kw['bind']
+    conn = models.DBSession.session_factory.kw["bind"]
     tables = models.Base.metadata.sorted_tables
     if tables and not add:
         print("Existing tables found; not creating additional tables")
@@ -52,13 +53,13 @@ def create_tables(retry=5, add=True):
 
     for i in range(1, retry + 1):
         try:
-            conn = models.DBSession.session_factory.kw['bind']
-            print(f'Creating tables on database {conn.url.database}')
+            conn = models.DBSession.session_factory.kw["bind"]
+            print(f"Creating tables on database {conn.url.database}")
             models.Base.metadata.create_all()
 
-            print('Refreshed tables:')
+            print("Refreshed tables:")
             for m in models.Base.metadata.tables:
-                print(f' - {m}')
+                print(f" - {m}")
 
             return
 
@@ -66,8 +67,8 @@ def create_tables(retry=5, add=True):
             if i == retry:
                 raise e
             else:
-                print('Could not connect to database...sleeping 3')
-                print(f'  > {e}')
+                print("Could not connect to database...sleeping 3")
+                print(f"  > {e}")
                 time.sleep(3)
 
 

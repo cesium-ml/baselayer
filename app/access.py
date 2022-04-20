@@ -1,7 +1,9 @@
 import functools
+
 import tornado.web
-from baselayer.app.custom_exceptions import AccessError
-from baselayer.app.models import Role, User, Token
+
+from baselayer.app.custom_exceptions import AccessError  # noqa: F401
+from baselayer.app.models import Role, Token, User  # noqa: F401
 
 
 def auth_or_token(method):
@@ -37,7 +39,7 @@ def auth_or_token(method):
             else:
                 raise tornado.web.HTTPError(
                     401,
-                    'Credentials malformed; expected form "Authorization: token abc123"'
+                    'Credentials malformed; expected form "Authorization: token abc123"',
                 )
             return tornado.web.authenticated(method)(self, *args, **kwargs)
 

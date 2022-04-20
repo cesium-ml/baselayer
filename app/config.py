@@ -1,11 +1,12 @@
+import collections.abc as collections
 import os
 from pathlib import Path
-import collections.abc as collections
+
 import yaml
 
 from ..log import make_log
 
-log = make_log('baselayer')
+log = make_log("baselayer")
 
 
 def recursive_update(d, u):
@@ -44,10 +45,10 @@ class Config(dict):
         if config_files is not None:
             cwd = os.getcwd()
             config_names = [relative_to(c, cwd) for c in config_files]
-            print(f'  Config files: {config_names[0]}')
+            print(f"  Config files: {config_names[0]}")
             for f in config_names[1:]:
-                print(f'                {f}')
-            self['config_files'] = config_files
+                print(f"                {f}")
+            self["config_files"] = config_files
             for f in config_files:
                 self.update_from(f)
 
@@ -58,7 +59,7 @@ class Config(dict):
             recursive_update(self, more_cfg)
 
     def __getitem__(self, key):
-        keys = key.split('.')
+        keys = key.split(".")
 
         val = self
         for key in keys:
@@ -79,17 +80,17 @@ class Config(dict):
 
             if isinstance(self[key], dict):
                 for key, val in self[key].items():
-                    print('  ', key.ljust(30), val)
+                    print("  ", key.ljust(30), val)
 
         print("=" * 78)
 
 
 def load_config(config_files=[]):
-    basedir = Path(os.path.dirname(__file__)) / '..'
+    basedir = Path(os.path.dirname(__file__)) / ".."
     missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
     if missing:
         log(f'Missing config files: {", ".join(missing)}; continuing.')
-    if 'config.yaml' in missing:
+    if "config.yaml" in missing:
         log(
             "Warning: You are running on the default configuration. To configure your system, "
             "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit."
@@ -98,8 +99,8 @@ def load_config(config_files=[]):
     # Always load the default configuration values first, and override
     # with values in user configuration files
     all_configs = [
-        Path(basedir / 'config.yaml.defaults'),
-        Path(basedir / '../config.yaml.defaults'),
+        Path(basedir / "config.yaml.defaults"),
+        Path(basedir / "../config.yaml.defaults"),
     ] + config_files
     all_configs = [cfg for cfg in all_configs if os.path.isfile(cfg)]
     all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]

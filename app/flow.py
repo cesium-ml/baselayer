@@ -1,18 +1,17 @@
 import zmq
-from .json_util import to_json
-from .env import load_env
+
 from ..log import make_log
+from .env import load_env
+from .json_util import to_json
 
 env, cfg = load_env()
-log = make_log('flow')
+log = make_log("flow")
 
 
-class Flow(object):
-    """Send messages through websocket to frontend
+class Flow:
+    """Send messages through websocket to frontend"""
 
-    """
-
-    def __init__(self, socket_path=cfg['ports.websocket_path_in']):
+    def __init__(self, socket_path=cfg["ports.websocket_path_in"]):
         self._socket_path = socket_path
         self._ctx = zmq.Context.instance()
         self._bus = self._ctx.socket(zmq.PUSH)
@@ -35,11 +34,11 @@ class Flow(object):
             an API call.
 
         """
-        log('Pushing action {} to user {}'.format(action_type, user_id))
+        log(f"Pushing action {action_type} to user {user_id}")
         message = [
             str(user_id),
             to_json(
-                {'user_id': user_id, 'actionType': action_type, 'payload': payload}
+                {"user_id": user_id, "actionType": action_type, "payload": payload}
             ),
         ]
-        self._bus.send_multipart([m.encode('utf-8') for m in message])
+        self._bus.send_multipart([m.encode("utf-8") for m in message])

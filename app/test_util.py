@@ -2,22 +2,21 @@ import os
 
 import pytest
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions
 from selenium.common.exceptions import (
-    NoSuchElementException,
     ElementClickInterceptedException,
-    TimeoutException,
     JavascriptException,
+    NoSuchElementException,
     StaleElementReferenceException,
+    TimeoutException,
 )
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.support.ui import WebDriverWait
 from seleniumrequests.request import RequestsSessionMixin
 
 from baselayer.app import models
 from baselayer.app.config import load_config
-
 
 cfg = load_config()
 
@@ -150,7 +149,7 @@ def driver(request):
     options = webdriver.firefox.options.Options()
     if "BASELAYER_TEST_HEADLESS" in os.environ:
         options.headless = True
-    options.set_preference('devtools.console.stdout.content', True)
+    options.set_preference("devtools.console.stdout.content", True)
     options.set_preference("browser.download.manager.showWhenStarting", False)
     options.set_preference("browser.download.folderList", 2)
     options.set_preference(
@@ -164,9 +163,7 @@ def driver(request):
         ),
     )
 
-    driver = MyCustomWebDriver(
-        options=options
-    )
+    driver = MyCustomWebDriver(options=options)
     driver.set_window_size(1920, 1200)
     login(driver)
 

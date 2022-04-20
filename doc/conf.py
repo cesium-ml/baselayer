@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # baselayer documentation build configuration file, created by
 # sphinx-quickstart on Thu Jul 23 13:00:45 2015 (copied from `cesium`).
@@ -13,9 +12,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
-import shlex
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -31,10 +28,10 @@ import shlex
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'recommonmark',
-    'sphinx.ext.mathjax',
+    "recommonmark",
+    "sphinx.ext.mathjax",
     #    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
+    "sphinx.ext.autosummary",
     #    'sphinx.ext.pngmath',
     #    'numpydoc',
     #    'plot2rst',
@@ -44,23 +41,23 @@ extensions = [
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 source_suffix = {
-    '.rst': 'restructuredtext',
-    '.md': 'markdown',
+    ".rst": "restructuredtext",
+    ".md": "markdown",
 }
 
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = 'baselayer'
-copyright = '2017, The baselayer Team'
-author = 'The baselayer Team'
+project = "baselayer"
+copyright = "2017, The baselayer Team"
+author = "The baselayer Team"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -68,7 +65,7 @@ author = 'The baselayer Team'
 #
 
 # setup_lines = open('../baselayer/__init__.py').readlines()
-version = 'vUndefined'
+version = "vUndefined"
 # for l in setup_lines:
 #    if l.startswith('__version__'):
 #        version = l.split("'")[1]
@@ -92,7 +89,7 @@ language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = ["_build"]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -110,7 +107,7 @@ exclude_patterns = ['_build']
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
@@ -126,11 +123,11 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 # Per https://github.com/snide/sphinx_rtd_theme: specify theme if not on RTD
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+on_rtd = os.environ.get("READTHEDOCS", None) == "True"
 if not on_rtd:  # only import and set the theme if we're building docs locally
-    import sphinx_rtd_theme
+    import sphinx_rtd_theme  # noqa: F401
 
-    html_theme = 'sphinx_rtd_theme'
+    html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -159,7 +156,7 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -222,19 +219,19 @@ html_show_sourcelink = False
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'baselayerdoc'
+htmlhelp_basename = "baselayerdoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
-    #'papersize': 'letterpaper',
+    # 'papersize': 'letterpaper',
     # The font size ('10pt', '11pt' or '12pt').
-    #'pointsize': '10pt',
+    # 'pointsize': '10pt',
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
+    # 'preamble': '',
     # Latex figure (float) alignment
-    #'figure_align': 'htbp',
+    # 'figure_align': 'htbp',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -243,10 +240,10 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        'baselayer.tex',
-        'baselayer Documentation',
-        'The baselayer Team',
-        'manual',
+        "baselayer.tex",
+        "baselayer Documentation",
+        "The baselayer Team",
+        "manual",
     ),
 ]
 
@@ -275,7 +272,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, 'baselayer', 'baselayer Documentation', [author], 1)]
+man_pages = [(master_doc, "baselayer", "baselayer Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -289,12 +286,12 @@ man_pages = [(master_doc, 'baselayer', 'baselayer Documentation', [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        'baselayer',
-        'baselayer Documentation',
+        "baselayer",
+        "baselayer Documentation",
         author,
-        'baselayer',
-        'One line description of project.',
-        'Miscellaneous',
+        "baselayer",
+        "One line description of project.",
+        "Miscellaneous",
     ),
 ]
 

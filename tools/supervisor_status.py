@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
-import subprocess
 import os
-import sys
+import subprocess
 from os.path import join as pjoin
 
-base_dir = os.path.abspath(pjoin(os.path.dirname(__file__), '../..'))
+base_dir = os.path.abspath(pjoin(os.path.dirname(__file__), "../.."))
 
 
 def supervisor_status():
@@ -21,14 +20,14 @@ def supervisor_status():
         expected when, e.g., webpack exits normally).
     """
     result = subprocess.run(
-        'python -m supervisor.supervisorctl -c baselayer/conf/supervisor/supervisor.conf status',
+        "python -m supervisor.supervisorctl -c baselayer/conf/supervisor/supervisor.conf status",
         shell=True,
         cwd=base_dir,
         stdout=subprocess.PIPE,
     )
-    return result.stdout.decode().split('\n')[:-1], result.returncode
+    return result.stdout.decode().split("\n")[:-1], result.returncode
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     supervisor_output, _ = supervisor_status()
-    print('\n'.join(supervisor_output))
+    print("\n".join(supervisor_output))

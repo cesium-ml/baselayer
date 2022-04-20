@@ -10,17 +10,18 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py38-plus]
+  - repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: ["--profile", "black"]
   - repo: https://github.com/python/black
     rev: 22.3.0
     hooks:
       - id: black
         pass_filenames: true
         exclude: baselayer|node_modules|static
-  - repo: https://github.com/pycqa/isort
-    rev: 5.10.1
-    hooks:
-      - id: isort
-        name: isort (python)
   - repo: https://gitlab.com/pycqa/flake8
     rev: 3.8.4
     hooks:

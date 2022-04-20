@@ -11,8 +11,8 @@ in which case the category names are printed as a heading before the targets.
 
 """
 
-import sys
 import re
+import sys
 
 if not sys.argv:
     print("Usage: makefile_to_help.py <MAKEFILE0> <MAKEFILE1> ...")
@@ -20,19 +20,19 @@ if not sys.argv:
 
 
 def describe_targets(lines):
-    matches = [re.match('^([\w-]+): +##(.*)', line) for line in lines]
+    matches = [re.match(r"^([\w-]+): +##(.*)", line) for line in lines]
     groups = [m.groups(0) for m in matches if m]
     targets = {target: desc for (target, desc) in groups}
 
     N = max(len(target) for (target, desc) in targets.items())
 
     for (target, desc) in targets.items():
-        print(f'{target:{N}} {desc}')
+        print(f"{target:{N}} {desc}")
 
 
 for source in sys.argv[1:]:
-    if ':' in source:
-        category, fname = source.split(':')
+    if ":" in source:
+        category, fname = source.split(":")
         print(f'\n{category}\n{"-" * len(category)}')
     else:
         fname = source

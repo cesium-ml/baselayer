@@ -15,7 +15,7 @@ def make_app(config, baselayer_handlers, baselayer_settings)
 
 The configuration is passed in as the first parameter, followed by
 baselayer-handlers (those should be appended to your Tornado handlers,
-to put in place system endpoints such as logging in).  The last
+to put in place system endpoints such as logging in). The last
 argument contains baselayer-specific Tornado configuration.
 
 A typical `make_app` could be:
@@ -42,7 +42,7 @@ def make_app(config, baselayer_handlers, baselayer_settings):
 
 Often, values inside your JavaScript code or engineering configuration
 files (nginx, supervisor, etc.) depend on settings inside
-`config.yaml`.  To simplify propagating these values, `baselayer`
+`config.yaml`. To simplify propagating these values, `baselayer`
 provides templating functionality, applied to files named
 `*.template`, before running the application. The template engine used
 is [Jinja2](https://jinja.palletsprojects.com).
@@ -55,7 +55,7 @@ The database port is {{ database.port }}.
 ```
 
 When you launch the `run` or `run_production` targets for baselayer,
-it will automatically fill out all template files.  Alternatively, you
+it will automatically fill out all template files. Alternatively, you
 can run the templating manually:
 
 ```

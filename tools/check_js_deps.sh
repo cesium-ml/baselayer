@@ -18,4 +18,3 @@ ${CHECKER} --install
 if ${CHECKER}; then
     echo "✓ All Javascript dependencies satisfied."
 fi
-
