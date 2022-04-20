@@ -10,9 +10,9 @@ from .config import load_config
 # Cache loading of environment
 _cache = {}
 
-parser = argparse.ArgumentParser(description='Launch web app')
-parser.add_argument('-C', '--config', action='append')
-parser.add_argument('--debug', action='store_true')
+parser = argparse.ArgumentParser(description="Launch web app")
+parser.add_argument("-C", "--config", action="append")
+parser.add_argument("--debug", action="store_true")
 
 
 def load_env():
@@ -36,17 +36,22 @@ def load_env():
         env, unknown = parser.parse_known_args()
         cfg = load_config(config_files=env.config or [])
 
-        _cache.update({'file': env.config, 'env': env, 'cfg': cfg})
+        _cache.update({"file": env.config, "env": env, "cfg": cfg})
 
         # Prohibit more arguments from being added on after config has
         # been loaded
         def no_more_args(cls, *args, **kwargs):
-            raise RuntimeError(textwrap.dedent('''
+            raise RuntimeError(
+                textwrap.dedent(
+                    """
                 Trying to add argument after `load_env` has already been called.
                 This typically happens when one of your imports calls
                 `load_env`.  To avoid this error, move your imports until after
                 adding new arguments to the parser.
-            '''))
+            """
+                )
+            )
+
         parser.add_argument = no_more_args
 
-    return _cache['env'], _cache['cfg']
+    return _cache["env"], _cache["cfg"]

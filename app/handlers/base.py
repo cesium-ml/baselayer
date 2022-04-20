@@ -1,13 +1,8 @@
-import uuid
-import time
 import inspect
-import tornado.escape
-from tornado.web import RequestHandler
-from tornado.log import app_log
-from json.decoder import JSONDecodeError
-import sqlalchemy as sa
-from ..models import session_context_id
+import time
+import uuid
 from collections import defaultdict
+from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -16,20 +11,23 @@ from collections import defaultdict
 # and provides a cached version, `current_user`, that should
 # be used to look up the logged in user.
 import social_tornado.handlers as psa_handlers
+import sqlalchemy as sa
+import tornado.escape
+from tornado.log import app_log
+from tornado.web import RequestHandler
+
+from ...log import make_log
 
 # Initialize PSA tornado models
 from .. import psa  # noqa
-
-from ..models import DBSession, User, handle_inaccessible
 from ..custom_exceptions import AccessError
-from ..json_util import to_json
-from ..flow import Flow
 from ..env import load_env
-from ...log import make_log
-
+from ..flow import Flow
+from ..json_util import to_json
+from ..models import DBSession, User, handle_inaccessible, session_context_id
 
 env, cfg = load_env()
-log = make_log('basehandler')
+log = make_log("basehandler")
 
 # Monkey-patch Python Social Auth's base handler
 #
@@ -51,11 +49,11 @@ class PSABaseHandler(RequestHandler):
     """
 
     def user_id(self):
-        return self.get_secure_cookie('user_id')
+        return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
         user_id = self.user_id()
-        oauth_uid = self.get_secure_cookie('user_oauth_uid')
+        oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
             user = User.query.get(int(user_id))
             if user is None:
@@ -64,14 +62,14 @@ class PSABaseHandler(RequestHandler):
             if sa is None:
                 # No SocialAuth entry; probably machine generated user
                 return user
-            if sa.uid.encode('utf-8') == oauth_uid:
+            if sa.uid.encode("utf-8") == oauth_uid:
                 return user
 
     def login_user(self, user):
-        self.set_secure_cookie('user_id', str(user.id))
+        self.set_secure_cookie("user_id", str(user.id))
         sa = user.social_auth.first()
         if sa is not None:
-            self.set_secure_cookie('user_oauth_uid', sa.uid)
+            self.set_secure_cookie("user_oauth_uid", sa.uid)
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
@@ -115,7 +113,7 @@ def bulk_verify(mode, collection, accessor):
 
     # check all rows of the same type with a single database query
     for record_cls, collection in grouped_collection.items():
-        collection_ids = set(record.id for record in collection)
+        collection_ids = {record.id for record in collection}
 
         # vectorized query for ids of rows in the session that
         # are accessible
@@ -123,15 +121,17 @@ def bulk_verify(mode, collection, accessor):
             accessor, mode=mode, columns=[record_cls.id]
         ).subquery()
 
-        inaccessible_row_ids = DBSession().execute(sa.select(record_cls.id).outerjoin(
-            accessible_row_ids_sq,
-            record_cls.id == accessible_row_ids_sq.c.id
-        ).where(record_cls.id.in_(collection_ids)).where(
-            accessible_row_ids_sq.c.id.is_(None)
-        ))
+        inaccessible_row_ids = DBSession().execute(
+            sa.select(record_cls.id)
+            .outerjoin(
+                accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+            )
+            .where(record_cls.id.in_(collection_ids))
+            .where(accessible_row_ids_sq.c.id.is_(None))
+        )
 
         # compare the accessible ids with the ids that are in the session
-        inaccessible_row_ids = set(id for id, in inaccessible_row_ids)
+        inaccessible_row_ids = {id for id, in inaccessible_row_ids}
 
         # if any of the rows in the session are inaccessible, handle
         if len(inaccessible_row_ids) > 0:
@@ -139,14 +139,11 @@ def bulk_verify(mode, collection, accessor):
 
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
-for (name, fn) in inspect.getmembers(
-    PSABaseHandler, predicate=inspect.isfunction
-):
+for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunction):
     setattr(psa_handlers.BaseHandler, name, fn)
 
 
 class BaseHandler(PSABaseHandler):
-
     def verify_permissions(self):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
@@ -177,7 +174,7 @@ class BaseHandler(PSABaseHandler):
         # joins). Read permissions can be checked here or below as they do not
         # change on flush.
         for mode, collection in zip(
-            ['read', 'update', 'delete'],
+            ["read", "update", "delete"],
             [read_rows, updated_rows, deleted_rows],
         ):
             bulk_verify(mode, collection, self.current_user)
@@ -186,7 +183,7 @@ class BaseHandler(PSABaseHandler):
         # or adds rows in the database and uses their new state in joins,
         # for permissions checking purposes.
         DBSession().flush()
-        bulk_verify('create', new_rows, self.current_user)
+        bulk_verify("create", new_rows, self.current_user)
 
     def verify_and_commit(self):
         """Verify permissions on the current database session and commit if
@@ -203,12 +200,9 @@ class BaseHandler(PSABaseHandler):
         # Remove slash prefixes from arguments
         if self.path_args:
             self.path_args = [
-                arg.lstrip('/') if arg is not None else None
-                for arg in self.path_args
+                arg.lstrip("/") if arg is not None else None for arg in self.path_args
             ]
-            self.path_args = [
-                arg if (arg != '') else None for arg in self.path_args
-            ]
+            self.path_args = [arg if (arg != "") else None for arg in self.path_args]
 
         # If there are no arguments, make it explicit, otherwise
         # get / post / put / delete all have to accept an optional kwd argument
@@ -219,15 +213,15 @@ class BaseHandler(PSABaseHandler):
         N = 5
         for i in range(1, N + 1):
             try:
-                assert DBSession.session_factory.kw['bind'] is not None
+                assert DBSession.session_factory.kw["bind"] is not None
             except Exception as e:
                 if i == N:
                     raise e
                 else:
-                    log('Error connecting to database, sleeping for a while')
+                    log("Error connecting to database, sleeping for a while")
                     time.sleep(5)
 
-        return super(BaseHandler, self).prepare()
+        return super().prepare()
 
     def push(self, action, payload={}):
         """Broadcast a message to current frontend user.
@@ -242,7 +236,7 @@ class BaseHandler(PSABaseHandler):
             to the frontend.
         """
         # Don't push messages if current user is a token
-        if hasattr(self.current_user, 'username'):
+        if hasattr(self.current_user, "username"):
             self.flow.push(self.current_user.id, action, payload)
 
     def push_all(self, action, payload={}):
@@ -267,7 +261,7 @@ class BaseHandler(PSABaseHandler):
             Action payload.  This data accompanies the action string
             to the frontend.
         """
-        self.flow.push('*', action, payload=payload)
+        self.flow.push("*", action, payload=payload)
 
     def get_json(self):
         if len(self.request.body) == 0:
@@ -275,19 +269,17 @@ class BaseHandler(PSABaseHandler):
         try:
             json = tornado.escape.json_decode(self.request.body)
             if not isinstance(json, dict):
-                raise Exception(
-                    'Please ensure posted data is of type application/json'
-                )
+                raise Exception("Please ensure posted data is of type application/json")
             return json
         except JSONDecodeError:
             raise Exception(
-                f'JSON decode of request body failed on {self.request.uri}.'
-                ' Please ensure all requests are of type application/json.'
+                f"JSON decode of request body failed on {self.request.uri}."
+                " Please ensure all requests are of type application/json."
             )
 
     def on_finish(self):
         DBSession.remove()
-        return super(BaseHandler, self).on_finish()
+        return super().on_finish()
 
     def error(self, message, data={}, status=400, extra={}):
         """Push an error message to the frontend via WebSocket connection.
@@ -314,13 +306,11 @@ class BaseHandler(PSABaseHandler):
             Extra fields to be included in the response.
         """
         if not (status == 404 and self.request.method == "HEAD"):
-            log(f'Error response returned by [{self.request.path}]: [{message}]')
+            log(f"Error response returned by [{self.request.path}]: [{message}]")
 
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
-        self.write(
-            {"status": "error", "message": message, "data": data, **extra}
-        )
+        self.write({"status": "error", "message": message, "data": data, **extra})
 
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
@@ -377,32 +367,32 @@ class BaseHandler(PSABaseHandler):
             if isinstance(err_cls, AccessError):
                 status_code = 401
         else:
-            err = 'An unknown error occurred'
+            err = "An unknown error occurred"
 
         self.error(str(err), status=status_code)
 
     async def _get_client(self, timeout=5):
-        IP = '127.0.0.1'
-        PORT_SCHEDULER = self.cfg['ports.dask']
+        IP = "127.0.0.1"
+        PORT_SCHEDULER = self.cfg["ports.dask"]
 
         from distributed import Client
 
         client = await Client(
-            '{}:{}'.format(IP, PORT_SCHEDULER), asynchronous=True, timeout=timeout
+            f"{IP}:{PORT_SCHEDULER}", asynchronous=True, timeout=timeout
         )
 
         return client
 
-    def push_notification(self, note, notification_type='info'):
+    def push_notification(self, note, notification_type="info"):
         self.push(
-            action='baselayer/SHOW_NOTIFICATION',
-            payload={'note': note, 'type': notification_type},
+            action="baselayer/SHOW_NOTIFICATION",
+            payload={"note": note, "type": notification_type},
         )
 
     def get_query_argument(self, value, default=NoValue, **kwargs):
         if default != NoValue:
-            kwargs['default'] = default
+            kwargs["default"] = default
         arg = super().get_query_argument(value, **kwargs)
-        if type(kwargs.get('default', None)) == bool:
-            arg = str(arg).lower() in ['true', 'yes', 't', '1']
+        if type(kwargs.get("default", None)) == bool:
+            arg = str(arg).lower() in ["true", "yes", "t", "1"]
         return arg

@@ -1,21 +1,20 @@
-from datetime import datetime
 import zlib
-
+from datetime import datetime
 
 BOLD = "\033[1m"
 NORMAL = "\033[0;0m"
 
 
 COLOR_TABLE = [
-    'black',
-    'red',
-    'green',
-    'yellow',
-    'blue',
-    'magenta',
-    'cyan',
-    'white',
-    'default',
+    "black",
+    "red",
+    "green",
+    "yellow",
+    "blue",
+    "magenta",
+    "cyan",
+    "white",
+    "default",
 ]
 
 
@@ -64,16 +63,16 @@ def colorize(s, fg=None, bg=None, bold=False, underline=False, reverse=False):
         style_fragments.append(4)
     if reverse:
         style_fragments.append(7)
-    style_start = '\x1b[' + ';'.join(map(str, style_fragments)) + 'm'
-    style_end = '\x1b[0m'
+    style_start = "\x1b[" + ";".join(map(str, style_fragments)) + "m"
+    style_end = "\x1b[0m"
     return style_start + s + style_end
 
 
 def log(app, message):
-    color_table = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
-    color = color_table[zlib.crc32(app.encode('ascii')) % len(color_table)]
-    timestamp = datetime.now().strftime('%H:%M:%S')
-    formatted_message = f'[{timestamp} {app}] {message}'
+    color_table = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+    color = color_table[zlib.crc32(app.encode("ascii")) % len(color_table)]
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    formatted_message = f"[{timestamp} {app}] {message}"
     print(colorize(formatted_message, fg=color, bold=True))
 
 

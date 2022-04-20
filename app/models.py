@@ -1,24 +1,24 @@
-from datetime import datetime
-import uuid
 import contextvars
-from hashlib import md5
+import traceback
+import uuid
 import warnings
+from datetime import datetime
+from hashlib import md5
 
 import numpy as np
-import sqlalchemy as sa
-import traceback
 import requests
+import sqlalchemy as sa
 from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import sessionmaker, scoped_session, relationship
+from sqlalchemy.orm import relationship, scoped_session, sessionmaker
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
 from .custom_exceptions import AccessError
-from .json_util import to_json
 from .env import load_env
+from .json_util import to_json
 
 session_context_id = contextvars.ContextVar("request_id", default=None)
 DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
@@ -366,9 +366,7 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         # system admins automatically get full access
         if user_or_token.is_admin:
-            return public.query_accessible_rows(
-                cls, user_or_token, columns=columns
-            )
+            return public.query_accessible_rows(cls, user_or_token, columns=columns)
 
         # return only selected columns if requested
         if columns is not None:
@@ -379,9 +377,7 @@ class AccessibleIfUserMatches(UserAccessControl):
         # traverse the relationship chain via sequential JOINs
         for relationship_name in self.relationship_names:
             self.check_cls_for_attributes(cls, [relationship_name])
-            relationship = sa.inspect(cls).mapper.relationships[
-                relationship_name
-            ]
+            relationship = sa.inspect(cls).mapper.relationships[relationship_name]
 
             # not a private attribute, just has an underscore to avoid name
             # collision with python keyword
@@ -691,14 +687,13 @@ class Restricted(UserAccessControl):
 
         # system admins have access to restricted records
         if user_or_token.is_admin:
-            return public.query_accessible_rows(
-                cls, user_or_token, columns=columns
-            )
+            return public.query_accessible_rows(cls, user_or_token, columns=columns)
 
         # otherwise, all records are inaccessible
         if columns is not None:
-            return (DBSession().execute(sa.select(*columns).select_from(cls)
-                                        .where(sa.literal(False))))
+            return DBSession().execute(
+                sa.select(*columns).select_from(cls).where(sa.literal(False))
+            )
         return DBSession().execute(sa.select(cls).where(sa.literal(False)))
 
 
@@ -831,9 +826,11 @@ class BaseMixin:
         logic = getattr(cls, mode)
 
         # Construct the join from which accessibility can be selected.
-        accessibility_table = logic.query_accessible_rows(
-            cls, user_or_token
-        ).where(cls.id == self.id).subquery()
+        accessibility_table = (
+            logic.query_accessible_rows(cls, user_or_token)
+            .where(cls.id == self.id)
+            .subquery()
+        )
 
         query = sa.select(sa.func.count(accessibility_table.columns.id))
         # Query for the value of the access_func for this particular record and
@@ -924,9 +921,15 @@ class BaseMixin:
             The records accessible to the specified user or token.
 
         """
-        return DBSession().execute(cls.query_records_accessible_by(
-            user_or_token, mode=mode, options=options, columns=columns
-        )).all()
+        return (
+            DBSession()
+            .execute(
+                cls.query_records_accessible_by(
+                    user_or_token, mode=mode, options=options, columns=columns
+                )
+            )
+            .all()
+        )
 
     @classmethod
     def query_records_accessible_by(
@@ -959,8 +962,7 @@ class BaseMixin:
             )
 
         logic = getattr(cls, mode)
-        query = logic.query_accessible_rows(cls,
-                                            user_or_token, columns=columns)
+        query = logic.query_accessible_rows(cls, user_or_token, columns=columns)
         for option in options:
             query = query.options(option)
         return query
@@ -1007,9 +1009,7 @@ class BaseMixin:
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
             DBSession().refresh(self)
-        return {
-            k: v for k, v in self.__dict__.items() if not k.startswith("_")
-        }
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     @classmethod
     def get_if_readable_by(cls, ident, user_or_token, options=[]):
@@ -1127,9 +1127,7 @@ def join_model(
 
     model_attrs = {
         "__tablename__": join_table,
-        "id": sa.Column(
-            sa.Integer, primary_key=True, doc="Unique object identifier."
-        ),
+        "id": sa.Column(sa.Integer, primary_key=True, doc="Unique object identifier."),
         column_1: sa.Column(
             column_1,
             sa.ForeignKey(f"{table_1}.{fk_1}", ondelete="CASCADE"),
@@ -1166,9 +1164,7 @@ def join_model(
         }
     )
 
-    model = type(
-        model_1.__name__ + model_2.__name__, (base, JoinModel), model_attrs
-    )
+    model = type(model_1.__name__ + model_2.__name__, (base, JoinModel), model_attrs)
     model.read = model.create = AccessibleIfRelatedRowsAreAccessible(
         **{model_1.__name__.lower(): "read", model_2.__name__.lower(): "read"}
     )
@@ -1182,18 +1178,14 @@ class ACL(Base):
     and `Manage Groups`.
     """
 
-    id = sa.Column(
-        sa.String, nullable=False, primary_key=True, doc="ACL name."
-    )
+    id = sa.Column(sa.String, nullable=False, primary_key=True, doc="ACL name.")
 
 
 class Role(Base):
     """A collection of ACLs. Roles map Users to ACLs. One User may assume
     multiple Roles."""
 
-    id = sa.Column(
-        sa.String, nullable=False, primary_key=True, doc="Role name."
-    )
+    id = sa.Column(sa.String, nullable=False, primary_key=True, doc="Role name.")
     acls = relationship(
         "ACL",
         secondary="role_acls",
@@ -1224,23 +1216,17 @@ class User(Base):
         SlugifiedStr, nullable=False, unique=True, doc="The user's username."
     )
 
-    first_name = sa.Column(
-        sa.String, nullable=True, doc="The User's first name."
-    )
-    last_name = sa.Column(
-        sa.String, nullable=True, doc="The User's last name."
-    )
+    first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
+    last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
-        doc="The phone number at which the user prefers to receive "
-        "communications.",
+        doc="The phone number at which the user prefers to receive " "communications.",
     )
     contact_phone = sa.Column(
         PhoneNumberType(),
         nullable=True,
-        doc="The email at which the user prefers to receive "
-        "communications.",
+        doc="The email at which the user prefers to receive " "communications.",
     )
     oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(
@@ -1283,11 +1269,7 @@ class User(Base):
     def gravatar_url(self):
         """The Gravatar URL inferred from the user's contact email, or, if the
         contact email is null, the username."""
-        email = (
-            self.contact_email
-            if self.contact_email is not None
-            else self.username
-        )
+        email = self.contact_email if self.contact_email is not None else self.username
 
         digest = md5(email.lower().encode("utf-8")).hexdigest()
         # return a transparent png if not found on gravatar
@@ -1361,9 +1343,7 @@ class Token(Base):
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
     )
-    acl_ids = association_proxy(
-        "acls", "id", creator=lambda acl: ACL.query.get(acl)
-    )
+    acl_ids = association_proxy("acls", "id", creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
 
     name = sa.Column(
@@ -1391,7 +1371,11 @@ class Token(Base):
         """
         return user_or_token.id in [self.created_by_id, self.id]
 
-    __table_args__ = (sa.UniqueConstraint("created_by_id", "name", name="token_name_userid_unique_constraint"),)
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "created_by_id", "name", name="token_name_userid_unique_constraint"
+        ),
+    )
 
 
 TokenACL = join_model("token_acls", Token, ACL)

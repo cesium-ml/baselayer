@@ -1,25 +1,22 @@
-# encoding: utf-8
-
-from tornado import websocket, web, ioloop
-import json
-import zmq
-import jwt
-import sys
-
 import collections
+import json
+
+import jwt
+import zmq
+from tornado import ioloop, web, websocket
 
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
 env, cfg = load_env()
-secret = cfg['app.secret_key']
+secret = cfg["app.secret_key"]
 
 if secret is None:
-    raise RuntimeError('We need a secret key to communicate with the server!')
+    raise RuntimeError("We need a secret key to communicate with the server!")
 
 ctx = zmq.Context()
 
-log = make_log('websocket_server')
+log = make_log("websocket_server")
 
 
 class WebSocket(websocket.WebSocketHandler):
@@ -71,16 +68,16 @@ class WebSocket(websocket.WebSocketHandler):
 
     @classmethod
     def install_stream(cls, stream):
-        stream.socket.setsockopt(zmq.SUBSCRIBE, '*'.encode('utf-8'))
+        stream.socket.setsockopt(zmq.SUBSCRIBE, b"*")
         cls._zmq_stream = stream
 
     @classmethod
     def subscribe(cls, user_id):
-        cls._zmq_stream.socket.setsockopt(zmq.SUBSCRIBE, user_id.encode('utf-8'))
+        cls._zmq_stream.socket.setsockopt(zmq.SUBSCRIBE, user_id.encode("utf-8"))
 
     @classmethod
     def unsubscribe(cls, user_id):
-        cls._zmq_stream.socket.setsockopt(zmq.UNSUBSCRIBE, user_id.encode('utf-8'))
+        cls._zmq_stream.socket.setsockopt(zmq.UNSUBSCRIBE, user_id.encode("utf-8"))
 
     def check_origin(self, origin):
         return True
@@ -108,7 +105,7 @@ class WebSocket(websocket.WebSocketHandler):
             if self.auth_failures <= self.max_auth_fails:
                 self.request_auth()
             else:
-                log('max auth failure count reached')
+                log("max auth failure count reached")
 
     def request_auth(self):
         self.auth_failures += 1
@@ -119,19 +116,15 @@ class WebSocket(websocket.WebSocketHandler):
 
     def authenticate(self, auth_token):
         try:
-            token_payload = jwt.decode(
-                auth_token,
-                secret,
-                algorithms=["HS256"]
-            )
-            user_id = token_payload.get('user_id', None)
+            token_payload = jwt.decode(auth_token, secret, algorithms=["HS256"])
+            user_id = token_payload.get("user_id", None)
             if not user_id:
                 raise jwt.DecodeError("No user_id field found")
 
             self.user_id = user_id
             self.authenticated = True
             self.auth_failures = 0
-            self.send_json(actionType='AUTH OK')
+            self.send_json(actionType="AUTH OK")
 
             # If we are the first websocket connecting on behalf of
             # a given user, subscribe to the feed for that user
@@ -141,23 +134,23 @@ class WebSocket(websocket.WebSocketHandler):
             WebSocket.sockets[user_id].add(self)
 
         except jwt.DecodeError:
-            self.send_json(actionType='AUTH FAILED')
+            self.send_json(actionType="AUTH FAILED")
         except jwt.ExpiredSignatureError:
-            self.send_json(actionType='AUTH FAILED')
+            self.send_json(actionType="AUTH FAILED")
 
     @classmethod
     def heartbeat(cls):
         for user_id in cls.sockets:
             for socket in cls.sockets[user_id]:
-                socket.write_message(b'<3')
+                socket.write_message(b"<3")
 
     # http://mrjoes.github.io/2013/06/21/python-realtime.html
     @classmethod
     def broadcast(cls, data):
-        user_id, payload = [d.decode('utf-8') for d in data]
+        user_id, payload = (d.decode("utf-8") for d in data)
 
-        if user_id == '*':
-            log('Forwarding message to all users')
+        if user_id == "*":
+            log("Forwarding message to all users")
 
             all_sockets = [
                 socket for socket_list in cls.sockets.values() for socket in socket_list
@@ -169,14 +162,14 @@ class WebSocket(websocket.WebSocketHandler):
         else:
 
             for socket in cls.sockets[user_id]:
-                log(f'Forwarding message to user {user_id}')
+                log(f"Forwarding message to user {user_id}")
 
                 socket.write_message(payload)
 
 
 if __name__ == "__main__":
-    PORT = cfg['ports.websocket']
-    LOCAL_OUTPUT = cfg['ports.websocket_path_out']
+    PORT = cfg["ports.websocket"]
+    LOCAL_OUTPUT = cfg["ports.websocket_path_out"]
 
     import zmq
     from zmq.eventloop import zmqstream
@@ -186,12 +179,16 @@ if __name__ == "__main__":
     sub = ctx.socket(zmq.SUB)
     sub.connect(LOCAL_OUTPUT)
 
-    log('Broadcasting {} to all websockets'.format(LOCAL_OUTPUT))
+    log(f"Broadcasting {LOCAL_OUTPUT} to all websockets")
     stream = zmqstream.ZMQStream(sub)
     WebSocket.install_stream(stream)
     stream.on_recv(WebSocket.broadcast)
 
-    server = web.Application([(r'/websocket', WebSocket),])
+    server = web.Application(
+        [
+            (r"/websocket", WebSocket),
+        ]
+    )
     server.listen(PORT)
 
     io_loop = ioloop.IOLoop.current()
@@ -200,5 +197,5 @@ if __name__ == "__main__":
     # proxy does not time out and close the connection
     ioloop.PeriodicCallback(WebSocket.heartbeat, 45000).start()
 
-    log('Listening for incoming websocket connections on port {}'.format(PORT))
+    log(f"Listening for incoming websocket connections on port {PORT}")
     ioloop.IOLoop.instance().start()

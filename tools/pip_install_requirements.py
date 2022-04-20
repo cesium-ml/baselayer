@@ -1,38 +1,37 @@
-import pkg_resources
-from pkg_resources import DistributionNotFound, VersionConflict, Requirement
-
-import sys
 import subprocess
-from status import status
+import sys
 
+import pkg_resources
+from pkg_resources import DistributionNotFound, Requirement, VersionConflict
+from status import status
 
 if len(sys.argv) < 2:
     print(
-        'Usage: pip_install_requirements.py requirements.txt [requirements_other.txt]'
+        "Usage: pip_install_requirements.py requirements.txt [requirements_other.txt]"
     )
     sys.exit(0)
 
 requirements = []
 all_req_files = sys.argv[1:]
 for req_file in all_req_files:
-    with open(req_file, 'r') as f:
+    with open(req_file) as f:
         requirements.extend(f.readlines())
 
 
 def pip(req_files):
-    args = ['pip', 'install']
+    args = ["pip", "install"]
     for req_file in req_files:
-        args.extend(['-r', req_file])
+        args.extend(["-r", req_file])
     p = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
-    for line in iter(p.stdout.readline, b''):
-        line = line.decode('utf-8')
-        if line.startswith('Requirement already satisfied'):
+    for line in iter(p.stdout.readline, b""):
+        line = line.decode("utf-8")
+        if line.startswith("Requirement already satisfied"):
             continue
-        print(line, end='')
+        print(line, end="")
 
     retcode = p.wait()
     if retcode != 0:
@@ -40,10 +39,8 @@ def pip(req_files):
 
 
 try:
-    with status('Verifying Python package dependencies'):
-        pkg_resources.working_set.resolve(
-            [Requirement.parse(r) for r in requirements]
-        )
+    with status("Verifying Python package dependencies"):
+        pkg_resources.working_set.resolve([Requirement.parse(r) for r in requirements])
 
 except (DistributionNotFound, VersionConflict) as e:
     print(e.report())

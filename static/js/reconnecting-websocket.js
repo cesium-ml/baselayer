@@ -194,9 +194,8 @@
     // Expose the API required by EventTarget
 
     this.addEventListener = eventTarget.addEventListener.bind(eventTarget);
-    this.removeEventListener = eventTarget.removeEventListener.bind(
-      eventTarget
-    );
+    this.removeEventListener =
+      eventTarget.removeEventListener.bind(eventTarget);
     this.dispatchEvent = eventTarget.dispatchEvent.bind(eventTarget);
 
     /**

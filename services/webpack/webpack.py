@@ -1,10 +1,5 @@
-# encoding: utf-8
-
 import subprocess
 import sys
-import time
-import os
-from pathlib import Path
 
 from baselayer.app.env import load_env, parser
 from baselayer.log import make_log

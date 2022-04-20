@@ -1,15 +1,15 @@
-from contextlib import contextmanager
 import sys
+from contextlib import contextmanager
 
 
 @contextmanager
 def status(message):
-    print(f'[·] {message}', end='')
+    print(f"[·] {message}", end="")
     sys.stdout.flush()
     try:
         yield
-    except Exception as e:
-        print(f'\r[✗] {message}')
+    except:  # noqa: E722
+        print(f"\r[✗] {message}")
         raise
     else:
-        print(f'\r[✓] {message}')
+        print(f"\r[✓] {message}")
