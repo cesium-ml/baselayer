@@ -88,7 +88,7 @@ certain setup procedures before the application is run.</p>
 </div>
 <p>The configuration is passed in as the first parameter, followed by
 baselayer-handlers (those should be appended to your Tornado handlers,
-to put in place system endpoints such as logging in).  The last
+to put in place system endpoints such as logging in). The last
 argument contains baselayer-specific Tornado configuration.</p>
 <p>A typical <code class="docutils literal notranslate"><span class="pre">make_app</span></code> could be:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">baselayer.app.app_server</span> <span class="kn">import</span> <span class="n">MainPageHandler</span>
@@ -113,7 +113,7 @@ argument contains baselayer-specific Tornado configuration.</p>
 <h2>Templating<a class="headerlink" href="#templating" title="Permalink to this headline"></a></h2>
 <p>Often, values inside your JavaScript code or engineering configuration
 files (nginx, supervisor, etc.) depend on settings inside
-<code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.  To simplify propagating these values, <code class="docutils literal notranslate"><span class="pre">baselayer</span></code>
+<code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>. To simplify propagating these values, <code class="docutils literal notranslate"><span class="pre">baselayer</span></code>
 provides templating functionality, applied to files named
 <code class="docutils literal notranslate"><span class="pre">*.template</span></code>, before running the application. The template engine used
 is <a class="reference external" href="https://jinja.palletsprojects.com">Jinja2</a>.</p>
@@ -123,7 +123,7 @@ include their values as follows:</p>
 </pre></div>
 </div>
 <p>When you launch the <code class="docutils literal notranslate"><span class="pre">run</span></code> or <code class="docutils literal notranslate"><span class="pre">run_production</span></code> targets for baselayer,
-it will automatically fill out all template files.  Alternatively, you
+it will automatically fill out all template files. Alternatively, you
 can run the templating manually:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">tools</span><span class="o">/</span><span class="n">fill_conf_values</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">config</span><span class="o">=</span><span class="s2">&quot;config.yaml&quot;</span> <span class="n">static</span><span class="o">/</span><span class="n">js</span><span class="o">/</span><span class="n">component</span><span class="o">.</span><span class="n">jsx</span><span class="o">.</span><span class="n">template</span>
 </pre></div>

@@ -78,9 +78,9 @@
   <section id="usage">
 <h1>Usage<a class="headerlink" href="#usage" title="Permalink to this headline"></a></h1>
 <p>The premiere application of <code class="docutils literal notranslate"><span class="pre">baselayer</span></code> is
-<a class="reference external" href="https://skyportal.io">SkyPortal</a>.  Several pieces of functionality
+<a class="reference external" href="https://skyportal.io">SkyPortal</a>. Several pieces of functionality
 have been implemented there, but have not been backported to
-<code class="docutils literal notranslate"><span class="pre">baselayer</span></code> yet.  Please refer to the SkyPortal documentation, and if
+<code class="docutils literal notranslate"><span class="pre">baselayer</span></code> yet. Please refer to the SkyPortal documentation, and if
 you see a feature you’d like to use, file an issue so we can bring it
 in.</p>
 <section id="permissions">
@@ -98,7 +98,7 @@ in.</p>
 </section>
 <section id="microservices">
 <h2>Microservices<a class="headerlink" href="#microservices" title="Permalink to this headline"></a></h2>
-<p>Baselayer uses stand-alone micro-services whenever possible.  These
+<p>Baselayer uses stand-alone micro-services whenever possible. These
 services are monitored by supervisord, and by default include nginx, the web
 app, a cron-job handler, the websocket server, etc.</p>
 <p>Services are configured in the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file (defaults in
@@ -112,7 +112,7 @@ app, a cron-job handler, the websocket server, etc.</p>
 </pre></div>
 </div>
 <p>For example, the <code class="docutils literal notranslate"><span class="pre">cron</span></code> microservice lives in
-<code class="docutils literal notranslate"><span class="pre">./baselayer/services/cron</span></code>.  In that directory, there is a
+<code class="docutils literal notranslate"><span class="pre">./baselayer/services/cron</span></code>. In that directory, there is a
 <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> file and any other files that implement the
 microservice (in this case, <code class="docutils literal notranslate"><span class="pre">cron.py</span></code>).</p>
 <p>A microservice is loaded by injecting the <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> into the
@@ -120,7 +120,7 @@ microservice (in this case, <code class="docutils literal notranslate"><span cla
 <p>By default, all discovered microservices are loaded, but this can be
 customized through the <code class="docutils literal notranslate"><span class="pre">services.enabled</span></code> and <code class="docutils literal notranslate"><span class="pre">services.disabled</span></code>
 configuration keys. <code class="docutils literal notranslate"><span class="pre">services.disabled</span></code> can be set to <code class="docutils literal notranslate"><span class="pre">'*'</span></code> to disable
-all services.  E.g., to only load the <code class="docutils literal notranslate"><span class="pre">cron</span></code> service, you would do:</p>
+all services. E.g., to only load the <code class="docutils literal notranslate"><span class="pre">cron</span></code> service, you would do:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">services</span><span class="p">:</span>
     <span class="n">paths</span><span class="p">:</span>
       <span class="o">-</span> <span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">services</span>
@@ -133,7 +133,7 @@ all services.  E.g., to only load the <code class="docutils literal notranslate"
 <p>Sometimes, the supervisor configuration needs information from the
 configuration file, therefore <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> can instead be
 provided as <code class="docutils literal notranslate"><span class="pre">supervisor.conf.template</span></code>, which will be compiled before
-launching.  See, e.g., <code class="docutils literal notranslate"><span class="pre">services/dask</span></code>.</p>
+launching. See, e.g., <code class="docutils literal notranslate"><span class="pre">services/dask</span></code>.</p>
 </section>
 </section>
 
