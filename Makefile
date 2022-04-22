@@ -120,7 +120,9 @@ monitor: ## Monitor microservice status.
 	@$(SUPERVISORCTL) -i
 
 attach: ## Attach to terminal of running webserver; useful to, e.g., use pdb.
-	$(SUPERVISORCTL) fg app
+	@echo "Run the following, replacing NN with the process number, e.g. 00, 11, etc.:"
+	@echo
+	@echo "$(SUPERVISORCTL) fg app:app_NN"
 
 clean:
 	rm -f $(bundle)
