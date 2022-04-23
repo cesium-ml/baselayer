@@ -32,13 +32,18 @@ jobs:
           --health-retries 5
 
     steps:
-
       - uses: actions/setup-python@v1
         with:
           python-version: "3.8"
 
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Formatting
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: |
+          pip install pre-commit
+          pre-commit run --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
       - name: Install template app
         run: |

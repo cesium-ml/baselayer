@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-import os
 import glob
-from os.path import join as pjoin
-import time
+import os
 import threading
+import time
+from os.path import join as pjoin
+
 from baselayer.log import colorize
 
-
-basedir = pjoin(os.path.dirname(__file__), '..')
-logdir = '../log'
+basedir = pjoin(os.path.dirname(__file__), "..")
+logdir = "../log"
 
 
 def tail_f(filename, interval=1.0):
@@ -18,9 +17,9 @@ def tail_f(filename, interval=1.0):
 
     while not f:
         try:
-            f = open(filename, 'r')
+            f = open(filename)
             break
-        except IOError:
+        except OSError:
             time.sleep(1)
 
     # Find the size of the file and move to the end
@@ -35,17 +34,18 @@ def tail_f(filename, interval=1.0):
             time.sleep(interval)
             f.seek(where)
         else:
-            yield line.rstrip('\n')
+            yield line.rstrip("\n")
 
 
-def print_log(filename, color='default', stream=None):
+def print_log(filename, color="default", stream=None):
     """
     Print log to stdout; stream is ignored.
     """
+
     def print_col(line):
         print(colorize(line, fg=color))
 
-    print_col(f'-> {filename}')
+    print_col(f"-> {filename}")
 
     for line in tail_f(filename):
         print_col(line)
@@ -74,21 +74,19 @@ def log_watcher(printers=None):
     if printers is None:
         printers = [print_log]
 
-    colors = ['default', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'red']
+    colors = ["default", "green", "yellow", "blue", "magenta", "cyan", "red"]
     watched = set()
 
     color = 0
     while True:
-        all_logs = set(glob.glob('log/*.log'))
+        all_logs = set(glob.glob("log/*.log"))
         new_logs = all_logs - watched
 
         for logfile in sorted(new_logs):
             color = (color + 1) % len(colors)
             for printer in printers:
                 thread = threading.Thread(
-                    target=printer,
-                    args=(logfile,),
-                    kwargs={'color': colors[color]}
+                    target=printer, args=(logfile,), kwargs={"color": colors[color]}
                 )
                 thread.start()
 

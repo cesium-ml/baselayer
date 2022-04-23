@@ -1,32 +1,31 @@
-import time
 import os
-import sys
 import subprocess
+import sys
+import time
 from datetime import datetime
 
 import yaml
 from dateutil.parser import parse as parse_time
 
 from baselayer.app.env import load_env
+from baselayer.app.models import CronJobRun, DBSession, init_db
 from baselayer.log import make_log
-from baselayer.app.models import DBSession, CronJobRun, init_db
 
-
-log = make_log('cron')
+log = make_log("cron")
 
 env, cfg = load_env()
-jobs = cfg['cron'] or []
+jobs = cfg["cron"] or []
 
-init_db(**cfg['database'])
+init_db(**cfg["database"])
 
-timestamp_file = '.jobs_timestamps.yaml'
+timestamp_file = ".jobs_timestamps.yaml"
 
 
 class TimeCache:
     def __init__(self):
         if os.path.exists(timestamp_file):
             with open(timestamp_file) as f:
-                timestamps = yaml.full_load(f)['timestamps']
+                timestamps = yaml.full_load(f)["timestamps"]
         else:
             timestamps = {}
 
@@ -46,12 +45,12 @@ class TimeCache:
 
         """
         if limit is not None:
-            limit_start, limit_end = [parse_time(t) for t in limit]
+            limit_start, limit_end = (parse_time(t) for t in limit)
             now = datetime.now()
             if not (limit_start < now < limit_end):
                 return False
 
-        if not key in self.ts:
+        if key not in self.ts:
             self.reset(key)
 
         return (time.time() - self.ts[key]) > interval * 60
@@ -61,24 +60,24 @@ class TimeCache:
         self.cache_to_file()
 
     def cache_to_file(self):
-        with open(timestamp_file, 'w') as f:
-            yaml.dump({'timestamps': self.ts}, f)
+        with open(timestamp_file, "w") as f:
+            yaml.dump({"timestamps": self.ts}, f)
 
 
-log(f'Monitoring {len(jobs)} jobs')
+log(f"Monitoring {len(jobs)} jobs")
 
 tc = TimeCache()
 
 while True:
     for job in jobs:
-        interval = job['interval']
-        script = job['script']
-        limit = job.get('limit')
+        interval = job["interval"]
+        script = job["script"]
+        limit = job.get("limit")
 
-        key = f'{script}+{interval}'
+        key = f"{script}+{interval}"
 
         if tc.should_run(key, interval, limit=limit):
-            log(f'Executing {script}')
+            log(f"Executing {script}")
             tc.reset(key)
             try:
                 proc = subprocess.Popen(
@@ -88,14 +87,14 @@ while True:
                 )
                 output, _ = proc.communicate()
             except Exception as e:
-                log(f'Error executing {script}: {e}')
+                log(f"Error executing {script}: {e}")
                 DBSession().add(CronJobRun(script=script, exit_status=1, output=str(e)))
             else:
                 DBSession().add(
                     CronJobRun(
                         script=script,
                         exit_status=proc.returncode,
-                        output=output.decode('utf-8').strip(),
+                        output=output.decode("utf-8").strip(),
                     )
                 )
             finally:
