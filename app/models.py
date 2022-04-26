@@ -116,7 +116,7 @@ def init_db(
         **{**default_engine_args, **engine_args},
     )
 
-    DBSession.configure(bind=conn, autoflush=autoflush)
+    DBSession.configure(bind=conn, autoflush=autoflush, future=True)
     Base.metadata.bind = conn
 
     return conn
