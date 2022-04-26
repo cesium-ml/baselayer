@@ -46,11 +46,13 @@ def fill_config_file_values(template_paths):
     for template_path in template_paths:
         with status(template_path):
             tpath, tfile = os.path.split(template_path)
-            env = jinja2.Environment(
+            jenv = jinja2.Environment(
                 loader=jinja2.FileSystemLoader(tpath),
             )
-            env.filters.update(custom_filters)
-            template = env.get_template(tfile)
+            jenv.filters.update(custom_filters)
+
+            template = jenv.get_template(tfile)
+            cfg['env'] = env
             rendered = template.render(cfg)
 
             with open(os.path.splitext(template_path)[0], "w") as f:
