@@ -185,3 +185,7 @@ baselayer_doc_reqs:
 
 baselayer_html: | baselayer_doc_reqs
 	export SPHINXOPTS=-W; make -C doc html
+
+db: ## Connect to the database with psql
+db:
+	@PYTHONPATH=. python ./baselayer/tools/db_connect.py
