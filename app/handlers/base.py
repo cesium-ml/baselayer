@@ -79,8 +79,16 @@ class PSABaseHandler(RequestHandler):
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
-        if "Authentication Error:" in str(value):
-            log(value)
+        expected_exceptions = [
+            "Authentication Error:",
+            "User account expired",
+            "Credentials malformed",
+            "Method Not Allowed",
+            "Unauthorized"
+        ]
+        v_str = str(value)
+        if any(exception in v_str for exception in expected_exceptions):
+            log(f"Error response returned by [{self.request.path}]: [{v_str}]")
         else:
             app_log.error(
                 "Uncaught exception %s\n%r",
@@ -305,9 +313,6 @@ class BaseHandler(PSABaseHandler):
         extra : dict
             Extra fields to be included in the response.
         """
-        if not (status == 404 and self.request.method == "HEAD"):
-            log(f"Error response returned by [{self.request.path}]: [{message}]")
-
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write({"status": "error", "message": message, "data": data, **extra})
