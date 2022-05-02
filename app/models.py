@@ -1338,7 +1338,6 @@ class Token(Base):
         sa.ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
         doc="The ID of the User that created the Token.",
-        lazy="subquery",
     )
     created_by = relationship(
         "User", back_populates="tokens", doc="The User that created the token."
