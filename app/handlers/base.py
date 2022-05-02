@@ -11,7 +11,6 @@ from json.decoder import JSONDecodeError
 # and provides a cached version, `current_user`, that should
 # be used to look up the logged in user.
 import social_tornado.handlers as psa_handlers
-import sqlalchemy as sa
 import tornado.escape
 from tornado.log import app_log
 from tornado.web import RequestHandler
@@ -79,8 +78,16 @@ class PSABaseHandler(RequestHandler):
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
-        if "Authentication Error:" in str(value):
-            log(value)
+        expected_exceptions = [
+            "Authentication Error:",
+            "User account expired",
+            "Credentials malformed",
+            "Method Not Allowed",
+            "Unauthorized",
+        ]
+        v_str = str(value)
+        if any(exception in v_str for exception in expected_exceptions):
+            log(f"Error response returned by [{self.request.path}]: [{v_str}]")
         else:
             app_log.error(
                 "Uncaught exception %s\n%r",
@@ -121,13 +128,14 @@ def bulk_verify(mode, collection, accessor):
             accessor, mode=mode, columns=[record_cls.id]
         ).subquery()
 
-        inaccessible_row_ids = DBSession().execute(
-            sa.select(record_cls.id)
+        inaccessible_row_ids = (
+            DBSession()
+            .query(record_cls.id)
             .outerjoin(
                 accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
             )
-            .where(record_cls.id.in_(collection_ids))
-            .where(accessible_row_ids_sq.c.id.is_(None))
+            .filter(record_cls.id.in_(collection_ids))
+            .filter(accessible_row_ids_sq.c.id.is_(None))
         )
 
         # compare the accessible ids with the ids that are in the session
@@ -305,9 +313,6 @@ class BaseHandler(PSABaseHandler):
         extra : dict
             Extra fields to be included in the response.
         """
-        if not (status == 404 and self.request.method == "HEAD"):
-            log(f"Error response returned by [{self.request.path}]: [{message}]")
-
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write({"status": "error", "message": message, "data": data, **extra})
