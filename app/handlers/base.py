@@ -11,6 +11,7 @@ from json.decoder import JSONDecodeError
 # and provides a cached version, `current_user`, that should
 # be used to look up the logged in user.
 import social_tornado.handlers as psa_handlers
+import sqlalchemy as sa
 import tornado.escape
 from tornado.log import app_log
 from tornado.web import RequestHandler
@@ -128,14 +129,13 @@ def bulk_verify(mode, collection, accessor):
             accessor, mode=mode, columns=[record_cls.id]
         ).subquery()
 
-        inaccessible_row_ids = (
-            DBSession()
-            .query(record_cls.id)
+        inaccessible_row_ids = DBSession().execute(
+            sa.select(record_cls.id)
             .outerjoin(
                 accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
             )
-            .filter(record_cls.id.in_(collection_ids))
-            .filter(accessible_row_ids_sq.c.id.is_(None))
+            .where(record_cls.id.in_(collection_ids))
+            .where(accessible_row_ids_sq.c.id.is_(None))
         )
 
         # compare the accessible ids with the ids that are in the session
