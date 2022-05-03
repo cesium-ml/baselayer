@@ -155,7 +155,7 @@ for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunctio
 class BaseHandler(PSABaseHandler):
 
     @contextmanager
-    def permissioned_session(self):
+    def PermissionedSession(self):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
         raise an AccessError (causing the transaction to fail and the API to
@@ -199,8 +199,6 @@ class BaseHandler(PSABaseHandler):
             # for permissions checking purposes.
             session.flush()
             bulk_verify("create", new_rows, self.current_user)
-
-            session.commit()
 
     def verify_permissions(self):
         """Check that the current user has permission to create, read,
