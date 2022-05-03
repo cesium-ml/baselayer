@@ -3,6 +3,7 @@ import time
 import uuid
 from collections import defaultdict
 from json.decoder import JSONDecodeError
+from contextlib import contextmanager
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -152,6 +153,53 @@ for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunctio
 
 
 class BaseHandler(PSABaseHandler):
+
+    @contextmanager
+    def permissioned_session(self):
+        """Check that the current user has permission to create, read,
+        update, or delete rows that are present in the session. If not,
+        raise an AccessError (causing the transaction to fail and the API to
+        respond with 401).
+        If all permissions are satisfied, the session is committed.
+        All that, using a context manager. 
+        """
+        with DBSession() as session:
+            # get items to be inserted
+            new_rows = [row for row in session.new]
+
+            # get items to be updated
+            updated_rows = [
+                row for row in session.dirty if session.is_modified(row)
+            ]
+
+            # get items to be deleted
+            deleted_rows = [row for row in session.deleted]
+
+            # get items that were read
+            read_rows = [
+                row
+                for row in set(session.identity_map.values())
+                           - (set(updated_rows) | set(new_rows) | set(deleted_rows))
+            ]
+
+            # need to check delete permissions before flushing, as deleted records
+            # are not present in the transaction after flush (thus can't be used in
+            # joins). Read permissions can be checked here or below as they do not
+            # change on flush.
+            for mode, collection in zip(
+                    ["read", "update", "delete"],
+                    [read_rows, updated_rows, deleted_rows],
+            ):
+                bulk_verify(mode, collection, self.current_user)
+
+            # update transaction state in DB, but don't commit yet. this updates
+            # or adds rows in the database and uses their new state in joins,
+            # for permissions checking purposes.
+            session.flush()
+            bulk_verify("create", new_rows, self.current_user)
+
+            session.commit()
+
     def verify_permissions(self):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
