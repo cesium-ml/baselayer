@@ -189,7 +189,7 @@ class UserAccessControl:
             )
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
+        """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
         Parameters
@@ -204,8 +204,7 @@ class UserAccessControl:
 
         Returns
         -------
-        query: sqlalchemy.Query
-            Query for the accessible rows.
+        sqlalchemy select object
         """
 
         raise NotImplementedError
@@ -282,7 +281,7 @@ class Public(UserAccessControl):
     """A record accessible to anyone."""
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
+        """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
         Parameters
@@ -297,8 +296,7 @@ class Public(UserAccessControl):
 
         Returns
         -------
-        query: sqlalchemy.Query
-            Query for the accessible rows.
+        sqlalchemy select object
         """
         # return only selected columns if requested
         if columns is not None:
@@ -345,7 +343,7 @@ class AccessibleIfUserMatches(UserAccessControl):
         self.relationship_chain = relationship_chain
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
+        """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
         Parameters
@@ -360,8 +358,7 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         Returns
         -------
-        query: sqlalchemy.Query
-            Query for the accessible rows.
+        sqlalchemy select object
         """
 
         # system admins automatically get full access
@@ -370,9 +367,9 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         # return only selected columns if requested
         if columns is not None:
-            query = sa.select(*columns).select_from(cls)
+            stmt = sa.select(*columns).select_from(cls)
         else:
-            query = sa.select(cls)
+            stmt = sa.select(cls)
 
         # traverse the relationship chain via sequential JOINs
         for relationship_name in self.relationship_names:
@@ -383,12 +380,12 @@ class AccessibleIfUserMatches(UserAccessControl):
             # collision with python keyword
             cls = relationship.entity.class_
 
-            query = query.join(relationship.class_attribute)
+            stmt = stmt.join(relationship.class_attribute)
 
         # filter for records with at least one matching user
         user_id = self.user_id_from_user_or_token(user_or_token)
-        query = query.where(cls.id == user_id)
-        return query
+        stmt = stmt.where(cls.id == user_id)
+        return stmt
 
     @property
     def relationship_chain(self):
@@ -467,7 +464,7 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
         self._properties_and_modes = value
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
+        """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
         Parameters
@@ -482,8 +479,7 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
 
         Returns
         -------
-        query: sqlalchemy.Query
-            Query for the accessible rows.
+        sqlalchemy select object
         """
 
         # return only selected columns if requested
@@ -589,7 +585,7 @@ class ComposedAccessControl(UserAccessControl):
         self._logic = value
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
+        """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
         Parameters
@@ -604,15 +600,14 @@ class ComposedAccessControl(UserAccessControl):
 
         Returns
         -------
-        query: sqlalchemy.Query
-            Query for the accessible rows.
+        sqlalchemy select object
         """
 
         # retrieve specified columns if requested
         if columns is not None:
-            query = sa.select(*columns).select_from(cls)
+            stmt = sa.select(*columns).select_from(cls)
         else:
-            query = DBSession().query(cls)
+            stmt = sa.select(cls)
 
         # keep track of columns that will be null in the case of an unsuccessful
         # match for OR logic.
@@ -640,12 +635,12 @@ class ComposedAccessControl(UserAccessControl):
             join_condition = accessible.c.id == cls.id
             if self.logic == "and":
                 # for and logic, we want an INNER join
-                query = query.join(accessible, join_condition)
+                stmt = stmt.join(accessible, join_condition)
             elif self.logic == "or":
                 # for OR logic we dont want to lose rows where there is no
                 # for one particular type of access control, so use outer join
                 # here
-                query = query.outerjoin(accessible, join_condition)
+                stmt = stmt.outerjoin(accessible, join_condition)
             else:
                 raise ValueError(
                     f'Invalid composition logic: {self.logic}, must be either "and" or "or".'
@@ -655,18 +650,18 @@ class ComposedAccessControl(UserAccessControl):
         # in the case of or logic, require that only one of the conditions be
         # met for each row
         if self.logic == "or":
-            query = query.where(
+            stmt = stmt.where(
                 sa.or_(*[col.isnot(None) for col in accessible_id_cols])
             )
 
-        return query
+        return stmt
 
 
 class Restricted(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
+        """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
         Parameters
@@ -704,14 +699,14 @@ class CustomUserAccessControl(UserAccessControl):
 
         Parameters
         ----------
-        query_or_query_generator: `sqlalchemy.orm.Query` or func
+        query_or_query_generator: `sqlalchemy.sql.selectable.Select` or func
 
             The logic for determining which records are accessible to a
             user.
 
             In cases where the access control logic is the same for all
             users, this class can be directly initialized from an SQLAlchemy
-            Query object. The query should render a SELECT on the table on
+            Select object. The statement should render a SELECT on the table on
             which access permissions are to be enforced, returning only rows
             that are accessible under the policy (See Example 1 below).
 
@@ -721,7 +716,7 @@ class CustomUserAccessControl(UserAccessControl):
             the table on which access permissions are to be enforced) and
             user_or_token, the instance of `baselayer.app.models.User` or
             `baselayer.app.models.Token` to check permissions for (See Example 2
-            below). The function should then return a `sqlalchemy.orm.Query`
+            below). The function should then return a `sqlalchemy.sql.selectable.Select`
             object that, when executed, returns the rows accessible to that User
             or Token.
 
@@ -731,7 +726,7 @@ class CustomUserAccessControl(UserAccessControl):
         managers
 
             >>>> CustomUserAccessControl(
-                DBSession().query(Department).join(Employee).group_by(
+                stmt = sa.select(Department).join(Employee).group_by(
                     Department.id
                 ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
             )
@@ -741,15 +736,15 @@ class CustomUserAccessControl(UserAccessControl):
 
              >>>> def access_logic(cls, user_or_token):
              ...      if user_or_token.is_system_admin:
-             ...         return DBSession().query(cls)
-             ...      return DBSession().query(cls).join(Employee).group_by(
+             ...         return sa.selct(cls)
+             ...      return sa.select(cls).join(Employee).group_by(
              ...             cls.id
              ...      ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
 
             >>>> CustomUserAccessControl(access_logic)
 
         """
-        if isinstance(query_or_query_generator, sa.orm.Query):
+        if isinstance(query_or_query_generator, sa.sql.selectable.Select):
             self.query = query_or_query_generator
             self.query_generator = None
         elif hasattr(query_or_query_generator, "__call__"):
@@ -759,11 +754,11 @@ class CustomUserAccessControl(UserAccessControl):
             raise TypeError(
                 f"Invalid type for query: "
                 f"{type(query_or_query_generator).__name__}, "
-                f"expected `sqlalchemy.orm.Query` or func."
+                f"expected `sqlalchemy.sql.selectable.Select` or func."
             )
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
+        """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
         Parameters
@@ -829,11 +824,11 @@ class BaseMixin:
             .subquery()
         )
 
-        query = sa.select(sa.func.count(accessibility_table.columns.id))
+        stmt = sa.select(sa.func.count(accessibility_table.columns.id))
 
         # Query for the value of the access_func for this particular record and
         # return the result.
-        result = DBSession().execute(query).scalar_one() > 0
+        result = DBSession().execute(stmt).scalar_one() > 0
         if result is None:
             result = False
 
@@ -881,20 +876,16 @@ class BaseMixin:
         standardized = np.atleast_1d(cls_id)
         result = []
 
-        # TODO: vectorize this
-        for pk in standardized:
-            instance = cls.query.options(options).get(pk.item())
-            if instance is not None:
-                if not instance.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f"Insufficient permissions for operation "
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {cls.__name__} {instance.id}".'
-                    )
-            elif raise_if_none:
-                raise AccessError(f"Invalid {cls.__name__} id: {pk}")
-            result.append(instance)
-        return np.asarray(result).reshape(original_shape).tolist()
+        with DBSession() as session:
+            # TODO: vectorize this
+            for pk in standardized:
+                stmt = sa.select(cls).options(options).get(pk.item())
+                instance = session.execute(stmt)
+                if raise_if_none:
+                    if instance is None or not instance.is_accessible_by(user_or_token, mode=mode):
+                        raise AccessError(f'Cannot find {cls.__name__} with id: {pk}')
+                result.append(instance)
+            return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
     def get_records_accessible_by(
@@ -933,7 +924,7 @@ class BaseMixin:
     def query_records_accessible_by(
         cls, user_or_token, mode="read", options=[], columns=None
     ):
-        """Return the query for all database records accessible by the
+        """Return the select statement for all database records accessible by the
         specified User or token.
 
         Parameters
@@ -948,9 +939,7 @@ class BaseMixin:
 
         Returns
         -------
-        query: sqlalchemy.Query
-            The query for the specified records.
-
+        sqlalchemy select object
         """
 
         if not isinstance(user_or_token, (User, Token)):
@@ -960,10 +949,10 @@ class BaseMixin:
             )
 
         logic = getattr(cls, mode)
-        query = logic.query_accessible_rows(cls, user_or_token, columns=columns)
+        stmt = logic.query_accessible_rows(cls, user_or_token, columns=columns)
         for option in options:
-            query = query.options(option)
-        return query
+            stmt = stmt.options(option)
+        return stmt
 
     query = DBSession.query_property()
     id = sa.Column(
@@ -1056,11 +1045,13 @@ class BaseMixin:
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
-        obj = cls.query.get(id)
-        if obj is not None:
-            return obj
-        else:
-            return cls(id=id)
+        with DBSession() as session:
+            stmt = sa.select(cls).get(id)
+            obj = session.execute(stmt)
+            if obj is not None:
+                return obj
+            else:
+                return cls(id=id)
 
 
 Base = declarative_base(cls=BaseMixin)
@@ -1243,7 +1234,6 @@ class User(Base):
     role_ids = association_proxy(
         "roles",
         "id",
-        creator=lambda r: Role.query.get(r),
     )
     tokens = relationship(
         "Token",
@@ -1345,7 +1335,7 @@ class Token(Base):
         doc="The ACLs granted to the Token.",
         lazy="subquery",
     )
-    acl_ids = association_proxy("acls", "id", creator=lambda acl: ACL.query.get(acl))
+    acl_ids = association_proxy("acls", "id")
     permissions = acl_ids
 
     name = sa.Column(
