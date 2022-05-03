@@ -681,8 +681,7 @@ class Restricted(UserAccessControl):
 
         Returns
         -------
-        query: sqlalchemy.Query
-            Query for the accessible rows.
+        sqlalchemy.Select object
         """
 
         # system admins have access to restricted records
@@ -691,10 +690,8 @@ class Restricted(UserAccessControl):
 
         # otherwise, all records are inaccessible
         if columns is not None:
-            return DBSession().execute(
-                sa.select(*columns).select_from(cls).where(sa.literal(False))
-            )
-        return DBSession().execute(sa.select(cls).where(sa.literal(False)))
+            return sa.select(*columns).select_from(cls).where(sa.literal(False))
+        return sa.select(cls).where(sa.literal(False))
 
 
 restricted = Restricted()
@@ -781,8 +778,7 @@ class CustomUserAccessControl(UserAccessControl):
 
         Returns
         -------
-        query: sqlalchemy.Query
-            Query for the accessible rows.
+        sqlalchemy.Select object
         """
 
         if self.query is not None:
