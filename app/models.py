@@ -882,9 +882,9 @@ class BaseMixin:
                 stmt = sa.select(cls).options(options).get(pk.item())
                 instance = session.execute(stmt)
                 if raise_if_none:
-                    if instance is None or not instance.is_accessible_by(user_or_token, mode=mode):
+                    if instance is None or not instance[0].is_accessible_by(user_or_token, mode=mode):
                         raise AccessError(f'Cannot find {cls.__name__} with id: {pk}')
-                result.append(instance)
+                result.append(instance[0])
             return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
@@ -1049,7 +1049,7 @@ class BaseMixin:
             stmt = sa.select(cls).get(id)
             obj = session.execute(stmt)
             if obj is not None:
-                return obj
+                return obj[0]
             else:
                 return cls(id=id)
 
