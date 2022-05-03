@@ -300,8 +300,6 @@ class UserAccessControl:
 class Public(UserAccessControl):
     """A record accessible to anyone."""
 
-
-
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
@@ -1092,9 +1090,15 @@ class BaseMixin:
             If columns is specified, will return a list of tuples
             containing the data from each column requested.
         """
-        return cls.query_records_accessible_by(
+        ret_list = cls.query_records_accessible_by(
             user_or_token, mode=mode, options=options, columns=columns
         ).all()
+
+        # extract the objects from the first element of the tuple
+        if columns is None:
+            ret_list = [obj[0] for obj in ret_list]
+
+        return ret_list
 
     @classmethod
     def select(
