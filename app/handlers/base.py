@@ -161,9 +161,11 @@ class BaseHandler(PSABaseHandler):
         raise an AccessError (causing the transaction to fail and the API to
         respond with 401).
         If all permissions are satisfied, the session is committed.
-        All that, using a context manager. 
+        All that, using a context manager.
         """
         with DBSession() as session:
+            yield session
+
             # get items to be inserted
             new_rows = [row for row in session.new]
 
