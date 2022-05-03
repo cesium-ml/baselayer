@@ -189,6 +189,26 @@ class UserAccessControl:
             )
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Query object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+        Parameters
+        ----------
+        cls: `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns: list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+        Returns
+        -------
+        query: sqlalchemy.Query
+            Query for the accessible rows.
+        """
+
+        raise NotImplementedError
+
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
 
@@ -279,6 +299,8 @@ class UserAccessControl:
 
 class Public(UserAccessControl):
     """A record accessible to anyone."""
+
+
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
@@ -888,14 +910,133 @@ class BaseMixin:
             return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
+    def get_if_accessible_by(
+            cls,
+            cls_id,
+            user_or_token,
+            mode="read",
+            raise_if_none=False,
+            options=[],
+    ):
+        """Return a database record if it is accessible to the specified User or
+        Token. If no record exists, return None. If the record exists but is
+        inaccessible, raise an `AccessError`.
+        Parameters
+        ----------
+        cls_id: int, str, iterable of int, iterable of str
+            The primary key(s) of the record(s) to query for.
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+           Options that will be passed to `options()` in the loader query.
+        Returns
+        -------
+        record: `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
+            The requested record(s). Has the same shape as `cls_id`.
+        """
+
+        original_shape = np.asarray(cls_id).shape
+        standardized = np.atleast_1d(cls_id)
+        result = []
+
+        # TODO: vectorize this
+        for pk in standardized:
+            instance = cls.query.options(options).get(pk.item())
+            if instance is not None:
+                if not instance.is_accessible_by(user_or_token, mode=mode):
+                    raise AccessError(
+                        f"Insufficient permissions for operation "
+                        f'"{type(user_or_token).__name__} {user_or_token.id} '
+                        f'{mode} {cls.__name__} {instance.id}".'
+                    )
+            elif raise_if_none:
+                raise AccessError(f"Invalid {cls.__name__} id: {pk}")
+            result.append(instance)
+        return np.asarray(result).reshape(original_shape).tolist()
+
+    @classmethod
     def get_records_accessible_by(
-        cls, user_or_token, mode="read", options=[], columns=None
+            cls, user_or_token, mode="read", options=[], columns=None
     ):
         """Retrieve all database records accessible by the specified User or
         token.
-
         Parameters
         ----------
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+            Options that will be passed to `options()` in the loader query.
+        columns: list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        records: list of `baselayer.app.models.Base`
+            The records accessible to the specified user or token.
+        """
+        return cls.query_records_accessible_by(
+            user_or_token, mode=mode, options=options, columns=columns
+        ).all()
+
+    @classmethod
+    def query_records_accessible_by(
+            cls, user_or_token, mode="read", options=[], columns=None
+    ):
+        """Return the query for all database records accessible by the
+        specified User or token.
+        Parameters
+        ----------
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+            Options that will be passed to `options()` in the loader query.
+        columns: list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        query: sqlalchemy.Query
+            The query for the specified records.
+        """
+
+        if not isinstance(user_or_token, (User, Token)):
+            raise ValueError(
+                "user_or_token must be an instance of User or Token, "
+                f"got {user_or_token.__class__.__name__}."
+            )
+
+        logic = getattr(cls, mode)
+        return logic.query_accessible_rows(cls, user_or_token, columns=columns).options(
+            options
+        )
+
+    @classmethod
+    def get(
+            cls,
+            id_or_list,
+            user_or_token,
+            mode="read",
+            raise_if_none=False,
+            options=[],
+    ):
+        """Return a database record if it is accessible to the specified User or
+        Token. If no record exists, return None. If the record exists but is
+        inaccessible, raise an `AccessError`.
+        Parameters
+        ----------
+        id_or_list: int, str, iterable of int, iterable of str
+            The primary key(s) of the record(s) to query for.
         user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
         mode: string
@@ -906,23 +1047,58 @@ class BaseMixin:
 
         Returns
         -------
-        records: list of `baselayer.app.models.Base`
-            The records accessible to the specified user or token.
-
+        record: `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
+            The requested record(s). Has the same shape as `id_or_list`.
         """
-        return (
-            DBSession()
-            .execute(
-                cls.query_records_accessible_by(
-                    user_or_token, mode=mode, options=options, columns=columns
-                )
-            )
-            .all()
-        )
+
+        original_shape = np.asarray(id_or_list).shape
+        standardized = np.atleast_1d(id_or_list)
+        result = []
+
+        with DBSession() as session:
+            # TODO: vectorize this
+            for pk in standardized:
+                stmt = sa.select(cls).options(options).get(pk.item())
+                instance = session.execute(stmt)
+                if raise_if_none:
+                    if instance is None or not instance[0].is_accessible_by(user_or_token, mode=mode):
+                        raise AccessError(f'Cannot find {cls.__name__} with id: {pk}')
+                result.append(instance[0])
+            return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
-    def query_records_accessible_by(
-        cls, user_or_token, mode="read", options=[], columns=None
+    def get_all(
+            cls, user_or_token, mode="read", options=[], columns=None,
+    ):
+        """Retrieve all database records accessible by the specified User or
+        token.
+        Parameters
+        ----------
+        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode: string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options: list of `sqlalchemy.orm.MapperOption`s
+            Options that will be passed to `options()` in the loader query.
+        columns: list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        records: list of `baselayer.app.models.Base`
+            The records accessible to the specified user or token.
+            If columns is specified, will return a list of tuples
+            containing the data from each column requested.
+        """
+        return cls.query_records_accessible_by(
+            user_or_token, mode=mode, options=options, columns=columns
+        ).all()
+
+    @classmethod
+    def select(
+            cls, user_or_token, mode="read", options=[], columns=None,
     ):
         """Return the select statement for all database records accessible by the
         specified User or token.
@@ -935,7 +1111,10 @@ class BaseMixin:
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
         options: list of `sqlalchemy.orm.MapperOption`s
-           Options that will be passed to `options()` in the loader query.
+            Options that will be passed to `options()` in the loader query.
+        columns: list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
 
         Returns
         -------
