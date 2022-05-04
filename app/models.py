@@ -1270,18 +1270,16 @@ class BaseMixin:
         standardized = np.atleast_1d(cls_id)
         result = []
 
-        with DBSession() as session:
-            # TODO: vectorize this
-            for pk in standardized:
-                stmt = sa.select(cls).options(options).get(pk.item())
-                instance = session.execute(stmt)
-                if raise_if_none:
-                    if instance is None or not instance[0].is_accessible_by(
-                        user_or_token, mode=mode
-                    ):
-                        raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
-                result.append(instance[0])
-            return np.asarray(result).reshape(original_shape).tolist()
+        # TODO: vectorize this
+        for pk in standardized:
+            instance = cls.query.options(options).get(pk.item())
+            if raise_if_none:
+                if instance is None or not instance.is_accessible_by(
+                    user_or_token, mode=mode
+                ):
+                    raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
+            result.append(instance)
+        return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
     def get_records_accessible_by(
