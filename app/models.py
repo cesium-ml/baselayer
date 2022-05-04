@@ -41,8 +41,8 @@ def Session(user_or_token=None, use_auto_verify=True):
 
     Parameters
     ----------
-    user_or_token: baselayer.models.User object
-        or baselayer.models.Token object.
+    user_or_token: baselayer.app.models.User object
+        or baselayer.app.models.Token object.
         The object representing the current user.
         Can be None only if the use_auto_verify
         parameter is set to False.
