@@ -1567,13 +1567,13 @@ class BaseMixin:
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
-        with DBSession() as session:
-            stmt = sa.select(cls).get(id)
-            obj = session.execute(stmt)
-            if obj is not None:
-                return obj[0]
-            else:
-                return cls(id=id)
+        # with DBSession() as session:
+        #     obj = session.get(cls, id)
+        obj = cls.query.get(id)
+        if obj is not None:
+            return obj
+        else:
+            return cls(id=id)
 
 
 Base = declarative_base(cls=BaseMixin)
@@ -1756,6 +1756,7 @@ class User(Base):
     role_ids = association_proxy(
         "roles",
         "id",
+        creator=lambda r: Role.query.get(r),
     )
     tokens = relationship(
         "Token",
@@ -1857,7 +1858,7 @@ class Token(Base):
         doc="The ACLs granted to the Token.",
         lazy="subquery",
     )
-    acl_ids = association_proxy("acls", "id")
+    acl_ids = association_proxy("acls", "id", creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
 
     name = sa.Column(
