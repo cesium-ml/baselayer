@@ -10,7 +10,6 @@ from hashlib import md5
 import numpy as np
 import requests
 import sqlalchemy as sa
-from handlers.base import bulk_verify
 from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -29,10 +28,12 @@ use_webhook = cfg["security.slack.enabled"]
 webhook_url = cfg["security.slack.url"]
 
 session_context_id = contextvars.ContextVar("request_id", default=None)
+# left here for backward compatibility:
+DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
 @contextmanager
-def DBSession(current_user=None, use_auto_verify=True):
+def Session(current_user=None, use_auto_verify=True):
     """
     Generate a scoped session that also has knowledge
     of the current user, and that can automatically
@@ -59,6 +60,9 @@ def DBSession(current_user=None, use_auto_verify=True):
     """
 
     def verify(self):
+        # import here to avoid circular import loop
+        from .handlers.base import bulk_verify
+
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
         raise an AccessError (causing the transaction to fail and the API to
@@ -1472,6 +1476,7 @@ class BaseMixin:
         return stmt
 
     query = DBSession.query_property()
+
     id = sa.Column(
         sa.Integer,
         primary_key=True,

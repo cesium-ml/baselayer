@@ -25,7 +25,7 @@ from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
-from ..models import DBSession, User, handle_inaccessible, session_context_id
+from ..models import DBSession, Session, User, handle_inaccessible, session_context_id
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -154,13 +154,13 @@ for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunctio
 
 class BaseHandler(PSABaseHandler):
     @contextmanager
-    def DBSession(self, use_auto_verify=True):
+    def Session(self, use_auto_verify=True):
         """
         Generate a scoped session that also has knowledge
         of the current user, and that can automatically
         verify and commit the changes to it when going out of context.
         The current user is taken from the handler's current_user.
-        This is a shortcut method to models.DBSession
+        This is a shortcut method to models.Session
         that saves the need to manually input the user object.
 
         Parameters
@@ -177,7 +177,7 @@ class BaseHandler(PSABaseHandler):
         and commit to the database when exiting context.
 
         """
-        with DBSession(self.current_user, use_auto_verify) as session:
+        with Session(self.current_user, use_auto_verify) as session:
             yield session
 
     def verify_permissions(self):
