@@ -111,12 +111,14 @@ def Session(user_or_token=None, use_auto_verify=True):
             "user_or_token must be an instance of User or Token, "
             f"got {user_or_token.__class__.__name__}."
         )
-    with scoped_session(sessionmaker(), scopefunc=session_context_id.get) as session:
+    with scoped_session(sessionmaker(), scopefunc=session_context_id.get)() as session:
         session.user_or_token = user_or_token
         session.use_auto_verify = use_auto_verify
         # make this an instance method of session
         session.verify = types.MethodType(verify, session)
         yield session
+
+        session.expunge_all()  # make sure objects persist after session closes
 
         # this gets executed when external context is finished
         if use_auto_verify:
@@ -1379,7 +1381,7 @@ class BaseMixin:
         standardized = np.atleast_1d(id_or_list)
         result = []
 
-        with DBSession(user_or_token) as session:
+        with Session(user_or_token) as session:
             # TODO: vectorize this
             for pk in standardized:
                 if options:
@@ -1426,7 +1428,7 @@ class BaseMixin:
             If columns is specified, will return a list of tuples
             containing the data from each column requested.
         """
-        with DBSession(user_or_token) as session:
+        with Session(user_or_token) as session:
             stmt = cls.select(user_or_token, mode, options, columns)
             values = session.scalars(stmt).all()
 
