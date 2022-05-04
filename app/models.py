@@ -1,13 +1,16 @@
 import contextvars
 import traceback
+import types
 import uuid
 import warnings
+from contextlib import contextmanager
 from datetime import datetime
 from hashlib import md5
 
 import numpy as np
 import requests
 import sqlalchemy as sa
+from handlers.base import bulk_verify
 from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -20,13 +23,104 @@ from .custom_exceptions import AccessError
 from .env import load_env
 from .json_util import to_json
 
-session_context_id = contextvars.ContextVar("request_id", default=None)
-DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
-
 env, cfg = load_env()
 strict = cfg["security.strict"]
 use_webhook = cfg["security.slack.enabled"]
 webhook_url = cfg["security.slack.url"]
+
+session_context_id = contextvars.ContextVar("request_id", default=None)
+
+
+@contextmanager
+def DBSession(current_user=None, use_auto_verify=True):
+    """
+    Generate a scoped session that also has knowledge
+    of the current user, and that can automatically
+    verify and commit the changes to it when going out of context.
+
+    Parameters
+    ----------
+    current_user: baselayer.models.User object
+        the object representing the current user.
+        Can be None only if the use_auto_verify
+        parameter is set to False.
+    use_auto_verify: boolean
+        if True (default), will call verify and commit
+        functions of the session before exiting the context.
+        If True, must specify a legal User object.
+
+    Returns
+    -------
+    a scoped session object that can be used in a context
+    manager to access the database. If auto verify is enabled,
+    will use the current user given to apply verification
+    and commit to the database when exiting context.
+
+    """
+
+    def verify(self):
+        """Check that the current user has permission to create, read,
+        update, or delete rows that are present in the session. If not,
+        raise an AccessError (causing the transaction to fail and the API to
+        respond with 401).
+
+        """
+        # get items to be inserted
+        new_rows = [row for row in self.new]
+
+        # get items to be updated
+        updated_rows = [row for row in self.dirty if self.is_modified(row)]
+
+        # get items to be deleted
+        deleted_rows = [row for row in self.deleted]
+
+        # get items that were read
+        read_rows = [
+            row
+            for row in set(self.identity_map.values())
+            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
+        ]
+
+        # need to check delete permissions before flushing, as deleted records
+        # are not present in the transaction after flush (thus can't be used in
+        # joins). Read permissions can be checked here or below as they do not
+        # change on flush.
+        for mode, collection in zip(
+            ["read", "update", "delete"],
+            [read_rows, updated_rows, deleted_rows],
+        ):
+            bulk_verify(mode, collection, self.current_user)
+
+        # update transaction state in DB, but don't commit yet. this updates
+        # or adds rows in the database and uses their new state in joins,
+        # for permissions checking purposes.
+        self.flush()
+        bulk_verify("create", new_rows, self.current_user)
+
+    if use_auto_verify and current_user is None:
+        raise RuntimeError(
+            "Cannot start a session with use_auto_verify without a valid user."
+        )
+    if current_user is not None and not isinstance(current_user, User):
+        raise ValueError(
+            "current_user must be an instance of User, "
+            f"got {current_user.__class__.__name__}."
+        )
+    with scoped_session(sessionmaker(), scopefunc=session_context_id.get) as session:
+        session.current_user = current_user
+        session.use_auto_verify = use_auto_verify
+        session.verify = types.MethodType(
+            verify, session
+        )  # make this an instance method of session
+        yield session
+
+        # this gets executed when external context is finished
+        if use_auto_verify:
+            session.verify()
+            session.commit()
+
+        # after this, the internal context exits and triggers SQLA's
+        # code for what happens when a session is done
 
 
 # SQLA1.4 fix to return SQLA1.3-style aliased entity

@@ -2,8 +2,8 @@ import inspect
 import time
 import uuid
 from collections import defaultdict
-from json.decoder import JSONDecodeError
 from contextlib import contextmanager
+from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -153,52 +153,32 @@ for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunctio
 
 
 class BaseHandler(PSABaseHandler):
-
     @contextmanager
-    def Session(self):
-        """Check that the current user has permission to create, read,
-        update, or delete rows that are present in the session. If not,
-        raise an AccessError (causing the transaction to fail and the API to
-        respond with 401).
-        If all permissions are satisfied, the session is committed.
-        All that, using a context manager.
+    def DBSession(self, use_auto_verify=True):
         """
-        with DBSession() as session:
+        Generate a scoped session that also has knowledge
+        of the current user, and that can automatically
+        verify and commit the changes to it when going out of context.
+        The current user is taken from the handler's current_user.
+        This is a shortcut method to models.DBSession
+        that saves the need to manually input the user object.
+
+        Parameters
+        ----------
+        use_auto_verify: boolean
+            if True (default), will call verify and commit
+            functions of the session before exiting the context.
+
+        Returns
+        -------
+        a scoped session object that can be used in a context
+        manager to access the database. If auto verify is enabled,
+        will use the current user given to apply verification
+        and commit to the database when exiting context.
+
+        """
+        with DBSession(self.current_user, use_auto_verify) as session:
             yield session
-
-            # get items to be inserted
-            new_rows = [row for row in session.new]
-
-            # get items to be updated
-            updated_rows = [
-                row for row in session.dirty if session.is_modified(row)
-            ]
-
-            # get items to be deleted
-            deleted_rows = [row for row in session.deleted]
-
-            # get items that were read
-            read_rows = [
-                row
-                for row in set(session.identity_map.values())
-                           - (set(updated_rows) | set(new_rows) | set(deleted_rows))
-            ]
-
-            # need to check delete permissions before flushing, as deleted records
-            # are not present in the transaction after flush (thus can't be used in
-            # joins). Read permissions can be checked here or below as they do not
-            # change on flush.
-            for mode, collection in zip(
-                    ["read", "update", "delete"],
-                    [read_rows, updated_rows, deleted_rows],
-            ):
-                bulk_verify(mode, collection, self.current_user)
-
-            # update transaction state in DB, but don't commit yet. this updates
-            # or adds rows in the database and uses their new state in joins,
-            # for permissions checking purposes.
-            session.flush()
-            bulk_verify("create", new_rows, self.current_user)
 
     def verify_permissions(self):
         """Check that the current user has permission to create, read,
