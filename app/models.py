@@ -33,7 +33,7 @@ DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
 @contextmanager
-def Session(current_user=None, use_auto_verify=True):
+def Session(user_or_token=None, use_auto_verify=True):
     """
     Generate a scoped session that also has knowledge
     of the current user, and that can automatically
@@ -41,8 +41,9 @@ def Session(current_user=None, use_auto_verify=True):
 
     Parameters
     ----------
-    current_user: baselayer.models.User object
-        the object representing the current user.
+    user_or_token: baselayer.models.User object
+        or baselayer.models.Token object.
+        The object representing the current user.
         Can be None only if the use_auto_verify
         parameter is set to False.
     use_auto_verify: boolean
@@ -93,29 +94,28 @@ def Session(current_user=None, use_auto_verify=True):
             ["read", "update", "delete"],
             [read_rows, updated_rows, deleted_rows],
         ):
-            bulk_verify(mode, collection, self.current_user)
+            bulk_verify(mode, collection, self.user_or_token)
 
         # update transaction state in DB, but don't commit yet. this updates
         # or adds rows in the database and uses their new state in joins,
         # for permissions checking purposes.
         self.flush()
-        bulk_verify("create", new_rows, self.current_user)
+        bulk_verify("create", new_rows, self.user_or_token)
 
-    if use_auto_verify and current_user is None:
+    if use_auto_verify and user_or_token is None:
         raise RuntimeError(
             "Cannot start a session with use_auto_verify without a valid user."
         )
-    if current_user is not None and not isinstance(current_user, User):
+    if user_or_token is not None and not isinstance(user_or_token, (User, Token)):
         raise ValueError(
-            "current_user must be an instance of User, "
-            f"got {current_user.__class__.__name__}."
+            "user_or_token must be an instance of User or Token, "
+            f"got {user_or_token.__class__.__name__}."
         )
     with scoped_session(sessionmaker(), scopefunc=session_context_id.get) as session:
-        session.current_user = current_user
+        session.user_or_token = user_or_token
         session.use_auto_verify = use_auto_verify
-        session.verify = types.MethodType(
-            verify, session
-        )  # make this an instance method of session
+        # make this an instance method of session
+        session.verify = types.MethodType(verify, session)
         yield session
 
         # this gets executed when external context is finished
@@ -1379,18 +1379,22 @@ class BaseMixin:
         standardized = np.atleast_1d(id_or_list)
         result = []
 
-        with DBSession() as session:
+        with DBSession(user_or_token) as session:
             # TODO: vectorize this
             for pk in standardized:
-                stmt = sa.select(cls).options(options).get(pk.item())
-                instance = session.execute(stmt)
+                if options:
+                    stmt = sa.select(cls).options(options).where(cls.id == pk.item())
+                else:
+                    stmt = sa.select(cls).where(cls.id == pk.item())
+                instance = session.scalars(stmt).first()
                 if raise_if_none:
-                    if instance is None or not instance[0].is_accessible_by(
+                    if instance is None or not instance.is_accessible_by(
                         user_or_token, mode=mode
                     ):
                         raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
-                result.append(instance[0])
-            return np.asarray(result).reshape(original_shape).tolist()
+                result.append(instance)
+
+        return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
     def get_all(
@@ -1422,15 +1426,11 @@ class BaseMixin:
             If columns is specified, will return a list of tuples
             containing the data from each column requested.
         """
-        ret_list = cls.query_records_accessible_by(
-            user_or_token, mode=mode, options=options, columns=columns
-        ).all()
+        with DBSession(user_or_token) as session:
+            stmt = cls.select(user_or_token, mode, options, columns)
+            values = session.scalars(stmt).all()
 
-        # extract the objects from the first element of the tuple
-        if columns is None:
-            ret_list = [obj[0] for obj in ret_list]
-
-        return ret_list
+        return values
 
     @classmethod
     def select(
