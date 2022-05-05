@@ -1275,13 +1275,13 @@ class BaseMixin:
         # TODO: vectorize this
         for pk in standardized:
             instance = cls.query.options(options).get(pk.item())
-            if raise_if_none:
-                if instance is None or not instance.is_accessible_by(
-                    user_or_token, mode=mode
-                ):
+            if instance is None or not instance.is_accessible_by(
+                user_or_token, mode=mode
+            ):
+                if raise_if_none:
                     raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
-            if instance.is_accessible_by(user_or_token, mode=mode):
-                result.append(instance)
+                else:
+                    return None
         return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
