@@ -44,10 +44,14 @@
               <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Setup</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#on-macos">On macOS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#on-macos">On macOS</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#port-number-configuration-with-macos">Port Number Configuration with macOS</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#on-linux">On Linux</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#building-the-baselayer-database">Building the baselayer database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#launch">Launch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#deployment-options">Deployment options</a></li>
@@ -112,6 +116,17 @@ and running. A simple example of such an application is provides as a
 </ul>
 </li>
 </ul>
+<section id="port-number-configuration-with-macos">
+<h4>Port Number Configuration with macOS<a class="headerlink" href="#port-number-configuration-with-macos" title="Permalink to this headline"></a></h4>
+<p>The default port number used by the baselayer app is 5000, but this port is not available for use with all operating systems.
+Port 5000 is not free for the latest macOS version, Monterey.</p>
+<p>If 5000 is not available, you will need to modify the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file to use another port. For example, you may use:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">ports</span><span class="p">:</span><span class="w"></span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5700</span><span class="w"></span>
+</pre></div>
+</div>
+<p>See <a class="reference external" href="#configuration">below</a> for more information on modifying the baselayer configuration file.</p>
+</section>
 </section>
 <section id="on-linux">
 <h3>On Linux<a class="headerlink" href="#on-linux" title="Permalink to this headline"></a></h3>
@@ -128,11 +143,16 @@ add the following lines and restart PostgreSQL
 </pre></div>
 </div>
 </li>
-<li><p>Initialize the database with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">db_init</span></code> (also tests that your
-permissions have been properly configured).</p></li>
-<li><p>Run <code class="docutils literal notranslate"><span class="pre">make</span></code> to start the server and navigate to <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code></p></li>
 </ul>
 </section>
+</section>
+<section id="building-the-baselayer-database">
+<h2>Building the baselayer database<a class="headerlink" href="#building-the-baselayer-database" title="Permalink to this headline"></a></h2>
+<ul class="simple">
+<li><p>Initialize the database with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">db_init</span></code> (also tests that your
+permissions have been properly configured).</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">make</span></code> to start the server and navigate to <code class="docutils literal notranslate"><span class="pre">localhost:5000</span></code>. If you have modified the baselayer configuration to use a different app port, you should instead navigate to <code class="docutils literal notranslate"><span class="pre">localhost:PORTNUMBER</span></code>.</p></li>
+</ul>
 </section>
 <section id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h2>
