@@ -1282,6 +1282,7 @@ class BaseMixin:
                     raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
                 else:
                     return None
+            result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
