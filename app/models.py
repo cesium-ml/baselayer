@@ -1280,7 +1280,8 @@ class BaseMixin:
                     user_or_token, mode=mode
                 ):
                     raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
-            result.append(instance)
+            if instance.is_accessible_by(user_or_token, mode=mode):
+                result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
     @classmethod
