@@ -20,6 +20,19 @@ Clone that application, and then proceed with the following instructions.
 - Using [MacPorts](https://www.macports.org): `port install nginx +realip postgresql13-server npm7`
   - Start the postgresql server: `port load postgresql13-server`
 
+#### Port Number Configuration with macOS
+The default port number used by the baselayer app is 5000, but this port is not available for use with all operating systems. 
+Port 5000 is not free for the latest macOS version, Monterey.
+
+If 5000 is not available, you will need to modify the `config.yaml` file to use another port. For example, you may use:
+
+```yaml
+ports:
+    app: 5700
+```
+
+See [below](#configuration) for more information on modifying the baselayer configuration file.
+
 ### On Linux
 
 - Using `apt-get`:
@@ -34,11 +47,13 @@ Clone that application, and then proceed with the following instructions.
   local baselayer baselayer trust
   local baselayer_test baselayer trust
   ```
+  
+## Building the baselayer database 
 
 - Initialize the database with `make db_init` (also tests that your
   permissions have been properly configured).
 
-- Run `make` to start the server and navigate to `localhost:5000`
+- Run `make` to start the server and navigate to `localhost:5000`. If you have modified the baselayer configuration to use a different app port, you should instead navigate to `localhost:PORTNUMBER`.
 
 ## Configuration
 
