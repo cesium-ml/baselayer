@@ -3,6 +3,7 @@ import traceback
 import types
 import uuid
 import warnings
+from collections import defaultdict
 from contextlib import contextmanager
 from datetime import datetime
 from hashlib import md5
@@ -33,7 +34,7 @@ DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
 @contextmanager
-def Session(user_or_token=None, use_auto_verify=True):
+def Session(user_or_token=None, verify=True):
     """
     Generate a scoped session that also has knowledge
     of the current user, and that can automatically
@@ -41,12 +42,12 @@ def Session(user_or_token=None, use_auto_verify=True):
 
     Parameters
     ----------
-    user_or_token: baselayer.app.models.User object
+    user_or_token : baselayer.app.models.User object
         or baselayer.app.models.Token object.
         The object representing the current user.
-        Can be None only if the use_auto_verify
-        parameter is set to False.
-    use_auto_verify: boolean
+        Can be None only if the verify parameter
+        is set to False.
+    verify : boolean
         if True (default), will call verify and commit
         functions of the session before exiting the context.
         If True, must specify a legal User object.
@@ -54,16 +55,13 @@ def Session(user_or_token=None, use_auto_verify=True):
     Returns
     -------
     a scoped session object that can be used in a context
-    manager to access the database. If auto verify is enabled,
+    manager to access the database. If verify is enabled,
     will use the current user given to apply verification
     and commit to the database when exiting context.
 
     """
 
-    def verify(self):
-        # import here to avoid circular import loop
-        from .handlers.base import bulk_verify
-
+    def run_verification(self):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
         raise an AccessError (causing the transaction to fail and the API to
@@ -102,7 +100,7 @@ def Session(user_or_token=None, use_auto_verify=True):
         self.flush()
         bulk_verify("create", new_rows, self.user_or_token)
 
-    if use_auto_verify and user_or_token is None:
+    if verify and user_or_token is None:
         raise RuntimeError(
             "Cannot start a session with use_auto_verify without a valid user."
         )
@@ -113,20 +111,68 @@ def Session(user_or_token=None, use_auto_verify=True):
         )
     with scoped_session(sessionmaker(), scopefunc=session_context_id.get)() as session:
         session.user_or_token = user_or_token
-        session.use_auto_verify = use_auto_verify
+        session._use_auto_verify = verify
         # make this an instance method of session
-        session.verify = types.MethodType(verify, session)
+        session.verify = types.MethodType(run_verification, session)
         yield session
 
         session.expunge_all()  # make sure objects persist after session closes
 
         # this gets executed when external context is finished
-        if use_auto_verify:
+        if verify:
             session.verify()
             session.commit()
 
         # after this, the internal context exits and triggers SQLA's
         # code for what happens when a session is done
+
+
+def bulk_verify(mode, collection, accessor):
+    """Vectorized permission check for a heterogeneous set of records. If an
+    access leak is detected, it will be handled according to the `security`
+    section of the application's configuration.
+
+    Parameters
+    ----------
+    mode : str
+        The access mode to check. Can be create, read, update, or delete.
+    collection : collection of `baselayer.app.models.Base`.
+        The records to check. These records will be grouped by type, and
+        a single database query will be issued to check access for each
+        record type.
+    accessor : baselayer.app.models.User or baselayer.app.models.Token
+        The user or token to check.
+    """
+
+    grouped_collection = defaultdict(list)
+    for row in collection:
+        grouped_collection[type(row)].append(row)
+
+    # check all rows of the same type with a single database query
+    for record_cls, collection in grouped_collection.items():
+        collection_ids = {record.id for record in collection}
+
+        # vectorized query for ids of rows in the session that
+        # are accessible
+        accessible_row_ids_sq = record_cls.query_records_accessible_by(
+            accessor, mode=mode, columns=[record_cls.id]
+        ).subquery()
+
+        inaccessible_row_ids = DBSession().execute(
+            sa.select(record_cls.id)
+            .outerjoin(
+                accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+            )
+            .where(record_cls.id.in_(collection_ids))
+            .where(accessible_row_ids_sq.c.id.is_(None))
+        )
+
+        # compare the accessible ids with the ids that are in the session
+        inaccessible_row_ids = {id for id, in inaccessible_row_ids}
+
+        # if any of the rows in the session are inaccessible, handle
+        if len(inaccessible_row_ids) > 0:
+            handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
 
 
 # SQLA1.4 fix to return SQLA1.3-style aliased entity
@@ -1247,24 +1293,24 @@ class BaseMixin:
         options=[],
     ):
         """Return a database record if it is accessible to the specified User or
-        Token. If no record exists, return None. If the record exists but is
-        inaccessible, raise an `AccessError`.
+        Token. If no record exists, or if it is inaccessible to the user, return None.
+        If specifying `raise_if_none=True` the function raises an `AccessError` instead.
 
         Parameters
         ----------
-        cls_id: int, str, iterable of int, iterable of str
+        cls_id : int, str, iterable of int, iterable of str
             The primary key(s) of the record(s) to query for.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
+        options : list of `sqlalchemy.orm.MapperOption`s
            Options that will be passed to `options()` in the loader query.
 
         Returns
         -------
-        record: `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
+        record : `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
             The requested record(s). Has the same shape as `cls_id`.
         """
 
@@ -1291,22 +1337,23 @@ class BaseMixin:
     ):
         """Retrieve all database records accessible by the specified User or
         token.
+
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
+        options : list of `sqlalchemy.orm.MapperOption`s
             Options that will be passed to `options()` in the loader query.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        records: list of `baselayer.app.models.Base`
+        records : list of `baselayer.app.models.Base`
             The records accessible to the specified user or token.
         """
         return cls.query_records_accessible_by(
@@ -1321,20 +1368,20 @@ class BaseMixin:
         specified User or token.
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
+        options : list of `sqlalchemy.orm.MapperOption`s
             Options that will be passed to `options()` in the loader query.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             The query for the specified records.
         """
 
@@ -1359,23 +1406,24 @@ class BaseMixin:
         options=[],
     ):
         """Return a database record if it is accessible to the specified User or
-        Token. If no record exists, return None. If the record exists but is
-        inaccessible, raise an `AccessError`.
+        Token. If no record exists, or if it is inaccessible to the user, return None.
+        If specifying `raise_if_none=True` the function raises an `AccessError` instead.
+
         Parameters
         ----------
-        id_or_list: int, str, iterable of int, iterable of str
+        id_or_list : int, str, iterable of int, iterable of str
             The primary key(s) of the record(s) to query for.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
+        options : list of `sqlalchemy.orm.MapperOption`s
            Options that will be passed to `options()` in the loader query.
 
         Returns
         -------
-        record: `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
+        record : `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
             The requested record(s). Has the same shape as `id_or_list`.
         """
 
@@ -1390,12 +1438,16 @@ class BaseMixin:
                     stmt = sa.select(cls).options(options).where(cls.id == pk.item())
                 else:
                     stmt = sa.select(cls).where(cls.id == pk.item())
+
                 instance = session.scalars(stmt).first()
-                if raise_if_none:
-                    if instance is None or not instance.is_accessible_by(
-                        user_or_token, mode=mode
-                    ):
+                if instance is None or not instance.is_accessible_by(
+                    user_or_token, mode=mode
+                ):
+                    if raise_if_none:
                         raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
+                    else:
+                        return None
+
                 result.append(instance)
 
         return np.asarray(result).reshape(original_shape).tolist()
@@ -1408,24 +1460,25 @@ class BaseMixin:
         options=[],
         columns=None,
     ):
-        """Retrieve all database records accessible by the specified User or
-        token.
+        """
+        Retrieve all database records accessible by the specified User or token.
+
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
+        options : list of `sqlalchemy.orm.MapperOption`s
             Options that will be passed to `options()` in the loader query.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        records: list of `baselayer.app.models.Base`
+        records : list of `baselayer.app.models.Base`
             The records accessible to the specified user or token.
             If columns is specified, will return a list of tuples
             containing the data from each column requested.
@@ -1449,14 +1502,14 @@ class BaseMixin:
 
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
+        options : list of `sqlalchemy.orm.MapperOption`s
             Options that will be passed to `options()` in the loader query.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -1569,8 +1622,6 @@ class BaseMixin:
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
-        # with DBSession() as session:
-        #     obj = session.get(cls, id)
         obj = cls.query.get(id)
         if obj is not None:
             return obj
