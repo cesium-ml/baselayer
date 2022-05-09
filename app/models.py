@@ -34,11 +34,12 @@ DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
 @contextmanager
-def Session(user_or_token=None, verify=True):
+def Session(user_or_token=None, verify=True, commit=True):
     """
     Generate a scoped session that also has knowledge
     of the current user, and that can automatically
-    verify and commit the changes to it when going out of context.
+    verify and commit the changes to it when going
+    out of context.
 
     Parameters
     ----------
@@ -48,9 +49,12 @@ def Session(user_or_token=None, verify=True):
         Can be None only if the verify parameter
         is set to False.
     verify : boolean
-        if True (default), will call verify and commit
-        functions of the session before exiting the context.
+        If True (default), will call the verify function
+        of the session before each call to commit().
         If True, must specify a legal User object.
+    commit : boolean
+        If True (default), will call the commit()
+        function before exiting the context.
 
     Returns
     -------
@@ -100,6 +104,16 @@ def Session(user_or_token=None, verify=True):
         self.flush()
         bulk_verify("create", new_rows, self.user_or_token)
 
+    def run_commit(self):
+        """
+        Call the "run_verification" function
+        (simply called self.verify here) to
+        make sure the user has access to all
+        the data before commitTing to the DB.
+        """
+        self.verify()
+        self.commit_base_session()
+
     if verify and user_or_token is None:
         raise RuntimeError(
             "Cannot start a session with use_auto_verify without a valid user."
@@ -112,15 +126,20 @@ def Session(user_or_token=None, verify=True):
     with scoped_session(sessionmaker(), scopefunc=session_context_id.get)() as session:
         session.user_or_token = user_or_token
         session._use_auto_verify = verify
-        # make this an instance method of session
+        session._use_auto_commit = commit
+        # make this an instance method of session (that gets the "self")
         session.verify = types.MethodType(run_verification, session)
+        if verify:
+            session.commit_base_session = (
+                session.commit
+            )  # must keep the old function to call
+            session.commit = types.MethodType(run_commit, session)
         yield session
 
         session.expunge_all()  # make sure objects persist after session closes
 
         # this gets executed when external context is finished
-        if verify:
-            session.verify()
+        if session._use_auto_commit:
             session.commit()
 
         # after this, the internal context exits and triggers SQLA's
@@ -337,6 +356,9 @@ class UserAccessControl:
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         cls: `baselayer.app.models.DeclarativeMeta`
@@ -346,6 +368,7 @@ class UserAccessControl:
         columns: list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
+
         Returns
         -------
         query: sqlalchemy.Query
@@ -388,7 +411,6 @@ class UserAccessControl:
         composed: ComposedAccessControl
             The UserAccessControl representing the logical AND of the input access
             controls.
-
 
         Examples
         --------
@@ -449,6 +471,9 @@ class Public(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         cls: `baselayer.app.models.DeclarativeMeta`
@@ -458,6 +483,7 @@ class Public(UserAccessControl):
         columns: list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
+
         Returns
         -------
         query: sqlalchemy.Query
@@ -533,6 +559,9 @@ class AccessibleIfUserMatches(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         cls: `baselayer.app.models.DeclarativeMeta`
@@ -542,6 +571,7 @@ class AccessibleIfUserMatches(UserAccessControl):
         columns: list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
+
         Returns
         -------
         query: sqlalchemy.Query
@@ -664,7 +694,6 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
 
         Examples
         --------
-
         Grant access if the querying user can read the "created_by" record
         pointed to by a target record:
 
@@ -698,6 +727,9 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         cls: `baselayer.app.models.DeclarativeMeta`
@@ -707,6 +739,7 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
         columns: list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
+
         Returns
         -------
         query: sqlalchemy.Query
@@ -881,6 +914,9 @@ class ComposedAccessControl(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         cls: `baselayer.app.models.DeclarativeMeta`
@@ -890,6 +926,7 @@ class ComposedAccessControl(UserAccessControl):
         columns: list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
+
         Returns
         -------
         query: sqlalchemy.Query
@@ -1026,6 +1063,9 @@ class Restricted(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         cls: `baselayer.app.models.DeclarativeMeta`
@@ -1035,6 +1075,7 @@ class Restricted(UserAccessControl):
         columns: list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
+
         Returns
         -------
         query: sqlalchemy.Query
@@ -1173,6 +1214,9 @@ class CustomUserAccessControl(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         cls: `baselayer.app.models.DeclarativeMeta`
@@ -1182,6 +1226,7 @@ class CustomUserAccessControl(UserAccessControl):
         columns: list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
+
         Returns
         -------
         query: sqlalchemy.Query
@@ -1335,8 +1380,8 @@ class BaseMixin:
     def get_records_accessible_by(
         cls, user_or_token, mode="read", options=[], columns=None
     ):
-        """Retrieve all database records accessible by the specified User or
-        token.
+        """
+        Retrieve all database records accessible by the specified User or token.
 
         Parameters
         ----------
@@ -1366,6 +1411,9 @@ class BaseMixin:
     ):
         """Return the query for all database records accessible by the
         specified User or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
+
         Parameters
         ----------
         user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
