@@ -107,8 +107,9 @@ class BaseHandler(PSABaseHandler):
     def Session(self, verify=True):
         """
         Generate a scoped session that also has knowledge
-        of the current user, and that can automatically
-        verify and commit the changes to it when going out of context.
+        of the current user, so when commit() is called on it
+        it will also verify that all rows being committed
+        are accessible to the user.
         The current user is taken from the handler's `current_user`.
         This is a shortcut method to `models.Session`
         that saves the need to manually input the user object.
