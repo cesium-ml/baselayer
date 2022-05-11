@@ -34,12 +34,11 @@ DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
 @contextmanager
-def Session(user_or_token=None, verify=True, commit=True):
+def Session(user_or_token=None, verify=True):
     """
     Generate a scoped session that also has knowledge
     of the current user, and that can automatically
-    verify and commit the changes to it when going
-    out of context.
+    verify the changes to it when calling commit()
 
     Parameters
     ----------
@@ -52,16 +51,13 @@ def Session(user_or_token=None, verify=True, commit=True):
         If True (default), will call the verify function
         of the session before each call to commit().
         If True, must specify a legal User object.
-    commit : boolean
-        If True (default), will call the commit()
-        function before exiting the context.
 
     Returns
     -------
     a scoped session object that can be used in a context
     manager to access the database. If verify is enabled,
-    will use the current user given to apply verification
-    and commit to the database when exiting context.
+    the session will also verify the user has access
+    to all rows before any commit() command.
 
     """
 
@@ -126,7 +122,6 @@ def Session(user_or_token=None, verify=True, commit=True):
     with scoped_session(sessionmaker(), scopefunc=session_context_id.get)() as session:
         session.user_or_token = user_or_token
         session._use_auto_verify = verify
-        session._use_auto_commit = commit
         # make this an instance method of session (that gets the "self")
         session.verify = types.MethodType(run_verification, session)
         if verify:
@@ -136,11 +131,7 @@ def Session(user_or_token=None, verify=True, commit=True):
             session.commit = types.MethodType(run_commit, session)
         yield session
 
-        session.expunge_all()  # make sure objects persist after session closes
-
-        # this gets executed when external context is finished
-        if session._use_auto_commit:
-            session.commit()
+        # session.expunge_all()  # make sure objects persist after session closes
 
         # after this, the internal context exits and triggers SQLA's
         # code for what happens when a session is done
