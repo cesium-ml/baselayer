@@ -54,7 +54,9 @@ class PSABaseHandler(RequestHandler):
         user_id = self.user_id()
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
-            user = User.query.get(int(user_id))
+            # user = User.query.get(int(user_id))
+            with Session(user=None, verify=False) as session:
+                user = session.scalars(User.select(User.id == user_id)).first()
             if user is None:
                 return
             sa = user.social_auth.first()
@@ -118,15 +120,14 @@ class BaseHandler(PSABaseHandler):
         ----------
         verify : boolean
             if True (default), will call the functions
-            `verify()` and `commit()` of the session
-            before exiting the context.
+            `verify()` and whenever `commit()` is called.
 
         Returns
         -------
         A scoped session object that can be used in a context
         manager to access the database. If auto verify is enabled,
         will use the current user given to apply verification
-        and commit to the database when exiting context.
+        before every commit.
 
         """
         with Session(self.current_user, verify) as session:
