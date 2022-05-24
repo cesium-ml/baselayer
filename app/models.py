@@ -114,7 +114,6 @@ class _VerifiedSession(sa.orm.session.Session):
         bulk_verify("create", new_rows, self.user_or_token)
 
     def commit(self):
-        print("verifying rows before committing... ")
         self.verify()
         super().commit()
 
