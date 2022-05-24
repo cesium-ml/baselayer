@@ -2,6 +2,7 @@ import contextvars
 import traceback
 import uuid
 import warnings
+from collections import defaultdict
 from datetime import datetime
 from hashlib import md5
 
@@ -20,13 +21,155 @@ from .custom_exceptions import AccessError
 from .env import load_env
 from .json_util import to_json
 
-session_context_id = contextvars.ContextVar("request_id", default=None)
-DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
-
 env, cfg = load_env()
 strict = cfg["security.strict"]
 use_webhook = cfg["security.slack.enabled"]
 webhook_url = cfg["security.slack.url"]
+
+session_context_id = contextvars.ContextVar("request_id", default=None)
+# left here for backward compatibility:
+DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
+
+
+class _VerifiedSession(sa.orm.session.Session):
+    """
+    Create an instance of Session when you
+    want to apply a verification method on all added
+    or modified or deleted rows before committing them
+    to the database.
+
+    This class overrides the commit() function
+    by adding a verify() function before it.
+
+    Use this in a context manager:
+    with VerifiedSession(user_object) as session:
+        ...
+        session.commit()
+
+    This will make sure the changes to the DB
+    are verified, and will close the connection
+    when exiting of context.
+
+    """
+
+    def __init__(self, user_or_token):
+        """
+        This session must be initialized with a user or token.
+        Get this token from the handler (`self.current_user`)
+        or be generating an unverified session to only query
+        the user with a certain id. Example:
+
+        with DBSession() as session:
+            user = session.scalars(
+                sa.select(User).where(User.id == user_id)
+            ).first()
+
+        Parameters
+        ----------
+        user_or_token : baselayer.app.models.User object
+            or baselayer.app.models.Token object.
+            The object representing the current user.
+
+        """
+        self.user_or_token = user_or_token
+        super().__init__()
+
+    def verify(self):
+        """Check that the current user has permission to create, read,
+        update, or delete rows that are present in the session. If not,
+        raise an AccessError (causing the transaction to fail and the API to
+        respond with 401).
+
+        """
+        # get items to be inserted
+        new_rows = [row for row in self.new]
+
+        # get items to be updated
+        updated_rows = [row for row in self.dirty if self.is_modified(row)]
+
+        # get items to be deleted
+        deleted_rows = [row for row in self.deleted]
+
+        # get items that were read
+        read_rows = [
+            row
+            for row in set(self.identity_map.values())
+            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
+        ]
+
+        # need to check delete permissions before flushing, as deleted records
+        # are not present in the transaction after flush (thus can't be used in
+        # joins). Read permissions can be checked here or below as they do not
+        # change on flush.
+        for mode, collection in zip(
+            ["read", "update", "delete"],
+            [read_rows, updated_rows, deleted_rows],
+        ):
+            bulk_verify(mode, collection, self.user_or_token)
+
+        # update transaction state in DB, but don't commit yet. this updates
+        # or adds rows in the database and uses their new state in joins,
+        # for permissions checking purposes.
+        self.flush()
+        bulk_verify("create", new_rows, self.user_or_token)
+
+    def commit(self):
+        print("verifying rows before committing... ")
+        self.verify()
+        super().commit()
+
+
+VerifiedSession = scoped_session(
+    sessionmaker(class_=_VerifiedSession), scopefunc=session_context_id.get
+)
+
+
+def bulk_verify(mode, collection, accessor):
+    """Vectorized permission check for a heterogeneous set of records. If an
+    access leak is detected, it will be handled according to the `security`
+    section of the application's configuration.
+
+    Parameters
+    ----------
+    mode : str
+        The access mode to check. Can be create, read, update, or delete.
+    collection : collection of `baselayer.app.models.Base`.
+        The records to check. These records will be grouped by type, and
+        a single database query will be issued to check access for each
+        record type.
+    accessor : baselayer.app.models.User or baselayer.app.models.Token
+        The user or token to check.
+    """
+
+    grouped_collection = defaultdict(list)
+    for row in collection:
+        grouped_collection[type(row)].append(row)
+
+    # check all rows of the same type with a single database query
+    for record_cls, collection in grouped_collection.items():
+        collection_ids = {record.id for record in collection}
+
+        # vectorized query for ids of rows in the session that
+        # are accessible
+        accessible_row_ids_sq = record_cls.query_records_accessible_by(
+            accessor, mode=mode, columns=[record_cls.id]
+        ).subquery()
+
+        inaccessible_row_ids = DBSession().execute(
+            sa.select(record_cls.id)
+            .outerjoin(
+                accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+            )
+            .where(record_cls.id.in_(collection_ids))
+            .where(accessible_row_ids_sq.c.id.is_(None))
+        )
+
+        # compare the accessible ids with the ids that are in the session
+        inaccessible_row_ids = {id for id, in inaccessible_row_ids}
+
+        # if any of the rows in the session are inaccessible, handle
+        if len(inaccessible_row_ids) > 0:
+            handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
 
 
 # SQLA1.4 fix to return SQLA1.3-style aliased entity
@@ -151,9 +294,9 @@ class UserAccessControl:
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The class to check.
-        attrs: list of str
+        attrs : list of str
             The names of the attributes to check for.
         """
         for attr in attrs:
@@ -170,7 +313,7 @@ class UserAccessControl:
 
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
 
         Returns
@@ -191,21 +334,44 @@ class UserAccessControl:
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
+        """
+
+        raise NotImplementedError
+
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Select object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy select object
         """
 
         raise NotImplementedError
@@ -223,7 +389,6 @@ class UserAccessControl:
         composed: ComposedAccessControl
             The UserAccessControl representing the logical AND of the input access
             controls.
-
 
         Examples
         --------
@@ -284,26 +449,52 @@ class Public(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
         # return only selected columns if requested
         if columns is not None:
             return DBSession().query(*columns).select_from(cls)
         return DBSession().query(cls)
+
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Select object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy select object
+        """
+        # return only selected columns if requested
+        if columns is not None:
+            return sa.select(*columns).select_from(cls)
+        else:
+            return sa.select(cls)
 
 
 public = Public()
@@ -346,20 +537,22 @@ class AccessibleIfUserMatches(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -388,6 +581,51 @@ class AccessibleIfUserMatches(UserAccessControl):
         user_id = self.user_id_from_user_or_token(user_or_token)
         query = query.filter(cls.id == user_id)
         return query
+
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Select object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy select object
+        """
+
+        # system admins automatically get full access
+        if user_or_token.is_admin:
+            return public.select_accessible_rows(cls, user_or_token, columns=columns)
+
+        # return only selected columns if requested
+        if columns is not None:
+            stmt = sa.select(*columns).select_from(cls)
+        else:
+            stmt = sa.select(cls)
+
+        # traverse the relationship chain via sequential JOINs
+        for relationship_name in self.relationship_names:
+            self.check_cls_for_attributes(cls, [relationship_name])
+            relationship = sa.inspect(cls).mapper.relationships[relationship_name]
+
+            # not a private attribute, just has an underscore to avoid name
+            # collision with python keyword
+            cls = relationship.entity.class_
+
+            stmt = stmt.join(relationship.class_attribute)
+
+        # filter for records with at least one matching user
+        user_id = self.user_id_from_user_or_token(user_or_token)
+        stmt = stmt.where(cls.id == user_id)
+        return stmt
 
     @property
     def relationship_chain(self):
@@ -434,7 +672,6 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
 
         Examples
         --------
-
         Grant access if the querying user can read the "created_by" record
         pointed to by a target record:
 
@@ -468,20 +705,22 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -521,6 +760,69 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
             # de-subbed by postgres and uses all available indices.
 
             accessible_related_rows = logic.query_accessible_rows(
+                join_target, user_or_token, columns=[join_target.id]
+            ).subquery()
+
+            join_condition = accessible_related_rows.c.id == join_target.id
+            base = base.join(accessible_related_rows, join_condition)
+
+        return base
+
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Select object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy select object
+        """
+
+        # return only selected columns if requested
+        if columns is None:
+            base = sa.select(cls)
+        else:
+            base = sa.select(*columns).select_from(cls)
+
+        # ensure the target class has all the relationships referred to
+        # in this instance
+        self.check_cls_for_attributes(cls, self.properties_and_modes)
+
+        # construct the list of accessible records by joining the target
+        # table against accessible related rows via their relationships
+        # to the target table
+        for prop in self.properties_and_modes:
+
+            # get the kind of access required on the relationship
+            mode = self.properties_and_modes[prop]
+            relationship = sa.inspect(cls).mapper.relationships[prop]
+
+            # get the rows of the target table that are accessible
+            join_target = relationship.entity.class_
+            logic = getattr(join_target, mode)
+
+            if isinstance(logic, Public):
+                continue
+
+            # join the target table to the related table on the relationship
+            base = base.join(relationship.class_attribute)
+
+            # create a subquery for the accessible rows of the related table
+            # and join that subquery to the related table on the PK/FK.
+            # from a performance perspective this should be about as performant
+            # as aliasing the related table. The subquery is automatically
+            # de-subbed by postgres and uses all available indices.
+
+            accessible_related_rows = logic.select_accessible_rows(
                 join_target, user_or_token, columns=[join_target.id]
             ).subquery()
 
@@ -590,20 +892,22 @@ class ComposedAccessControl(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -660,6 +964,76 @@ class ComposedAccessControl(UserAccessControl):
 
         return query
 
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Select object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy select object
+        """
+
+        # retrieve specified columns if requested
+        if columns is not None:
+            stmt = sa.select(*columns).select_from(cls)
+        else:
+            stmt = sa.select(cls)
+
+        # keep track of columns that will be null in the case of an unsuccessful
+        # match for OR logic.
+        accessible_id_cols = []
+
+        for access_control in self.access_controls:
+
+            # Just ignore public ACLs
+            if isinstance(access_control, Public):
+                continue
+
+            # use an alias to avoid name collisions.
+            target_alias = safe_aliased(cls)
+
+            # join against the first access control using a subquery. from a
+            # performance perspective this should be about as performant as
+            # aliasing the related table, but is much better for avoiding
+            # name collisions. The subquery is automatically de-subbed by
+            # postgres and uses all available indices.
+            accessible = access_control.select_accessible_rows(
+                target_alias, user_or_token, columns=[target_alias.id]
+            ).subquery()
+
+            # join on the FK
+            join_condition = accessible.c.id == cls.id
+            if self.logic == "and":
+                # for and logic, we want an INNER join
+                stmt = stmt.join(accessible, join_condition)
+            elif self.logic == "or":
+                # for OR logic we dont want to lose rows where there is no
+                # for one particular type of access control, so use outer join
+                # here
+                stmt = stmt.outerjoin(accessible, join_condition)
+            else:
+                raise ValueError(
+                    f'Invalid composition logic: {self.logic}, must be either "and" or "or".'
+                )
+            accessible_id_cols.append(accessible.c.id)
+
+        # in the case of or logic, require that only one of the conditions be
+        # met for each row
+        if self.logic == "or":
+            stmt = stmt.where(sa.or_(*[col.isnot(None) for col in accessible_id_cols]))
+
+        return stmt
+
 
 class Restricted(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
@@ -667,20 +1041,22 @@ class Restricted(UserAccessControl):
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -695,6 +1071,34 @@ class Restricted(UserAccessControl):
             )
         return DBSession().query(cls).filter(sa.literal(False))
 
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Select object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy.Select object
+        """
+
+        # system admins have access to restricted records
+        if user_or_token.is_admin:
+            return public.select_accessible_rows(cls, user_or_token, columns=columns)
+
+        # otherwise, all records are inaccessible
+        if columns is not None:
+            return sa.select(*columns).select_from(cls).where(sa.literal(False))
+        return sa.select(cls).where(sa.literal(False))
+
 
 restricted = Restricted()
 
@@ -706,16 +1110,17 @@ class CustomUserAccessControl(UserAccessControl):
 
         Parameters
         ----------
-        query_or_query_generator: `sqlalchemy.orm.Query` or func
+        query_or_query_generator: `sqlalchemy.sql.selectable.Select` or func
 
             The logic for determining which records are accessible to a
             user.
 
             In cases where the access control logic is the same for all
             users, this class can be directly initialized from an SQLAlchemy
-            Query object. The query should render a SELECT on the table on
-            which access permissions are to be enforced, returning only rows
-            that are accessible under the policy (See Example 1 below).
+            Query or Select object. The statement should render a SELECT on
+            the table on which access permissions are to be enforced,
+            returning only rows that are accessible under the policy
+            (See Example 1 below).
 
             In cases where the access control logic is different for
             different users, the class should be instantiated with a function
@@ -723,17 +1128,25 @@ class CustomUserAccessControl(UserAccessControl):
             the table on which access permissions are to be enforced) and
             user_or_token, the instance of `baselayer.app.models.User` or
             `baselayer.app.models.Token` to check permissions for (See Example 2
-            below). The function should then return a `sqlalchemy.orm.Query`
-            object that, when executed, returns the rows accessible to that User
-            or Token.
+            below). The function should then return a 'sqlalchemy.orm.Query` or an
+            `sqlalchemy.sql.selectable.Select` object that, when executed,
+            returns the rows accessible to that User or Token.
 
         Examples
         --------
         (1) Only permit access to departments in which all employees are
         managers
 
+            Query (SQLA 1.4):
             >>>> CustomUserAccessControl(
                 DBSession().query(Department).join(Employee).group_by(
+                    Department.id
+                ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
+            )
+
+            Select (SQLA 2.0):
+            >>>> CustomUserAccessControl(
+                stmt = sa.select(Department).join(Employee).group_by(
                     Department.id
                 ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
             )
@@ -741,17 +1154,29 @@ class CustomUserAccessControl(UserAccessControl):
         (2) Permit access to all records for system admins, otherwise, only
         permit access to departments in which all employees are managers
 
-             >>>> def access_logic(cls, user_or_token):
+            Query (SQLA 1.4):
+            >>>> def access_logic(cls, user_or_token):
              ...      if user_or_token.is_system_admin:
              ...         return DBSession().query(cls)
              ...      return DBSession().query(cls).join(Employee).group_by(
+             ...             cls.id
+             ...      ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
+            >>>> CustomUserAccessControl(access_logic)
+
+            Select (SQLA 2.0):
+             >>>> def access_logic(cls, user_or_token):
+             ...      if user_or_token.is_system_admin:
+             ...         return sa.selct(cls)
+             ...      return sa.select(cls).join(Employee).group_by(
              ...             cls.id
              ...      ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
 
             >>>> CustomUserAccessControl(access_logic)
 
         """
-        if isinstance(query_or_query_generator, sa.orm.Query):
+        if isinstance(query_or_query_generator, sa.sql.selectable.Select) or isinstance(
+            query_or_query_generator, sa.orm.Query
+        ):
             self.query = query_or_query_generator
             self.query_generator = None
         elif hasattr(query_or_query_generator, "__call__"):
@@ -761,26 +1186,28 @@ class CustomUserAccessControl(UserAccessControl):
             raise TypeError(
                 f"Invalid type for query: "
                 f"{type(query_or_query_generator).__name__}, "
-                f"expected `sqlalchemy.orm.Query` or func."
+                f"expected `sqlalchemy.sql.selectable.Select` or func."
             )
 
     def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -795,6 +1222,36 @@ class CustomUserAccessControl(UserAccessControl):
 
         return query
 
+    def select_accessible_rows(self, cls, user_or_token, columns=None):
+        """Construct a Select object that, when executed, returns the rows of a
+        specified table that are accessible to a specified user or token.
+
+        Parameters
+        ----------
+        cls : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy.Select object
+        """
+
+        if self.query is not None:
+            stmt = self.query
+        else:
+            stmt = self.query_generator(cls, user_or_token)
+
+        # retrieve specified columns if requested
+        if columns is not None:
+            stmt = sa.select(*columns).select_from(stmt.subquery())
+
+        return stmt
+
 
 class BaseMixin:
 
@@ -808,13 +1265,14 @@ class BaseMixin:
 
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check.
+
         Returns
         -------
-        accessible: bool
+        accessible : bool
             Whether the User or Token has the specified type of access to
             the record.
         """
@@ -825,14 +1283,18 @@ class BaseMixin:
         logic = getattr(cls, mode)
 
         # Construct the join from which accessibility can be selected.
-        accessibility_target = (sa.func.count("*") > 0).label(f"{mode}_ok")
-        accessibility_table = logic.query_accessible_rows(
-            cls, user_or_token, columns=[accessibility_target]
-        ).filter(cls.id == self.id)
+        # accessibility_target = (sa.func.count("*") > 0).label(f"{mode}_ok")
+        accessibility_table = (
+            logic.query_accessible_rows(cls, user_or_token)
+            .where(cls.id == self.id)
+            .subquery()
+        )
+
+        stmt = sa.select(sa.func.count(accessibility_table.columns.id))
 
         # Query for the value of the access_func for this particular record and
         # return the result.
-        result = accessibility_table.scalar()
+        result = DBSession().execute(stmt).scalar_one() > 0
         if result is None:
             result = False
 
@@ -855,24 +1317,24 @@ class BaseMixin:
         options=[],
     ):
         """Return a database record if it is accessible to the specified User or
-        Token. If no record exists, return None. If the record exists but is
-        inaccessible, raise an `AccessError`.
+        Token. If no record exists, or if it is inaccessible to the user, return None.
+        If specifying `raise_if_none=True` the function raises an `AccessError` instead.
 
         Parameters
         ----------
-        cls_id: int, str, iterable of int, iterable of str
+        cls_id : int, str, iterable of int, iterable of str
             The primary key(s) of the record(s) to query for.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
+        options : list of `sqlalchemy.orm.MapperOption`s
            Options that will be passed to `options()` in the loader query.
 
         Returns
         -------
-        record: `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
+        record : `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
             The requested record(s). Has the same shape as `cls_id`.
         """
 
@@ -883,15 +1345,13 @@ class BaseMixin:
         # TODO: vectorize this
         for pk in standardized:
             instance = cls.query.options(options).get(pk.item())
-            if instance is not None:
-                if not instance.is_accessible_by(user_or_token, mode=mode):
-                    raise AccessError(
-                        f"Insufficient permissions for operation "
-                        f'"{type(user_or_token).__name__} {user_or_token.id} '
-                        f'{mode} {cls.__name__} {instance.id}".'
-                    )
-            elif raise_if_none:
-                raise AccessError(f"Invalid {cls.__name__} id: {pk}")
+            if instance is None or not instance.is_accessible_by(
+                user_or_token, mode=mode
+            ):
+                if raise_if_none:
+                    raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
+                else:
+                    return None
             result.append(instance)
         return np.asarray(result).reshape(original_shape).tolist()
 
@@ -899,24 +1359,26 @@ class BaseMixin:
     def get_records_accessible_by(
         cls, user_or_token, mode="read", options=[], columns=None
     ):
-        """Retrieve all database records accessible by the specified User or
-        token.
+        """
+        Retrieve all database records accessible by the specified User or token.
 
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
-           Options that will be passed to `options()` in the loader query.
+        options : list of `sqlalchemy.orm.MapperOption`s
+            Options that will be passed to `options()` in the loader query.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        records: list of `baselayer.app.models.Base`
+        records : list of `baselayer.app.models.Base`
             The records accessible to the specified user or token.
-
         """
         return cls.query_records_accessible_by(
             user_or_token, mode=mode, options=options, columns=columns
@@ -928,22 +1390,26 @@ class BaseMixin:
     ):
         """Return the query for all database records accessible by the
         specified User or token.
+        All query based functions will be deprecated when moving to
+        SQL Alchemy 2.0 in favor of select functions.
 
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check. Valid choices are `['create', 'read', 'update',
             'delete']`.
-        options: list of `sqlalchemy.orm.MapperOption`s
-           Options that will be passed to `options()` in the loader query.
+        options : list of `sqlalchemy.orm.MapperOption`s
+            Options that will be passed to `options()` in the loader query.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             The query for the specified records.
-
         """
 
         if not isinstance(user_or_token, (User, Token)):
@@ -957,7 +1423,142 @@ class BaseMixin:
             options
         )
 
+    @classmethod
+    def get(
+        cls,
+        id_or_list,
+        user_or_token,
+        mode="read",
+        raise_if_none=False,
+        options=[],
+    ):
+        """Return a database record if it is accessible to the specified User or
+        Token. If no record exists, or if it is inaccessible to the user, return None.
+        If specifying `raise_if_none=True` the function raises an `AccessError` instead.
+
+        Parameters
+        ----------
+        id_or_list : int, str, iterable of int, iterable of str
+            The primary key(s) of the record(s) to query for.
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode : string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options : list of `sqlalchemy.orm.MapperOption`s
+           Options that will be passed to `options()` in the loader query.
+
+        Returns
+        -------
+        record : `baselayer.app.models.Base` or list of `baselayer.app.models.Base`
+            The requested record(s). Has the same shape as `id_or_list`.
+        """
+
+        original_shape = np.asarray(id_or_list).shape
+        standardized = np.atleast_1d(id_or_list)
+        result = []
+
+        with DBSession() as session:
+            # TODO: vectorize this
+            for pk in standardized:
+                if options:
+                    stmt = sa.select(cls).options(options).where(cls.id == pk.item())
+                else:
+                    stmt = sa.select(cls).where(cls.id == pk.item())
+
+                instance = session.scalars(stmt).first()
+                if instance is None or not instance.is_accessible_by(
+                    user_or_token, mode=mode
+                ):
+                    if raise_if_none:
+                        raise AccessError(f"Cannot find {cls.__name__} with id: {pk}")
+                    else:
+                        return None
+
+                result.append(instance)
+
+        return np.asarray(result).reshape(original_shape).tolist()
+
+    @classmethod
+    def get_all(
+        cls,
+        user_or_token,
+        mode="read",
+        options=[],
+        columns=None,
+    ):
+        """
+        Retrieve all database records accessible by the specified User or token.
+
+        Parameters
+        ----------
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode : string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options : list of `sqlalchemy.orm.MapperOption`s
+            Options that will be passed to `options()` in the loader query.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        records : list of `baselayer.app.models.Base`
+            The records accessible to the specified user or token.
+            If columns is specified, will return a list of tuples
+            containing the data from each column requested.
+        """
+        with DBSession() as session:
+            stmt = cls.select(user_or_token, mode, options, columns)
+            values = session.scalars(stmt).all()
+
+        return values
+
+    @classmethod
+    def select(
+        cls,
+        user_or_token,
+        mode="read",
+        options=[],
+        columns=None,
+    ):
+        """Return the select statement for all database records accessible by the
+        specified User or token.
+
+        Parameters
+        ----------
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
+            The User or Token to check.
+        mode : string
+            Type of access to check. Valid choices are `['create', 'read', 'update',
+            'delete']`.
+        options : list of `sqlalchemy.orm.MapperOption`s
+            Options that will be passed to `options()` in the loader query.
+        columns : list of sqlalchemy.Column, optional, default None
+            The columns to retrieve from the target table. If None, queries
+            the mapped class directly and returns mapped instances.
+
+        Returns
+        -------
+        sqlalchemy select object
+        """
+
+        if not isinstance(user_or_token, (User, Token)):
+            raise ValueError(
+                "user_or_token must be an instance of User or Token, "
+                f"got {user_or_token.__class__.__name__}."
+            )
+
+        logic = getattr(cls, mode)
+        stmt = logic.select_accessible_rows(cls, user_or_token, columns=columns)
+        for option in options:
+            stmt = stmt.options(option)
+        return stmt
+
     query = DBSession.query_property()
+
     id = sa.Column(
         sa.Integer,
         primary_key=True,
@@ -1181,6 +1782,7 @@ class Role(Base):
         secondary="role_acls",
         passive_deletes=True,
         doc="ACLs associated with the Role.",
+        lazy="subquery",
     )
     users = relationship(
         "User",
@@ -1229,6 +1831,7 @@ class User(Base):
         back_populates="users",
         passive_deletes=True,
         doc="The roles assumed by this user.",
+        lazy="subquery",
     )
     role_ids = association_proxy(
         "roles",
@@ -1248,6 +1851,7 @@ class User(Base):
         secondary="user_acls",
         passive_deletes=True,
         doc="ACLs granted to user, separate from role-level ACLs",
+        lazy="subquery",
     )
     expiration_date = sa.Column(
         sa.DateTime,
@@ -1332,6 +1936,7 @@ class Token(Base):
         secondary="token_acls",
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
+        lazy="subquery",
     )
     acl_ids = association_proxy("acls", "id", creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
