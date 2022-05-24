@@ -53,21 +53,21 @@ class PSABaseHandler(RequestHandler):
         return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
-        user_id = self.user_id()
+        user_id = int(self.user_id())
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
             with DBSession() as session:
                 user = session.scalars(
                     sqlalchemy.select(User).where(User.id == user_id)
                 ).first()
-            if user is None:
-                return
-            sa = user.social_auth.first()
-            if sa is None:
-                # No SocialAuth entry; probably machine generated user
-                return user
-            if sa.uid.encode("utf-8") == oauth_uid:
-                return user
+                if user is None:
+                    return
+                sa = user.social_auth.first()
+                if sa is None:
+                    # No SocialAuth entry; probably machine generated user
+                    return user
+                if sa.uid.encode("utf-8") == oauth_uid:
+                    return user
 
     def login_user(self, user):
         self.set_secure_cookie("user_id", str(user.id))
