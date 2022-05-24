@@ -47,6 +47,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#testing">Testing</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#debugging">Debugging</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#database">Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#new-sql-alchemy-2-0-style-select-statements">New SQL Alchemy 2.0 style select statements</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#standards">Standards</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#upgrading-javascript-dependencies">Upgrading Javascript dependencies</a></li>
 </ul>
@@ -128,7 +129,7 @@ make use of include:</p>
 </div>
 <ul class="simple">
 <li><p>Generic logic applicable to any model is included in the base model class <code class="docutils literal notranslate"><span class="pre">baselayer.app.models.Base</span></code> (<code class="docutils literal notranslate"><span class="pre">to_dict</span></code>, <code class="docutils literal notranslate"><span class="pre">__str__</span></code>, etc.), but can be overridden within a specific model</p></li>
-<li><p>Models can be queried directly (<code class="docutils literal notranslate"><span class="pre">User.query.all()</span></code>), or more specific queries can be constructed via the session object (<code class="docutils literal notranslate"><span class="pre">DBSession().query(User.id).all()</span></code>)</p></li>
+<li><p>Models can be selected directly (<code class="docutils literal notranslate"><span class="pre">User.query.all()</span></code>), or more specific queries can be constructed via the session object (<code class="docutils literal notranslate"><span class="pre">DBSession().query(User.id).all()</span></code>)</p></li>
 <li><p>Convenience functionality:</p>
 <ul>
 <li><p>Join relationships: some multi-step relationships are defined through joins using the <code class="docutils literal notranslate"><span class="pre">secondary</span></code> parameter to eliminate queries from the intermediate table; e.g., <code class="docutils literal notranslate"><span class="pre">User.acls</span></code> instad of <code class="docutils literal notranslate"><span class="pre">[r.acls</span> <span class="pre">for</span> <span class="pre">r</span> <span class="pre">in</span> <span class="pre">User.roles]</span></code></p></li>
@@ -143,6 +144,42 @@ make use of include:</p>
 </ul>
 </li>
 </ul>
+</section>
+<section id="new-sql-alchemy-2-0-style-select-statements">
+<h2>New SQL Alchemy 2.0 style select statements<a class="headerlink" href="#new-sql-alchemy-2-0-style-select-statements" title="Permalink to this headline"></a></h2>
+<p>To start a session without verification (i.e., when not committing to DB):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">DBSession</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+  <span class="o">...</span>
+</pre></div>
+</div>
+<p>The context manager will make sure the connection is closed when exiting context.</p>
+<p>To use a verified session that checks all rows before committing them:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">VerifiedSession</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+  <span class="o">...</span>
+  <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Each handler class can also call <code class="docutils literal notranslate"><span class="pre">self.Session</span></code> as a stand-in for <code class="docutils literal notranslate"><span class="pre">VerifiedSession(self.current_user)</span></code>.</p>
+<p>To quickly get rows from a table using the new “select” methods, use one of these (replace <code class="docutils literal notranslate"><span class="pre">User</span></code> with any class):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">id_or_list</span><span class="p">,</span> <span class="n">user_or_token</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="n">raise_if_none</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="p">[])</span>
+<span class="n">all_users</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">get_all</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="n">raise_if_none</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="p">[],</span> <span class="n">columns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">stmt</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="p">[],</span> <span class="n">columnns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">get</span></code> and <code class="docutils literal notranslate"><span class="pre">get_all</span></code> functions open a session internally and retrieve the objects specified,
+if they are accessible to the user. In the case of <code class="docutils literal notranslate"><span class="pre">get</span></code>, if any of the IDs given (as a scalar or list)
+are not accessible to do not exist in the DB, the function returns None, or raises an <code class="docutils literal notranslate"><span class="pre">AccessError</span></code>
+(if <code class="docutils literal notranslate"><span class="pre">raise_if_none=True</span></code> is specified). The <code class="docutils literal notranslate"><span class="pre">get_all</span></code> just retrieves all rows that are accessible from that table.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">select</span></code> function will return a select statement object that only selects rows that are accessible.
+This statement can be further filtered with <code class="docutils literal notranslate"><span class="pre">where()</span></code> and executed using the session:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">VerifiedSession</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+  <span class="n">stmt</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">user_id</span><span class="p">)</span>
+  <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>  <span class="c1"># can also call session.scalars(stmt).first()</span>
+  <span class="n">user</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">new_name</span>
+  <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>If not using <code class="docutils literal notranslate"><span class="pre">commit()</span></code>, the call to <code class="docutils literal notranslate"><span class="pre">VerifiedSession(user_or_token)</span></code> can be replaced with <code class="docutils literal notranslate"><span class="pre">DBSession()</span></code> with no arguments.</p>
 </section>
 <section id="standards">
 <h2>Standards<a class="headerlink" href="#standards" title="Permalink to this headline"></a></h2>
