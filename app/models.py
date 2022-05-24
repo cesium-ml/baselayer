@@ -31,11 +31,11 @@ session_context_id = contextvars.ContextVar("request_id", default=None)
 DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
-class Session(sa.orm.session.Session):
+class _VerifiedSession(sa.orm.session.Session):
     """
     Create an instance of Session when you
     want to apply a verification method on all added
-    or modified or deleted rows before commiting them
+    or modified or deleted rows before committing them
     to the database.
 
     This class overrides the commit() function
@@ -48,7 +48,7 @@ class Session(sa.orm.session.Session):
 
     This will make sure the changes to the DB
     are verified, and will close the connection
-    when the context goes out.
+    when exiting of context.
 
     """
 
@@ -66,12 +66,13 @@ class Session(sa.orm.session.Session):
 
         Parameters
         ----------
-        user_or_token: baselayer.app.models.User object
+        user_or_token : baselayer.app.models.User object
             or baselayer.app.models.Token object.
             The object representing the current user.
 
         """
         self.user_or_token = user_or_token
+        super().__init__()
 
     def verify(self):
         """Check that the current user has permission to create, read,
@@ -119,7 +120,7 @@ class Session(sa.orm.session.Session):
 
 
 VerifiedSession = scoped_session(
-    sessionmaker(class_=Session), scopefunc=session_context_id.get
+    sessionmaker(class_=_VerifiedSession), scopefunc=session_context_id.get
 )
 
 
@@ -293,9 +294,9 @@ class UserAccessControl:
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The class to check.
-        attrs: list of str
+        attrs : list of str
             The names of the attributes to check for.
         """
         for attr in attrs:
@@ -312,7 +313,7 @@ class UserAccessControl:
 
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
 
         Returns
@@ -338,17 +339,17 @@ class UserAccessControl:
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -360,11 +361,11 @@ class UserAccessControl:
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -453,17 +454,17 @@ class Public(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
         # return only selected columns if requested
@@ -477,11 +478,11 @@ class Public(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -541,17 +542,17 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -587,11 +588,11 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -709,17 +710,17 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -773,11 +774,11 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -896,17 +897,17 @@ class ComposedAccessControl(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -969,11 +970,11 @@ class ComposedAccessControl(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -1045,17 +1046,17 @@ class Restricted(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -1076,11 +1077,11 @@ class Restricted(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -1196,17 +1197,17 @@ class CustomUserAccessControl(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
         Returns
         -------
-        query: sqlalchemy.Query
+        query : sqlalchemy.Query
             Query for the accessible rows.
         """
 
@@ -1227,11 +1228,11 @@ class CustomUserAccessControl(UserAccessControl):
 
         Parameters
         ----------
-        cls: `baselayer.app.models.DeclarativeMeta`
+        cls : `baselayer.app.models.DeclarativeMeta`
             The mapped class of the target table.
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        columns: list of sqlalchemy.Column, optional, default None
+        columns : list of sqlalchemy.Column, optional, default None
             The columns to retrieve from the target table. If None, queries
             the mapped class directly and returns mapped instances.
 
@@ -1264,13 +1265,14 @@ class BaseMixin:
 
         Parameters
         ----------
-        user_or_token: `baselayer.app.models.User` or `baselayer.app.models.Token`
+        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
             The User or Token to check.
-        mode: string
+        mode : string
             Type of access to check.
+
         Returns
         -------
-        accessible: bool
+        accessible : bool
             Whether the User or Token has the specified type of access to
             the record.
         """
