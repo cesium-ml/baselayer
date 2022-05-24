@@ -60,9 +60,9 @@ class Session(sa.orm.session.Session):
         the user with a certain id. Example:
 
         with DBSession() as session:
-            user = session.execute(
+            user = session.scalars(
                 sa.select(User).where(User.id == user_id)
-            ).scalars().first()
+            ).first()
 
         Parameters
         ----------
@@ -1456,7 +1456,7 @@ class BaseMixin:
         standardized = np.atleast_1d(id_or_list)
         result = []
 
-        with Session(user_or_token) as session:
+        with DBSession() as session:
             # TODO: vectorize this
             for pk in standardized:
                 if options:
@@ -1508,7 +1508,7 @@ class BaseMixin:
             If columns is specified, will return a list of tuples
             containing the data from each column requested.
         """
-        with Session(user_or_token) as session:
+        with DBSession() as session:
             stmt = cls.select(user_or_token, mode, options, columns)
             values = session.scalars(stmt).all()
 

@@ -54,8 +54,7 @@ class PSABaseHandler(RequestHandler):
         user_id = self.user_id()
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
-            # user = User.query.get(int(user_id))
-            with Session(user=None, verify=False) as session:
+            with DBSession() as session:
                 user = session.scalars(User.select(User.id == user_id)).first()
             if user is None:
                 return
