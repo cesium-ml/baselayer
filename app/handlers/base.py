@@ -4,13 +4,15 @@ import uuid
 from contextlib import contextmanager
 from json.decoder import JSONDecodeError
 
+import social_tornado.handlers as psa_handlers
+
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
 #
 # `get_current_user` is needed by tornado.authentication,
 # and provides a cached version, `current_user`, that should
 # be used to look up the logged in user.
-import social_tornado.handlers as psa_handlers
+import sqlalchemy
 import tornado.escape
 from tornado.log import app_log
 from tornado.web import RequestHandler
@@ -55,7 +57,9 @@ class PSABaseHandler(RequestHandler):
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
             with DBSession() as session:
-                user = session.scalars(User.select(User.id == user_id)).first()
+                user = session.scalars(
+                    sqlalchemy.select(User).where(User.id == user_id)
+                ).first()
             if user is None:
                 return
             sa = user.social_auth.first()
