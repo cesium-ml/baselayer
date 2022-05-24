@@ -45,7 +45,7 @@ DBSession().rollback()  # recover after a DB error
 ```
 
 - Generic logic applicable to any model is included in the base model class `baselayer.app.models.Base` (`to_dict`, `__str__`, etc.), but can be overridden within a specific model
-- Models can be queried directly (`User.query.all()`), or more specific queries can be constructed via the session object (`DBSession().query(User.id).all()`)
+- Models can be selected directly (`User.query.all()`), or more specific queries can be constructed via the session object (`DBSession().query(User.id).all()`)
 - Convenience functionality:
   - Join relationships: some multi-step relationships are defined through joins using the `secondary` parameter to eliminate queries from the intermediate table; e.g., `User.acls` instad of `[r.acls for r in User.roles]`
   - [Association proxies](http://docs.sqlalchemy.org/en/latest/orm/extensions/associationproxy.html): shortcut to some attribute of a related object; e.g., `User.permissions` instead of `[a.id for a in User.acls]`
@@ -53,6 +53,53 @@ DBSession().rollback()  # recover after a DB error
   - `to_json()`: often from a handler we return an ORM object, which gets converted to JSON via `json_util.to_json(obj.to_dict())`. This also includes the attributes of any children that were loaded via `joinedload` or by accessing them directly. For example:
     - `User.query.first().to_dict()` will not contain information about the user's permissions
     - `u = User.query.first(); u.acls; u.to_dict()` does include a list of the user's ACLs
+
+## New SQL Alchemy 2.0 style select statements
+
+To start a session without verification (i.e., when not committing to DB):
+
+```
+with DBSession() as session:
+  ...
+```
+
+The context manager will make sure the connection is closed when exiting context.
+
+To use a verified session that checks all rows before committing them:
+
+```
+with VerifiedSession(user_or_token) as session:
+  ...
+  session.commit()
+```
+
+Each handler class can also call `self.Session` as a stand-in for `VerifiedSession(self.current_user)`.
+
+To quickly get rows from a table using the new "select" methods, use one of these (replace `User` with any class):
+
+```
+user = User.get(id_or_list, user_or_token, mode='read', raise_if_none=False, options=[])
+all_users = User.get_all(user_or_token, mode='read', raise_if_none=False, options=[], columns=None)
+stmt = User.select(user_or_token, mode='read', options=[], columnns=None)
+```
+
+The `get` and `get_all` functions open a session internally and retrieve the objects specified,
+if they are accessible to the user. In the case of `get`, if any of the IDs given (as a scalar or list)
+are not accessible to do not exist in the DB, the function returns None, or raises an `AccessError`
+(if `raise_if_none=True` is specified). The `get_all` just retrieves all rows that are accessible from that table.
+
+The `select` function will return a select statement object that only selects rows that are accessible.
+This statement can be further filtered with `where()` and executed using the session:
+
+```
+with VerifiedSession(user_or_token) as session:
+  stmt = User.select(user_or_token).where(User.id == user_id)
+  user = session.execute(stmt).scalars().first()  # can also call session.scalars(stmt).first()
+  user.name = new_name
+  session.commit()
+```
+
+If not using `commit()`, the call to `VerifiedSession(user_or_token)` can be replaced with `DBSession()` with no arguments.
 
 ## Standards
 
