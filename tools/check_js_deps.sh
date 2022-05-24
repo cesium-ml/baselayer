@@ -6,7 +6,7 @@ BASEDIR=$(dirname "$0")
 CHECKER="$BASEDIR/../../node_modules/.bin/check-dependencies"
 
 if [[ ! -x ${CHECKER} ]]; then
-    npm install check-dependencies
+    npm install check-dependencies --legacy-peer-deps
 fi
 
 # We suppress output for the next command because, annoyingly, it reports

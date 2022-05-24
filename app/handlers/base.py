@@ -97,6 +97,9 @@ class PSABaseHandler(RequestHandler):
                 exc_info=(typ, value, tb),
             )
 
+    def on_finish(self):
+        DBSession.remove()
+
 
 # Monkey-patch in each method of social_tornado.handlers.BaseHandler
 for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunction):
@@ -264,10 +267,6 @@ class BaseHandler(PSABaseHandler):
                 f"JSON decode of request body failed on {self.request.uri}."
                 " Please ensure all requests are of type application/json."
             )
-
-    def on_finish(self):
-        DBSession.remove()
-        return super().on_finish()
 
     def error(self, message, data={}, status=400, extra={}):
         """Push an error message to the frontend via WebSocket connection.

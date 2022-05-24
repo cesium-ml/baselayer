@@ -51,8 +51,8 @@ source_suffix = {
 # The encoding of source files.
 # source_encoding = 'utf-8-sig'
 
-# The master toctree document.
-master_doc = "index"
+# The main toctree document.
+main_doc = "index"
 
 # General information about the project.
 project = "baselayer"
@@ -239,7 +239,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (
-        master_doc,
+        main_doc,
         "baselayer.tex",
         "baselayer Documentation",
         "The baselayer Team",
@@ -272,7 +272,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "baselayer", "baselayer Documentation", [author], 1)]
+man_pages = [(main_doc, "baselayer", "baselayer Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -285,7 +285,7 @@ man_pages = [(master_doc, "baselayer", "baselayer Documentation", [author], 1)]
 #  dir menu entry, description, category)
 texinfo_documents = [
     (
-        master_doc,
+        main_doc,
         "baselayer",
         "baselayer Documentation",
         author,

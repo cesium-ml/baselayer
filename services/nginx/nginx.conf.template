@@ -108,8 +108,12 @@ http {
   log_format elb_log '$remote_addr - $remote_user [$trunc_authorization] [$time_local] ' '"$request" $status $body_bytes_sent "$http_referer" ' '"$http_user_agent"';
 
   server {
+    {% if env.debug %}
+    listen 127.0.0.1:{{ ports.app }};
+    {% else %}
     listen {{ ports.app }};
     listen {{ ports.app_http_proxy }} proxy_protocol; # This is for AWS Elastic Load Balancer
+    {% endif %}
     client_max_body_size 10M;
 
     location / {
