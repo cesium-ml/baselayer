@@ -1,10 +1,8 @@
 import contextvars
 import traceback
-import types
 import uuid
 import warnings
 from collections import defaultdict
-from contextlib import contextmanager
 from datetime import datetime
 from hashlib import md5
 
@@ -33,35 +31,49 @@ session_context_id = contextvars.ContextVar("request_id", default=None)
 DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
-@contextmanager
-def Session(user_or_token=None, verify=True):
+class Session(sa.orm.session.Session):
     """
-    Generate a scoped session that also has knowledge
-    of the current user, and that can automatically
-    verify the changes to it when calling commit()
+    Create an instance of Session when you
+    want to apply a verification method on all added
+    or modified or deleted rows before commiting them
+    to the database.
 
-    Parameters
-    ----------
-    user_or_token : baselayer.app.models.User object
-        or baselayer.app.models.Token object.
-        The object representing the current user.
-        Can be None only if the verify parameter
-        is set to False.
-    verify : boolean
-        If True (default), will call the verify function
-        of the session before each call to commit().
-        If True, must specify a legal User object.
+    This class overrides the commit() function
+    by adding a verify() function before it.
 
-    Returns
-    -------
-    a scoped session object that can be used in a context
-    manager to access the database. If verify is enabled,
-    the session will also verify the user has access
-    to all rows before any commit() command.
+    Use this in a context manager:
+    with VerifiedSession(user_object) as session:
+        ...
+        session.commit()
+
+    This will make sure the changes to the DB
+    are verified, and will close the connection
+    when the context goes out.
 
     """
 
-    def run_verification(self):
+    def __init__(self, user_or_token):
+        """
+        This session must be initialized with a user or token.
+        Get this token from the handler (`self.current_user`)
+        or be generating an unverified session to only query
+        the user with a certain id. Example:
+
+        with DBSession() as session:
+            user = session.execute(
+                sa.select(User).where(User.id == user_id)
+            ).scalars().first()
+
+        Parameters
+        ----------
+        user_or_token: baselayer.app.models.User object
+            or baselayer.app.models.Token object.
+            The object representing the current user.
+
+        """
+        self.user_or_token = user_or_token
+
+    def verify(self):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
         raise an AccessError (causing the transaction to fail and the API to
@@ -100,41 +112,15 @@ def Session(user_or_token=None, verify=True):
         self.flush()
         bulk_verify("create", new_rows, self.user_or_token)
 
-    def run_commit(self):
-        """
-        Call the "run_verification" function
-        (simply called self.verify here) to
-        make sure the user has access to all
-        the data before commitTing to the DB.
-        """
+    def commit(self):
+        print("verifying rows before committing... ")
         self.verify()
-        self.commit_base_session()
+        super().commit()
 
-    if verify and user_or_token is None:
-        raise RuntimeError(
-            "Cannot start a session with use_auto_verify without a valid user."
-        )
-    if user_or_token is not None and not isinstance(user_or_token, (User, Token)):
-        raise ValueError(
-            "user_or_token must be an instance of User or Token, "
-            f"got {user_or_token.__class__.__name__}."
-        )
-    with scoped_session(sessionmaker(), scopefunc=session_context_id.get)() as session:
-        session.user_or_token = user_or_token
-        session._use_auto_verify = verify
-        # make this an instance method of session (that gets the "self")
-        session.verify = types.MethodType(run_verification, session)
-        if verify:
-            session.commit_base_session = (
-                session.commit
-            )  # must keep the old function to call
-            session.commit = types.MethodType(run_commit, session)
-        yield session
 
-        # session.expunge_all()  # make sure objects persist after session closes
-
-        # after this, the internal context exits and triggers SQLA's
-        # code for what happens when a session is done
+VerifiedSession = scoped_session(
+    sessionmaker(class_=Session), scopefunc=session_context_id.get
+)
 
 
 def bulk_verify(mode, collection, accessor):
