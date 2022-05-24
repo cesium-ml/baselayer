@@ -23,7 +23,7 @@ from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
-from ..models import DBSession, Session, User, bulk_verify, session_context_id
+from ..models import DBSession, User, VerifiedSession, bulk_verify, session_context_id
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -132,7 +132,7 @@ class BaseHandler(PSABaseHandler):
         before every commit.
 
         """
-        with Session(self.current_user, verify) as session:
+        with VerifiedSession(self.current_user, verify) as session:
             yield session
 
     def verify_permissions(self):
