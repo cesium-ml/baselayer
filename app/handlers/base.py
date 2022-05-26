@@ -14,6 +14,7 @@ import social_tornado.handlers as psa_handlers
 # be used to look up the logged in user.
 import sqlalchemy
 import tornado.escape
+from sqlalchemy.orm import joinedload
 from tornado.log import app_log
 from tornado.web import RequestHandler
 
@@ -58,7 +59,9 @@ class PSABaseHandler(RequestHandler):
         if user_id and oauth_uid:
             with DBSession() as session:
                 user = session.scalars(
-                    sqlalchemy.select(User).where(User.id == user_id)
+                    sqlalchemy.select(User)
+                    .where(User.id == user_id)
+                    .options(joinedload(User.acls))
                 ).first()
                 if user is None:
                     return
@@ -112,7 +115,7 @@ for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunctio
 
 class BaseHandler(PSABaseHandler):
     @contextmanager
-    def Session(self, verify=True):
+    def Session(self):
         """
         Generate a scoped session that also has knowledge
         of the current user, so when commit() is called on it
@@ -136,7 +139,8 @@ class BaseHandler(PSABaseHandler):
         before every commit.
 
         """
-        with VerifiedSession(self.current_user, verify) as session:
+        with VerifiedSession(self.current_user) as session:
+            session.add(self.current_user)
             yield session
 
     def verify_permissions(self):

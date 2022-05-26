@@ -1,9 +1,11 @@
 import functools
 
+import sqlalchemy as sa
 import tornado.web
+from sqlalchemy.orm import joinedload
 
 from baselayer.app.custom_exceptions import AccessError  # noqa: F401
-from baselayer.app.models import Role, Token, User  # noqa: F401
+from baselayer.app.models import DBSession, Role, Token, User  # noqa: F401
 
 
 def auth_or_token(method):
@@ -24,7 +26,17 @@ def auth_or_token(method):
         token_header = self.request.headers.get("Authorization", None)
         if token_header is not None and token_header.startswith("token "):
             token_id = token_header.replace("token", "").strip()
-            token = Token.query.get(token_id)
+            with DBSession() as session:
+                token = session.scalars(
+                    sa.select(Token)
+                    .options(
+                        joinedload(Token.created_by).options(
+                            joinedload(User.acls),
+                            joinedload(User.roles),
+                        )
+                    )
+                    .where(Token.id == token_id)
+                ).first()
             if token is not None:
                 self.current_user = token
                 if not token.created_by.is_active():

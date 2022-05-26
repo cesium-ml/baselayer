@@ -52,7 +52,7 @@ class _VerifiedSession(sa.orm.session.Session):
 
     """
 
-    def __init__(self, user_or_token):
+    def __init__(self, user_or_token, **kwargs):
         """
         This session must be initialized with a user or token.
         Get this token from the handler (`self.current_user`)
@@ -118,9 +118,11 @@ class _VerifiedSession(sa.orm.session.Session):
         super().commit()
 
 
-VerifiedSession = scoped_session(
-    sessionmaker(class_=_VerifiedSession), scopefunc=session_context_id.get
-)
+def VerifiedSession(user_or_token):
+    return scoped_session(
+        sessionmaker(class_=_VerifiedSession, user_or_token=user_or_token),
+        scopefunc=session_context_id.get,
+    )()
 
 
 def bulk_verify(mode, collection, accessor):
