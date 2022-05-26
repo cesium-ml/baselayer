@@ -1832,7 +1832,7 @@ class User(Base):
         back_populates="users",
         passive_deletes=True,
         doc="The roles assumed by this user.",
-        lazy="subquery",
+        lazy="selectin",
     )
     role_ids = association_proxy(
         "roles",
@@ -1852,7 +1852,7 @@ class User(Base):
         secondary="user_acls",
         passive_deletes=True,
         doc="ACLs granted to user, separate from role-level ACLs",
-        lazy="subquery",
+        lazy="selectin",
     )
     expiration_date = sa.Column(
         sa.DateTime,
@@ -1930,14 +1930,17 @@ class Token(Base):
         doc="The ID of the User that created the Token.",
     )
     created_by = relationship(
-        "User", back_populates="tokens", doc="The User that created the token."
+        "User",
+        back_populates="tokens",
+        lazy="selectin",
+        doc="The User that created the token.",
     )
     acls = relationship(
         "ACL",
         secondary="token_acls",
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
-        lazy="subquery",
+        lazy="selectin",
     )
     acl_ids = association_proxy("acls", "id", creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
