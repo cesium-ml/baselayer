@@ -140,6 +140,8 @@ class BaseHandler(PSABaseHandler):
 
         """
         with VerifiedSession(self.current_user) as session:
+            # must merge the user object with the current session
+            # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
             session.add(self.current_user)
             yield session
 
