@@ -63,11 +63,18 @@ class Config(dict):
 
         val = self
         for key in keys:
-            val = val.get(key)
-            if val is None:
-                return None
+            if isinstance(val, dict):
+                val = dict.__getitem__(val, key)
+            else:
+                raise KeyError(key)
 
         return val
+
+    def get(self, key, default=None, /):
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
 
     def show(self):
         """Print configuration"""
