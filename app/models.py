@@ -1600,7 +1600,11 @@ class BaseMixin:
     def to_dict(self):
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
-            DBSession().refresh(self)
+            try:
+                self = DBSession().merge(self)
+                DBSession().refresh(self)
+            except sa.orm.exc.ObjectDeletedError:
+                return {}
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     @classmethod
