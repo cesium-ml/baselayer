@@ -1850,6 +1850,7 @@ class User(Base):
         passive_deletes=True,
         doc="This user's tokens.",
         foreign_keys="Token.created_by_id",
+        lazy="selectin",
     )
     acls = relationship(
         "ACL",
