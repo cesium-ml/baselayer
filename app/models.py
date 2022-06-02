@@ -156,17 +156,21 @@ def bulk_verify(mode, collection, accessor):
             accessor, mode=mode, columns=[record_cls.id]
         ).subquery()
 
-        inaccessible_row_ids = DBSession().execute(
-            sa.select(record_cls.id)
-            .outerjoin(
-                accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+        inaccessible_row_ids = (
+            DBSession()
+            .scalars(
+                sa.select(record_cls.id)
+                .outerjoin(
+                    accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+                )
+                .where(record_cls.id.in_(collection_ids))
+                .where(accessible_row_ids_sq.c.id.is_(None))
             )
-            .where(record_cls.id.in_(collection_ids))
-            .where(accessible_row_ids_sq.c.id.is_(None))
+            .all()
         )
 
         # compare the accessible ids with the ids that are in the session
-        inaccessible_row_ids = {id for id, in inaccessible_row_ids}
+        inaccessible_row_ids = {id for id in inaccessible_row_ids}
 
         # if any of the rows in the session are inaccessible, handle
         if len(inaccessible_row_ids) > 0:
@@ -1850,7 +1854,7 @@ class User(Base):
         passive_deletes=True,
         doc="This user's tokens.",
         foreign_keys="Token.created_by_id",
-        lazy="selectin",
+        # lazy="selectin",
     )
     acls = relationship(
         "ACL",
