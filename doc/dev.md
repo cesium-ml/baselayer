@@ -73,7 +73,14 @@ with VerifiedSession(user_or_token) as session:
   session.commit()
 ```
 
-Each handler class can also call `self.Session` as a stand-in for `VerifiedSession(self.current_user)`.
+This does the same checks that are performed when calling `self.verify_and_commit()`.
+Each handler class can also call `self.Session()` as a stand-in for `VerifiedSession(self.current_user)`:
+
+```
+with self.Session as session:
+  ...
+  session.commit()
+```
 
 To quickly get rows from a table using the new "select" methods, use one of these (replace `User` with any class):
 
@@ -87,6 +94,7 @@ The `get` and `get_all` functions open a session internally and retrieve the obj
 if they are accessible to the user. In the case of `get`, if any of the IDs given (as a scalar or list)
 are not accessible to do not exist in the DB, the function returns None, or raises an `AccessError`
 (if `raise_if_none=True` is specified). The `get_all` just retrieves all rows that are accessible from that table.
+Note that these two methods will produce an object _not associated with the external session, if any_.
 
 The `select` function will return a select statement object that only selects rows that are accessible.
 This statement can be further filtered with `where()` and executed using the session:
@@ -94,12 +102,14 @@ This statement can be further filtered with `where()` and executed using the ses
 ```
 with VerifiedSession(user_or_token) as session:
   stmt = User.select(user_or_token).where(User.id == user_id)
-  user = session.execute(stmt).scalars().first()  # can also call session.scalars(stmt).first()
+  user = session.execute(stmt).scalars().first()  # returns a tuple with one object
+  # can also call session.scalars(stmt).first() to get the object directly
   user.name = new_name
   session.commit()
 ```
 
-If not using `commit()`, the call to `VerifiedSession(user_or_token)` can be replaced with `DBSession()` with no arguments.
+If not using `commit()`, the call to `VerifiedSession(user_or_token)`
+can be replaced with `DBSession()` with no arguments.
 
 ## Standards
 
