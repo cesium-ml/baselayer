@@ -95,8 +95,20 @@ if they are accessible to the user. In the case of `get`, if any of the IDs give
 are not accessible to do not exist in the DB, the function returns None, or raises an `AccessError`
 (if `raise_if_none=True` is specified). The `get_all` just retrieves all rows that are accessible from that table.
 Note that these two methods will produce an object _not associated with the external session, if any_.
+Thus, if the call is made while an external context is used,
+the object has to be added to that session before it can, e.g., load additional relationships,
+or be saved, or do any other operation that involves the database.
+As an example:
 
-The `select` function will return a select statement object that only selects rows that are accessible.
+```
+with self.Session() as session:
+  user = User.get(user_id, self.current_user, mode='read')
+  session.add(user)  # must have this to load additional relationships
+  tokens = user.tokens  # will fail if user is not in session
+```
+
+On the other hand, the `select` function will return
+a select statement object that only selects rows that are accessible.
 This statement can be further filtered with `where()` and executed using the session:
 
 ```

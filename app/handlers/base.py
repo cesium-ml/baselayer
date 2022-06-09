@@ -14,7 +14,6 @@ import social_tornado.handlers as psa_handlers
 # be used to look up the logged in user.
 import sqlalchemy
 import tornado.escape
-from sqlalchemy.orm import joinedload
 from tornado.log import app_log
 from tornado.web import RequestHandler
 
@@ -61,9 +60,7 @@ class PSABaseHandler(RequestHandler):
         if user_id and oauth_uid:
             with DBSession() as session:
                 user = session.scalars(
-                    sqlalchemy.select(User)
-                    .where(User.id == user_id)
-                    .options(joinedload(User.acls))
+                    sqlalchemy.select(User).where(User.id == user_id)
                 ).first()
                 if user is None:
                     return
