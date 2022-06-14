@@ -15,6 +15,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -86,19 +87,19 @@
            <div itemprop="articleBody">
              
   <section id="setup">
-<h1>Setup<a class="headerlink" href="#setup" title="Permalink to this headline"></a></h1>
+<h1>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h1>
 <p>This guide describes how to get a webapp, derived from <code class="docutils literal notranslate"><span class="pre">baselayer</span></code>, up
 and running. A simple example of such an application is provides as a
 <a class="reference external" href="https://github.com/cesium-ml/baselayer_template_app">template application</a>.</p>
 <p>Clone that application, and then proceed with the following instructions.</p>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline"></a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p>A <strong>Python 3.8</strong> or later installation is required.</p></li>
 <li><p>Install the following dependencies: Supervisor, NGINX, PostgreSQL, Node.JS</p></li>
 </ul>
 <section id="on-macos">
-<h3>On macOS<a class="headerlink" href="#on-macos" title="Permalink to this headline"></a></h3>
+<h3>On macOS<a class="headerlink" href="#on-macos" title="Permalink to this heading"></a></h3>
 <ul class="simple">
 <li><p>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">nginx</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></p>
 <ul>
@@ -117,7 +118,7 @@ and running. A simple example of such an application is provides as a
 </li>
 </ul>
 <section id="port-number-configuration-with-macos">
-<h4>Port Number Configuration with macOS<a class="headerlink" href="#port-number-configuration-with-macos" title="Permalink to this headline"></a></h4>
+<h4>Port Number Configuration with macOS<a class="headerlink" href="#port-number-configuration-with-macos" title="Permalink to this heading"></a></h4>
 <p>The default port number used by the baselayer app is 5000, but this port is not available for use with all operating systems.
 Port 5000 is not free for the latest macOS version, Monterey.</p>
 <p>If 5000 is not available, you will need to modify the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file to use another port. For example, you may use:</p>
@@ -129,7 +130,7 @@ Port 5000 is not free for the latest macOS version, Monterey.</p>
 </section>
 </section>
 <section id="on-linux">
-<h3>On Linux<a class="headerlink" href="#on-linux" title="Permalink to this headline"></a></h3>
+<h3>On Linux<a class="headerlink" href="#on-linux" title="Permalink to this heading"></a></h3>
 <ul>
 <li><p>Using <code class="docutils literal notranslate"><span class="pre">apt-get</span></code>:
 <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">npm</span> <span class="pre">nodejs-legacy</span></code></p></li>
@@ -147,7 +148,7 @@ add the following lines and restart PostgreSQL
 </section>
 </section>
 <section id="building-the-baselayer-database">
-<h2>Building the baselayer database<a class="headerlink" href="#building-the-baselayer-database" title="Permalink to this headline"></a></h2>
+<h2>Building the baselayer database<a class="headerlink" href="#building-the-baselayer-database" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p>Initialize the database with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">db_init</span></code> (also tests that your
 permissions have been properly configured).</p></li>
@@ -155,7 +156,7 @@ permissions have been properly configured).</p></li>
 </ul>
 </section>
 <section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline"></a></h2>
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p>Customize <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> (see <code class="docutils literal notranslate"><span class="pre">config.yaml.defaults</span></code> for all options).</p>
 <ul>
@@ -170,11 +171,11 @@ permissions have been properly configured).</p></li>
 </ul>
 </section>
 <section id="launch">
-<h2>Launch<a class="headerlink" href="#launch" title="Permalink to this headline"></a></h2>
+<h2>Launch<a class="headerlink" href="#launch" title="Permalink to this heading"></a></h2>
 <p>Launch the app with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code>.</p>
 </section>
 <section id="deployment-options">
-<h2>Deployment options<a class="headerlink" href="#deployment-options" title="Permalink to this headline"></a></h2>
+<h2>Deployment options<a class="headerlink" href="#deployment-options" title="Permalink to this heading"></a></h2>
 <p>The default configuration file used can be overridden by setting the
 FLAGS environment variable:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">FLAGS</span><span class="o">=</span><span class="s2">&quot;--config=myconfig.yaml&quot;</span> <span class="n">make</span> <span class="n">run</span>

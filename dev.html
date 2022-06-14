@@ -15,6 +15,7 @@
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
         <script src="_static/doctools.js"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -80,9 +81,9 @@
            <div itemprop="articleBody">
              
   <section id="developer-notes">
-<h1>Developer notes<a class="headerlink" href="#developer-notes" title="Permalink to this headline"></a></h1>
+<h1>Developer notes<a class="headerlink" href="#developer-notes" title="Permalink to this heading"></a></h1>
 <section id="testing">
-<h2>Testing<a class="headerlink" href="#testing" title="Permalink to this headline"></a></h2>
+<h2>Testing<a class="headerlink" href="#testing" title="Permalink to this heading"></a></h2>
 <p>To execute the test suite:</p>
 <ul class="simple">
 <li><p>Install ChromeDriver from <a class="reference external" href="https://sites.google.com/a/chromium.org/chromedriver/home">https://sites.google.com/a/chromium.org/chromedriver/home</a></p></li>
@@ -97,7 +98,7 @@
 </ul>
 </section>
 <section id="debugging">
-<h2>Debugging<a class="headerlink" href="#debugging" title="Permalink to this headline"></a></h2>
+<h2>Debugging<a class="headerlink" href="#debugging" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p>Run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">log</span></code> to watch log output</p></li>
 <li><p>Run <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">stop</span></code> to stop any running web services.</p></li>
@@ -106,7 +107,7 @@
 </ul>
 </section>
 <section id="database">
-<h2>Database<a class="headerlink" href="#database" title="Permalink to this headline"></a></h2>
+<h2>Database<a class="headerlink" href="#database" title="Permalink to this heading"></a></h2>
 <p>All interactions with the database are performed by way of SQLAlchemy using the
 Pyscopg2 backend. Some standard but not necessarily obvious usage patterns we
 make use of include:</p>
@@ -146,7 +147,7 @@ make use of include:</p>
 </ul>
 </section>
 <section id="new-sql-alchemy-2-0-style-select-statements">
-<h2>New SQL Alchemy 2.0 style select statements<a class="headerlink" href="#new-sql-alchemy-2-0-style-select-statements" title="Permalink to this headline"></a></h2>
+<h2>New SQL Alchemy 2.0 style select statements<a class="headerlink" href="#new-sql-alchemy-2-0-style-select-statements" title="Permalink to this heading"></a></h2>
 <p>To start a session without verification (i.e., when not committing to DB):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">DBSession</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
   <span class="o">...</span>
@@ -159,7 +160,13 @@ make use of include:</p>
   <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>Each handler class can also call <code class="docutils literal notranslate"><span class="pre">self.Session</span></code> as a stand-in for <code class="docutils literal notranslate"><span class="pre">VerifiedSession(self.current_user)</span></code>.</p>
+<p>This does the same checks that are performed when calling <code class="docutils literal notranslate"><span class="pre">self.verify_and_commit()</span></code>.
+Each handler class can also call <code class="docutils literal notranslate"><span class="pre">self.Session()</span></code> as a stand-in for <code class="docutils literal notranslate"><span class="pre">VerifiedSession(self.current_user)</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Session</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+  <span class="o">...</span>
+  <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+</pre></div>
+</div>
 <p>To quickly get rows from a table using the new “select” methods, use one of these (replace <code class="docutils literal notranslate"><span class="pre">User</span></code> with any class):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">id_or_list</span><span class="p">,</span> <span class="n">user_or_token</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="n">raise_if_none</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="p">[])</span>
 <span class="n">all_users</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">get_all</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">,</span> <span class="n">raise_if_none</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="p">[],</span> <span class="n">columns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
@@ -169,20 +176,34 @@ make use of include:</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">get</span></code> and <code class="docutils literal notranslate"><span class="pre">get_all</span></code> functions open a session internally and retrieve the objects specified,
 if they are accessible to the user. In the case of <code class="docutils literal notranslate"><span class="pre">get</span></code>, if any of the IDs given (as a scalar or list)
 are not accessible to do not exist in the DB, the function returns None, or raises an <code class="docutils literal notranslate"><span class="pre">AccessError</span></code>
-(if <code class="docutils literal notranslate"><span class="pre">raise_if_none=True</span></code> is specified). The <code class="docutils literal notranslate"><span class="pre">get_all</span></code> just retrieves all rows that are accessible from that table.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">select</span></code> function will return a select statement object that only selects rows that are accessible.
+(if <code class="docutils literal notranslate"><span class="pre">raise_if_none=True</span></code> is specified). The <code class="docutils literal notranslate"><span class="pre">get_all</span></code> just retrieves all rows that are accessible from that table.
+Note that these two methods will produce an object <em>not associated with the external session, if any</em>.
+Thus, if the call is made while an external context is used,
+the object has to be added to that session before it can, e.g., load additional relationships,
+or be saved, or do any other operation that involves the database.
+As an example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+  <span class="n">user</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_user</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;read&#39;</span><span class="p">)</span>
+  <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>  <span class="c1"># must have this to load additional relationships</span>
+  <span class="n">tokens</span> <span class="o">=</span> <span class="n">user</span><span class="o">.</span><span class="n">tokens</span>  <span class="c1"># will fail if user is not in session</span>
+</pre></div>
+</div>
+<p>On the other hand, the <code class="docutils literal notranslate"><span class="pre">select</span></code> function will return
+a select statement object that only selects rows that are accessible.
 This statement can be further filtered with <code class="docutils literal notranslate"><span class="pre">where()</span></code> and executed using the session:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">VerifiedSession</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
   <span class="n">stmt</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">user_id</span><span class="p">)</span>
-  <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>  <span class="c1"># can also call session.scalars(stmt).first()</span>
+  <span class="n">user</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>  <span class="c1"># returns a tuple with one object</span>
+  <span class="c1"># can also call session.scalars(stmt).first() to get the object directly</span>
   <span class="n">user</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">new_name</span>
   <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>If not using <code class="docutils literal notranslate"><span class="pre">commit()</span></code>, the call to <code class="docutils literal notranslate"><span class="pre">VerifiedSession(user_or_token)</span></code> can be replaced with <code class="docutils literal notranslate"><span class="pre">DBSession()</span></code> with no arguments.</p>
+<p>If not using <code class="docutils literal notranslate"><span class="pre">commit()</span></code>, the call to <code class="docutils literal notranslate"><span class="pre">VerifiedSession(user_or_token)</span></code>
+can be replaced with <code class="docutils literal notranslate"><span class="pre">DBSession()</span></code> with no arguments.</p>
 </section>
 <section id="standards">
-<h2>Standards<a class="headerlink" href="#standards" title="Permalink to this headline"></a></h2>
+<h2>Standards<a class="headerlink" href="#standards" title="Permalink to this heading"></a></h2>
 <p>We use ESLint to ensure that our JavaScript &amp; JSX code is consistent and conforms with recommended standards.</p>
 <ul class="simple">
 <li><p>Install ESLint using <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">lint-install</span></code>. This will also install a git pre-commit hook so that any commit is linted before it is checked in.</p></li>
@@ -190,7 +211,7 @@ This statement can be further filtered with <code class="docutils literal notran
 </ul>
 </section>
 <section id="upgrading-javascript-dependencies">
-<h2>Upgrading Javascript dependencies<a class="headerlink" href="#upgrading-javascript-dependencies" title="Permalink to this headline"></a></h2>
+<h2>Upgrading Javascript dependencies<a class="headerlink" href="#upgrading-javascript-dependencies" title="Permalink to this heading"></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">./tools/check_js_updates.sh</span></code> script uses
 <a class="reference external" href="https://github.com/dylang/npm-check"><code class="docutils literal notranslate"><span class="pre">npm-check</span></code></a> to search updates
 for packages defined in <code class="docutils literal notranslate"><span class="pre">package.json</span></code>. It then provides an
