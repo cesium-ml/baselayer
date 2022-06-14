@@ -52,9 +52,10 @@ def verify_server_availability(url, timeout=60):
     """
     for i in range(timeout):
         try:
+            statuses, errcode = supervisor_status()
             assert (
                 all_services_running()
-            ), "Webservice(s) failed to launch:\n" + "\n".join(supervisor_status())
+            ), "Webservice(s) failed to launch:\n" + "\n".join(statuses)
             response = requests.get(url)
             assert response.status_code == 200, (
                 "Expected status 200, got" f" {response.status_code}" f" for URL {url}."
