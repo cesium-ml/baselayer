@@ -60,18 +60,25 @@ class Config(dict):
 
     def __getitem__(self, key):
         keys = key.split(".")
-
-        val = self
-        for key in keys:
-            if isinstance(val, dict):
-                val = dict.__getitem__(val, key)
-            else:
-                # raise KeyError(key)
-                return None
-        return val
+        try:
+            val = self
+            for key in keys:
+                if isinstance(val, dict):
+                    val = dict.__getitem__(val, key)
+                else:
+                    raise KeyError(key)
+            return val
+        # patch until we change skyportal alongside this
+        # breaking change that raises KeyError instead of
+        # returning None
+        except KeyError:
+            return None
 
     def get(self, key, default=None, /):
         try:
+            # added "or default" to allow the change in
+            # the __getitem__ method to return None instead
+            # of raising KeyError
             return self.__getitem__(key) or default
         except KeyError:
             return default
