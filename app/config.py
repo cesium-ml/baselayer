@@ -66,13 +66,13 @@ class Config(dict):
             if isinstance(val, dict):
                 val = dict.__getitem__(val, key)
             else:
-                raise KeyError(key)
-
+                # raise KeyError(key)
+                return None
         return val
 
     def get(self, key, default=None, /):
         try:
-            return self.__getitem__(key)
+            return self.__getitem__(key) or default
         except KeyError:
             return default
 
