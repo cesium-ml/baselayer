@@ -53,6 +53,8 @@ class PSABaseHandler(RequestHandler):
         return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
+        if self.user_id() is None:
+            return
         user_id = int(self.user_id())
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
@@ -112,7 +114,7 @@ for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunctio
 
 class BaseHandler(PSABaseHandler):
     @contextmanager
-    def Session(self, verify=True):
+    def Session(self):
         """
         Generate a scoped session that also has knowledge
         of the current user, so when commit() is called on it
@@ -136,7 +138,10 @@ class BaseHandler(PSABaseHandler):
         before every commit.
 
         """
-        with VerifiedSession(self.current_user, verify) as session:
+        with VerifiedSession(self.current_user) as session:
+            # must merge the user object with the current session
+            # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
+            session.add(self.current_user)
             yield session
 
     def verify_permissions(self):

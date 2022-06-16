@@ -23,8 +23,8 @@ args, unknown = parser.parse_known_args()
 env, cfg = load_env()
 
 db = cfg["database.database"]
-test_db = db + "_test"
-all_dbs = (db, test_db)
+db_test = db + "_test"
+all_dbs = (db, db_test)
 
 user = cfg["database.user"] or db
 host = cfg["database.host"]

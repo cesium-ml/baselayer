@@ -52,7 +52,7 @@ class _VerifiedSession(sa.orm.session.Session):
 
     """
 
-    def __init__(self, user_or_token):
+    def __init__(self, user_or_token, **kwargs):
         """
         This session must be initialized with a user or token.
         Get this token from the handler (`self.current_user`)
@@ -118,9 +118,11 @@ class _VerifiedSession(sa.orm.session.Session):
         super().commit()
 
 
-VerifiedSession = scoped_session(
-    sessionmaker(class_=_VerifiedSession), scopefunc=session_context_id.get
-)
+def VerifiedSession(user_or_token):
+    return scoped_session(
+        sessionmaker(class_=_VerifiedSession, user_or_token=user_or_token),
+        scopefunc=session_context_id.get,
+    )()
 
 
 def bulk_verify(mode, collection, accessor):
@@ -154,17 +156,21 @@ def bulk_verify(mode, collection, accessor):
             accessor, mode=mode, columns=[record_cls.id]
         ).subquery()
 
-        inaccessible_row_ids = DBSession().execute(
-            sa.select(record_cls.id)
-            .outerjoin(
-                accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+        inaccessible_row_ids = (
+            DBSession()
+            .scalars(
+                sa.select(record_cls.id)
+                .outerjoin(
+                    accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+                )
+                .where(record_cls.id.in_(collection_ids))
+                .where(accessible_row_ids_sq.c.id.is_(None))
             )
-            .where(record_cls.id.in_(collection_ids))
-            .where(accessible_row_ids_sq.c.id.is_(None))
+            .all()
         )
 
         # compare the accessible ids with the ids that are in the session
-        inaccessible_row_ids = {id for id, in inaccessible_row_ids}
+        inaccessible_row_ids = {id for id in inaccessible_row_ids}
 
         # if any of the rows in the session are inaccessible, handle
         if len(inaccessible_row_ids) > 0:
@@ -1598,6 +1604,7 @@ class BaseMixin:
     def to_dict(self):
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
+            self = DBSession().merge(self)
             DBSession().refresh(self)
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
@@ -1831,7 +1838,7 @@ class User(Base):
         back_populates="users",
         passive_deletes=True,
         doc="The roles assumed by this user.",
-        lazy="subquery",
+        lazy="selectin",
     )
     role_ids = association_proxy(
         "roles",
@@ -1851,7 +1858,7 @@ class User(Base):
         secondary="user_acls",
         passive_deletes=True,
         doc="ACLs granted to user, separate from role-level ACLs",
-        lazy="subquery",
+        lazy="selectin",
     )
     expiration_date = sa.Column(
         sa.DateTime,
@@ -1929,14 +1936,17 @@ class Token(Base):
         doc="The ID of the User that created the Token.",
     )
     created_by = relationship(
-        "User", back_populates="tokens", doc="The User that created the token."
+        "User",
+        back_populates="tokens",
+        lazy="selectin",
+        doc="The User that created the token.",
     )
     acls = relationship(
         "ACL",
         secondary="token_acls",
         passive_deletes=True,
         doc="The ACLs granted to the Token.",
-        lazy="subquery",
+        lazy="selectin",
     )
     acl_ids = association_proxy("acls", "id", creator=lambda acl: ACL.query.get(acl))
     permissions = acl_ids
