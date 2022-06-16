@@ -1816,7 +1816,9 @@ class User(Base):
 
     first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
     last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
-    affiliation = sa.Column(sa.String, nullable=True, doc="The User's affiliation.")
+    affiliations = sa.Column(
+        sa.ARRAY(sa.String), nullable=False, default=[], doc="The User's affiliations."
+    )
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
