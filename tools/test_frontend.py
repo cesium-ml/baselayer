@@ -46,11 +46,14 @@ def all_services_running():
     return running if return_code in (0, 3) else False
 
 
-def verify_server_availability(url, timeout=60):
+def verify_server_availability(url, timeout=180):
     """Raise exception if webservices fail to launch or connection to `url` is not
     available.
     """
     for i in range(timeout):
+        if not os.path.exists("baselayer/conf/supervisor/supervisor.conf"):
+            time.sleep(1)
+            continue
         try:
             statuses, errcode = supervisor_status()
             assert (
