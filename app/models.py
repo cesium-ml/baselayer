@@ -1820,7 +1820,7 @@ class User(Base):
         sa.ARRAY(sa.String),
         nullable=False,
         server_default="{}",
-        doc="The User's affiliations.",
+        doc="The User's affiliations (ex: Department of Mathematics, University X)",
     )
     contact_email = sa.Column(
         EmailType(),
