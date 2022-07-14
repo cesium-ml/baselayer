@@ -14,7 +14,7 @@ from baselayer.log import make_log
 log = make_log("cron")
 
 env, cfg = load_env()
-jobs = cfg.get("cron", [])
+jobs = cfg["cron"] or []
 
 init_db(**cfg["database"])
 
