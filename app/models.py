@@ -1751,7 +1751,6 @@ def join_model(
             overlap_string = overlaps
         elif isinstance(overlaps, (list, tuple, set)):
             overlap_string = ", ".join(overlaps)
-
         else:
             raise ValueError("overlaps must be a string or list of strings.")
         overlap_string = f"{table_1}, {table_2}, {overlap_string}"
