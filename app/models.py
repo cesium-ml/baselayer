@@ -1682,6 +1682,8 @@ def join_model(
     fk_1="id",
     fk_2="id",
     base=Base,
+    new_name=None,
+    overlaps=None,
 ):
     """Helper function to create a join table for a many-to-many relationship.
 
@@ -1705,13 +1707,20 @@ def join_model(
         Name of the column from `model_2` that the foreign key should refer to.
     base : sqlalchemy.ext.declarative.api.DeclarativeMeta
         SQLAlchemy model base to subclass.
+    new_name: str, optional
+        Name of the new model class. If `None`, then the name will be
+        model_1.__name__ + model_2.__name__.
+    overlaps : str or list of str, optional
+        Each relationship defined in this model will have, by default,
+        overlaps=f"{table_1}, {table_2}". If any additional overalapping
+        relationships or columns need to be added, they can be given as
+        a string or list of strings.
 
     Returns
     -------
     sqlalchemy.ext.declarative.api.DeclarativeMeta
         SQLAlchemy association model class
     """
-
     table_1 = model_1.__tablename__
     table_2 = model_2.__tablename__
     if column_1 is None:
@@ -1737,17 +1746,30 @@ def join_model(
         ),
     }
 
+    if overlaps:
+        if isinstance(overlaps, str):
+            overlap_string = overlaps
+        elif isinstance(overlaps, (list, tuple, set)):
+            overlap_string = ", ".join(overlaps)
+        else:
+            raise ValueError("overlaps must be a string or list of strings.")
+        overlap_string = f"{table_1}, {table_2}, {overlap_string}"
+    else:
+        overlap_string = f"{table_1}, {table_2}"
+
     model_attrs.update(
         {
             model_1.__name__.lower(): relationship(
                 model_1,
                 cascade="save-update, merge, refresh-expire, expunge",
                 foreign_keys=[model_attrs[column_1]],
+                overlaps=overlap_string,
             ),
             model_2.__name__.lower(): relationship(
                 model_2,
                 cascade="save-update, merge, refresh-expire, expunge",
                 foreign_keys=[model_attrs[column_2]],
+                overlaps=overlap_string,
             ),
             forward_ind_name: sa.Index(
                 forward_ind_name,
@@ -1761,7 +1783,9 @@ def join_model(
         }
     )
 
-    model = type(model_1.__name__ + model_2.__name__, (base, JoinModel), model_attrs)
+    if new_name is None:
+        new_name = f"{model_1.__name__}{model_2.__name__}"
+    model = type(new_name, (base, JoinModel), model_attrs)
     model.read = model.create = AccessibleIfRelatedRowsAreAccessible(
         **{model_1.__name__.lower(): "read", model_2.__name__.lower(): "read"}
     )
