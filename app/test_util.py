@@ -184,7 +184,7 @@ def login(driver):
 
     try:
         element = driver.wait_for_xpath(
-            '//a[contains(@href,"/login/google-oauth2")]', 5
+            '//a[contains(@href,"/login/google-oauth2")]', 20
         )
         element.click()
     except TimeoutException:
