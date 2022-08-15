@@ -6,9 +6,9 @@ on:
       - main
   pull_request:
 
-defaults:
-  run:
-    working-directory: ..
+#defaults:
+#  run:
+#    working-directory: ..
 
 jobs:
   test:
