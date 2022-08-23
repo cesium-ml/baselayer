@@ -8,14 +8,14 @@ env, cfg = load_env()
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.set_status(200)
+        self.set_status(503)
         self.write(f"<h2>{cfg['app.title']} is being provisioned</h2>")
 
 
 class MainAPIHandler(tornado.web.RequestHandler):
     def get(self, args):
         self.set_header("Content-Type", "application/json")
-        self.set_status(200)
+        self.set_status(503)
         self.write(
             {
                 "status": "error",
