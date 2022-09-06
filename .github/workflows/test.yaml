@@ -46,6 +46,7 @@ jobs:
         if: github.ref != 'refs/heads/main'
         run: |
           pwd
+          git log -10
           pip install --upgrade pip
           pip install pre-commit
           pre-commit run --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
