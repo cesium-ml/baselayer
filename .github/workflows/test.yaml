@@ -38,13 +38,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Formatting
-        if: ${{ github.ref != 'refs/heads/main' }}
-        run: |
-          sudo apt update && sudo apt install -y --no-install-recommends git
-          pip install pre-commit
-          pre-commit run --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+        with:
+          fetch-depth: 0
+          submodules: true
 
       - name: Install template app
         run: |
@@ -85,6 +81,12 @@ jobs:
           echo node $(node --version)
           nginx -v
           firefox --version
+
+      - name: Formatting
+        if: github.ref != 'refs/heads/main'
+        run: |
+          pip install pre-commit
+          pre-commit run --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
 
       - name: Install Geckodriver / Selenium
         run: |
