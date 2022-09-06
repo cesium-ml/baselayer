@@ -45,11 +45,10 @@ jobs:
       - name: Formatting
         if: github.ref != 'refs/heads/main'
         run: |
-          pwd
-          git log -10
-          pip install --upgrade pip
+          cd baselayer
           pip install pre-commit
           pre-commit run --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+          cd ..
 
       - name: Install template app
         run: |
