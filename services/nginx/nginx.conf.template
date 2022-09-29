@@ -105,7 +105,7 @@ http {
     "~*(?P<tr>.{0,14}).*" $tr;
   }
 
-  log_format elb_log '$remote_addr - $remote_user [$trunc_authorization] [$time_local] ' '"$request" $status $body_bytes_sent "$http_referer" ' '"$http_user_agent"';
+  log_format elb_log '$remote_addr - $remote_user [$trunc_authorization] [$time_local] ' '"$request" $status $body_bytes_sent rl=$request_length "$http_referer" ' '"$http_user_agent"';
 
   server {
     {% if env.debug %}
