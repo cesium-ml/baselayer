@@ -72,7 +72,14 @@ def permissions(acl_list):
                 or "System admin" in self.current_user.permissions
             ):
                 raise tornado.web.HTTPError(401)
-            return method(self, *args, **kwargs)
+            print(method, args, kwargs)
+            try:
+                return method(self, *args, **kwargs)
+            except TypeError as e:
+                raise tornado.web.HTTPError(
+                    404,
+                    f"Query exception occured: {str(e)}",
+                )
 
         return wrapper
 
