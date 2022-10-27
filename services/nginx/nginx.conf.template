@@ -114,7 +114,7 @@ http {
     listen {{ ports.app }};
     listen {{ ports.app_http_proxy }} proxy_protocol; # This is for AWS Elastic Load Balancer
     {% endif %}
-    client_max_body_size 10M;
+    client_max_body_size {{ server.max_body_size }}M;
 
     location / {
       # API rate limiting
