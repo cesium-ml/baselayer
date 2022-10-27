@@ -70,7 +70,7 @@ tc = TimeCache()
 
 while True:
     for job in jobs:
-        if job["interval"] is None:
+        if job.get("interval") is None:
             continue
         interval = job["interval"]
         script = job["script"]
