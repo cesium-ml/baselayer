@@ -60,7 +60,7 @@ http {
   upstream frontend {
     least_conn;
     {% for p in range(server.processes) -%}
-      server 127.0.0.1:{{ ports.app_internal + p }} fail_timeout=20s;
+      server 127.0.0.1:{{ ports.app_internal + p }} fail_timeout=30s;
     {% endfor %}
     server 127.0.0.1:{{ ports.status }} backup max_fails=0;
   }
