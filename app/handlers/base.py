@@ -25,7 +25,14 @@ from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
-from ..models import DBSession, User, VerifiedSession, bulk_verify, session_context_id
+from ..models import (
+    APICall,
+    DBSession,
+    User,
+    VerifiedSession,
+    bulk_verify,
+    session_context_id,
+)
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -305,6 +312,19 @@ class BaseHandler(PSABaseHandler):
         self.set_status(status)
         self.write({"status": "error", "message": message, "data": data, **extra})
 
+        if self.user_id() is None:
+            return
+        user_id = int(self.user_id())
+        with DBSession() as session:
+            api_call = APICall(
+                user_id=user_id,
+                method=self.request.method,
+                uri=self.request.uri.split("?")[0],
+                success=False,
+            )
+            session.add(api_call)
+            session.commit()
+
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
 
@@ -353,6 +373,19 @@ class BaseHandler(PSABaseHandler):
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write(to_json({"status": "success", "data": data, **extra}))
+
+        if self.user_id() is None:
+            return
+        user_id = int(self.user_id())
+        with DBSession() as session:
+            api_call = APICall(
+                user_id=user_id,
+                method=self.request.method,
+                uri=self.request.uri.split("?")[0],
+                success=True,
+            )
+            session.add(api_call)
+            session.commit()
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
