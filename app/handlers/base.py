@@ -312,9 +312,12 @@ class BaseHandler(PSABaseHandler):
         self.set_status(status)
         self.write({"status": "error", "message": message, "data": data, **extra})
 
-        if self.user_id() is None:
+        if self.current_user is None:
             return
-        user_id = int(self.user_id())
+        if getattr(self.current_user, "created_by_id"):
+            user_id = int(self.current_user.created_by_id)
+        else:
+            user_id = int(self.current_user.id)
         with DBSession() as session:
             api_call = APICall(
                 user_id=user_id,
@@ -374,9 +377,12 @@ class BaseHandler(PSABaseHandler):
         self.set_status(status)
         self.write(to_json({"status": "success", "data": data, **extra}))
 
-        if self.user_id() is None:
+        if self.current_user is None:
             return
-        user_id = int(self.user_id())
+        if getattr(self.current_user, "created_by_id"):
+            user_id = int(self.current_user.created_by_id)
+        else:
+            user_id = int(self.current_user.id)
         with DBSession() as session:
             api_call = APICall(
                 user_id=user_id,
