@@ -2066,6 +2066,12 @@ class APICall(Base):
         doc="The endpoint of the API call.",
     )
 
+    params = sa.Column(
+        sa.String,
+        nullable=True,
+        doc="The parameters of the API call.",
+    )
+
     method = sa.Column(
         sa.String,
         nullable=False,

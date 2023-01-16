@@ -334,10 +334,15 @@ class BaseHandler(PSABaseHandler):
             else:
                 user_id = int(self.current_user.id)
 
+            uri_split = self.request.uri.replace("api/", "").split("?")
+            uri = uri_split[0]
+            params = "/".join(uri_split[1:])
+
             api_call = APICall(
                 user_id=user_id,
                 method=self.request.method,
-                uri=self.request.uri.split("?")[0],
+                uri=uri,
+                params=params,
                 size=sizeof(data),
                 success=False,
             )
@@ -402,10 +407,15 @@ class BaseHandler(PSABaseHandler):
             else:
                 user_id = int(self.current_user.id)
 
+            uri_split = self.request.uri.replace("api/", "").split("?")
+            uri = uri_split[0]
+            params = "/".join(uri_split[1:])
+
             api_call = APICall(
                 user_id=user_id,
                 method=self.request.method,
-                uri=self.request.uri.split("?")[0],
+                uri=uri,
+                params=params,
                 size=sizeof(data),
                 success=True,
             )
