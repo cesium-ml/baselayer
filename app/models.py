@@ -2072,6 +2072,12 @@ class APICall(Base):
         doc="The HTTP method of the API call.",
     )
 
+    size = sa.Column(
+        sa.Float,
+        nullable=False,
+        doc="The size of the query in bytes.",
+    )
+
     success = sa.Column(
         sa.Boolean, nullable=False, doc="Was the call successful or not?"
     )

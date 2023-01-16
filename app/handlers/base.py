@@ -1,4 +1,5 @@
 import inspect
+import sys
 import time
 import uuid
 from contextlib import contextmanager
@@ -45,6 +46,18 @@ log = make_log("basehandler")
 #
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+
+
+def sizeof(obj):
+    """Estimates total memory usage of (possibly nested) `obj` by recursively calling sys.getsizeof() for list/tuple/dict/set containers
+    and adding up the results. Does NOT handle circular object references!
+    """
+    size = sys.getsizeof(obj)
+    if isinstance(obj, dict):
+        return size + sum(map(sizeof, obj.keys())) + sum(map(sizeof, obj.values()))
+    if isinstance(obj, (list, tuple, set, frozenset)):
+        return size + sum(map(sizeof, obj))
+    return size
 
 
 class NoValue:
@@ -325,6 +338,7 @@ class BaseHandler(PSABaseHandler):
                 user_id=user_id,
                 method=self.request.method,
                 uri=self.request.uri.split("?")[0],
+                size=sizeof(data),
                 success=False,
             )
             session.add(api_call)
@@ -392,6 +406,7 @@ class BaseHandler(PSABaseHandler):
                 user_id=user_id,
                 method=self.request.method,
                 uri=self.request.uri.split("?")[0],
+                size=sizeof(data),
                 success=True,
             )
             session.add(api_call)
