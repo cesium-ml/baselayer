@@ -314,11 +314,13 @@ class BaseHandler(PSABaseHandler):
 
         if self.current_user is None:
             return
-        if getattr(self.current_user, "created_by_id"):
-            user_id = int(self.current_user.created_by_id)
-        else:
-            user_id = int(self.current_user.id)
         with DBSession() as session:
+            session.merge(self.current_user)
+            if hasattr(self.current_user, "created_by_id"):
+                user_id = int(self.current_user.created_by_id)
+            else:
+                user_id = int(self.current_user.id)
+
             api_call = APICall(
                 user_id=user_id,
                 method=self.request.method,
@@ -379,11 +381,13 @@ class BaseHandler(PSABaseHandler):
 
         if self.current_user is None:
             return
-        if getattr(self.current_user, "created_by_id"):
-            user_id = int(self.current_user.created_by_id)
-        else:
-            user_id = int(self.current_user.id)
         with DBSession() as session:
+            session.merge(self.current_user)
+            if hasattr(self.current_user, "created_by_id"):
+                user_id = int(self.current_user.created_by_id)
+            else:
+                user_id = int(self.current_user.id)
+
             api_call = APICall(
                 user_id=user_id,
                 method=self.request.method,
