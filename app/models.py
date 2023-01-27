@@ -259,8 +259,8 @@ def init_db(
     conn = sa.create_engine(
         url,
         client_encoding="utf8",
-        executemany_mode="values",
-        executemany_values_page_size=EXECUTEMANY_PAGESIZE,
+        executemany_mode="values_plus_batch",
+        insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
         **{**default_engine_args, **engine_args},
     )
 

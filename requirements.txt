@@ -10,7 +10,7 @@ requests>=2.25.1
 selenium>=4.3.0
 selenium-requests>=2.0.0
 pytest>=5.4.3
-sqlalchemy==1.4.29
+sqlalchemy==2.0.0
 sqlalchemy-utils>=0.36.8
 social-auth-core==4.2.0
 social-auth-app-tornado>=1.0.0
