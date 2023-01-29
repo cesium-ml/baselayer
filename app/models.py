@@ -13,8 +13,8 @@ from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.declarative import declarative_base, declared_attr
-from sqlalchemy.orm import relationship, scoped_session, sessionmaker
+from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.orm import declarative_base, relationship, scoped_session, sessionmaker
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
 from .custom_exceptions import AccessError
