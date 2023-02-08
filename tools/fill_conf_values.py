@@ -52,7 +52,7 @@ def fill_config_file_values(template_paths):
             jenv.filters.update(custom_filters)
 
             template = jenv.get_template(tfile)
-            cfg['env'] = env
+            cfg["env"] = env
             rendered = template.render(cfg)
 
             with open(os.path.splitext(template_path)[0], "w") as f:

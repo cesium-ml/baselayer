@@ -66,7 +66,7 @@ app.cfg = cfg
 
 port = cfg["ports.app_internal"] + (env.process or 0)
 
-address = '127.0.0.1'
+address = "127.0.0.1"
 app.listen(port, xheaders=True, address=address)
 
 log(f"Listening on {address}:{port}")
