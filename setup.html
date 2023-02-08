@@ -1,97 +1,50 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8" />
-  <meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
   <title>Setup &mdash; baselayer vUndefined documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/output_cells.css" type="text/css" />
-
-  
-  
-
-  
-  
-
-  
-
-  
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/output_cells.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
         <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
         <script src="_static/doctools.js"></script>
         <script src="_static/sphinx_highlight.js"></script>
-    
-    <script type="text/javascript" src="_static/js/theme.js"></script>
-
-    
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Developer notes" href="dev.html" />
     <link rel="prev" title="Baselayer" href="index.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
 
           
-            <a href="index.html" class="icon icon-home"> baselayer
           
-
-          
+          <a href="index.html" class="icon icon-home">
+            baselayer
           </a>
-
-          
-            
-            
               <div class="version">
                 vUndefined
               </div>
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Setup</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
@@ -113,83 +66,43 @@
 <li class="toctree-l1"><a class="reference internal" href="extending.html">Extending baselayer</a></li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">baselayer</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-        
-      <li>Setup</li>
-    
-    
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Setup</li>
       <li class="wy-breadcrumbs-aside">
-        
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
+             
   <section id="setup">
-<h1>Setup<a class="headerlink" href="#setup" title="Permalink to this heading">¶</a></h1>
+<h1>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h1>
 <p>This guide describes how to get a webapp, derived from <code class="docutils literal notranslate"><span class="pre">baselayer</span></code>, up
 and running. A simple example of such an application is provides as a
 <a class="reference external" href="https://github.com/cesium-ml/baselayer_template_app">template application</a>.</p>
 <p>Clone that application, and then proceed with the following instructions.</p>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading">¶</a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p>A <strong>Python 3.8</strong> or later installation is required.</p></li>
 <li><p>Install the following dependencies: Supervisor, NGINX, PostgreSQL, Node.JS</p></li>
 </ul>
 <section id="on-macos">
-<h3>On macOS<a class="headerlink" href="#on-macos" title="Permalink to this heading">¶</a></h3>
+<h3>On macOS<a class="headerlink" href="#on-macos" title="Permalink to this heading"></a></h3>
 <ul class="simple">
 <li><p>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">nginx</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></p>
 <ul>
@@ -208,7 +121,7 @@ and running. A simple example of such an application is provides as a
 </li>
 </ul>
 <section id="port-number-configuration-with-macos">
-<h4>Port Number Configuration with macOS<a class="headerlink" href="#port-number-configuration-with-macos" title="Permalink to this heading">¶</a></h4>
+<h4>Port Number Configuration with macOS<a class="headerlink" href="#port-number-configuration-with-macos" title="Permalink to this heading"></a></h4>
 <p>The default port number used by the baselayer app is 5000, but this port is not available for use with all operating systems.
 Port 5000 is not free for the latest macOS version, Monterey.</p>
 <p>If 5000 is not available, you will need to modify the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file to use another port. For example, you may use:</p>
@@ -220,7 +133,7 @@ Port 5000 is not free for the latest macOS version, Monterey.</p>
 </section>
 </section>
 <section id="on-linux">
-<h3>On Linux<a class="headerlink" href="#on-linux" title="Permalink to this heading">¶</a></h3>
+<h3>On Linux<a class="headerlink" href="#on-linux" title="Permalink to this heading"></a></h3>
 <ul>
 <li><p>Using <code class="docutils literal notranslate"><span class="pre">apt-get</span></code>:
 <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">npm</span> <span class="pre">nodejs-legacy</span></code></p></li>
@@ -238,7 +151,7 @@ add the following lines and restart PostgreSQL
 </section>
 </section>
 <section id="building-the-baselayer-database">
-<h2>Building the baselayer database<a class="headerlink" href="#building-the-baselayer-database" title="Permalink to this heading">¶</a></h2>
+<h2>Building the baselayer database<a class="headerlink" href="#building-the-baselayer-database" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p>Initialize the database with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">db_init</span></code> (also tests that your
 permissions have been properly configured).</p></li>
@@ -246,7 +159,7 @@ permissions have been properly configured).</p></li>
 </ul>
 </section>
 <section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading">¶</a></h2>
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this heading"></a></h2>
 <ul class="simple">
 <li><p>Customize <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> (see <code class="docutils literal notranslate"><span class="pre">config.yaml.defaults</span></code> for all options).</p>
 <ul>
@@ -261,11 +174,11 @@ permissions have been properly configured).</p></li>
 </ul>
 </section>
 <section id="launch">
-<h2>Launch<a class="headerlink" href="#launch" title="Permalink to this heading">¶</a></h2>
+<h2>Launch<a class="headerlink" href="#launch" title="Permalink to this heading"></a></h2>
 <p>Launch the app with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code>.</p>
 </section>
 <section id="deployment-options">
-<h2>Deployment options<a class="headerlink" href="#deployment-options" title="Permalink to this heading">¶</a></h2>
+<h2>Deployment options<a class="headerlink" href="#deployment-options" title="Permalink to this heading"></a></h2>
 <p>The default configuration file used can be overridden by setting the
 FLAGS environment variable:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">FLAGS</span><span class="o">=</span><span class="s2">&quot;--config=myconfig.yaml&quot;</span> <span class="n">make</span> <span class="n">run</span>
@@ -276,50 +189,33 @@ FLAGS environment variable:</p>
 
 
            </div>
-           
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="dev.html" class="btn btn-neutral float-right" title="Developer notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Baselayer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dev.html" class="btn btn-neutral float-right" title="Developer notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        &#169; Copyright 2017, The baselayer Team.
-
-    </p>
+    <p>&#169; Copyright 2017, The baselayer Team.</p>
   </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>
