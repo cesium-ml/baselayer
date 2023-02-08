@@ -33,11 +33,17 @@ repos:
     hooks:
       - id: prettier
         pass_filenames: true
-  - repo: local
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: 5d73b3501b5fd211a62693736b2ab83816855ebe # v8.33.0
     hooks:
-      - id: ESLint
-        name: ESLint
-        entry: npx eslint -c .eslintrc.yaml
-        language: system
+      - id: eslint
+        additional_dependencies:
+          # Keep up to date with baselayer_template_app/package.json
+          - eslint@8.33.0
+          - eslint-config-airbnb@18.2.0
+          - eslint-plugin-import@2.22.1
+          - eslint-plugin-jsx-a11y@6.3.1
+          - eslint-plugin-react@7.22.0
+          - eslint-plugin-react-hooks@4.2.0
         files: \.[j]sx?$
         types: [file]

@@ -1,16 +1,11 @@
 ---
-parser: babel-eslint
 env:
   browser: true
 extends: ["airbnb", "plugin:react/recommended"]
-plugins: ["import", "react"]
-settings:
-  import/resolver:
-    node: {}
-    webpack:
-      config: webpack.config.js
+plugins: ["react"]
 
 rules:
+  import/no-unresolved: 0
   camelcase: off
   comma-dangle: [1, only-multiline]
   no-else-return: 0
@@ -24,3 +19,7 @@ rules:
   jsx-a11y/label-has-associated-control: 0
   jsx-a11y/control-has-associated-label: 0
   jsx-a11y/no-static-element-interactions: 0
+
+settings:
+  react:
+    version: "17"
