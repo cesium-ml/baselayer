@@ -21,14 +21,15 @@ Clone that application, and then proceed with the following instructions.
   - Start the postgresql server: `port load postgresql13-server`
 
 #### Port Number Configuration with macOS
-The default port number used by the baselayer app is 5000, but this port is not available for use with all operating systems. 
+
+The default port number used by the baselayer app is 5000, but this port is not available for use with all operating systems.
 Port 5000 is not free for the latest macOS version, Monterey.
 
 If 5000 is not available, you will need to modify the `config.yaml` file to use another port. For example, you may use:
 
 ```yaml
 ports:
-    app: 5700
+  app: 5700
 ```
 
 See [below](#configuration) for more information on modifying the baselayer configuration file.
@@ -47,8 +48,8 @@ See [below](#configuration) for more information on modifying the baselayer conf
   local baselayer baselayer trust
   local baselayer_test baselayer trust
   ```
-  
-## Building the baselayer database 
+
+## Building the baselayer database
 
 - Initialize the database with `make db_init` (also tests that your
   permissions have been properly configured).
