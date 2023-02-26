@@ -73,9 +73,10 @@ class PSABaseHandler(RequestHandler):
 
     def login_user(self, user):
         self.set_secure_cookie("user_id", str(user.id))
-        sa = user.social_auth.first()
-        if sa is not None:
-            self.set_secure_cookie("user_oauth_uid", sa.uid)
+        with DBSession() as session:
+            sa = session.query(User).get(user.id).social_auth.first()
+            if sa is not None:
+                self.set_secure_cookie("user_oauth_uid", sa.uid)
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
