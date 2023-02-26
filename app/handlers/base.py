@@ -64,7 +64,7 @@ class PSABaseHandler(RequestHandler):
                 ).first()
                 if user is None:
                     return
-                sa = user.social_auth.first()
+                sa = session.query(User).get(user.id).social_auth.first()
                 if sa is None:
                     # No SocialAuth entry; probably machine generated user
                     return user
