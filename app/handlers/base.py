@@ -75,7 +75,6 @@ class PSABaseHandler(RequestHandler):
                     session.rollback()
                     log(f"Could not get current user: {e}")
 
-
     def login_user(self, user):
         with DBSession() as session:
             try:
