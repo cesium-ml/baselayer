@@ -59,23 +59,37 @@ class PSABaseHandler(RequestHandler):
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
             with DBSession() as session:
+                try:
+                    user = session.scalars(
+                        sqlalchemy.select(User).where(User.id == user_id)
+                    ).first()
+                    if user is None:
+                        return
+                    sa = user.social_auth.first()
+                    if sa is None:
+                        # No SocialAuth entry; probably machine generated user
+                        return user
+                    if sa.uid.encode("utf-8") == oauth_uid:
+                        return user
+                except Exception as e:
+                    session.rollback()
+                    log(f"Could not get current user: {e}")
+
+    def login_user(self, user):
+        with DBSession() as session:
+            try:
+                self.set_secure_cookie("user_id", str(user.id))
                 user = session.scalars(
-                    sqlalchemy.select(User).where(User.id == user_id)
+                    sqlalchemy.select(User).where(User.id == user.id)
                 ).first()
                 if user is None:
                     return
                 sa = user.social_auth.first()
-                if sa is None:
-                    # No SocialAuth entry; probably machine generated user
-                    return user
-                if sa.uid.encode("utf-8") == oauth_uid:
-                    return user
-
-    def login_user(self, user):
-        self.set_secure_cookie("user_id", str(user.id))
-        sa = user.social_auth.first()
-        if sa is not None:
-            self.set_secure_cookie("user_oauth_uid", sa.uid)
+                if sa is not None:
+                    self.set_secure_cookie("user_oauth_uid", sa.uid)
+            except Exception as e:
+                session.rollback()
+                log(f"Could not login user: {e}")
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
