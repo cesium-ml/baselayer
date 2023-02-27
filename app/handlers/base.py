@@ -81,8 +81,8 @@ class PSABaseHandler(RequestHandler):
             try:
                 self.set_secure_cookie("user_id", str(user.id))
                 user = session.scalars(
-                        sqlalchemy.select(User).where(User.id == user.id)
-                    ).first()
+                    sqlalchemy.select(User).where(User.id == user.id)
+                ).first()
                 if user is None:
                     return
                 sa = user.social_auth.first()
