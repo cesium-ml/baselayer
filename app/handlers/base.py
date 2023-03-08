@@ -23,6 +23,7 @@ from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
 from ..models import DBSession, User, VerifiedSession, bulk_verify, session_context_id
+from ..social import TornadoStorage
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -55,8 +56,12 @@ class PSABaseHandler(RequestHandler):
                         sqlalchemy.select(User).where(User.id == user_id)
                     ).first()
                     if user is None:
-                        return
-                    sa = user.social_auth.first()
+                        return None
+                    sa = session.scalars(
+                        sqlalchemy.select(TornadoStorage.user).where(
+                            TornadoStorage.user.user_id == user_id
+                        )
+                    ).first()
                     if sa is None:
                         # No SocialAuth entry; probably machine generated user
                         return user
@@ -65,6 +70,9 @@ class PSABaseHandler(RequestHandler):
                 except Exception as e:
                     session.rollback()
                     log(f"Could not get current user: {e}")
+                    return None
+        else:
+            return None
 
     def login_user(self, user):
         with DBSession() as session:
@@ -75,7 +83,11 @@ class PSABaseHandler(RequestHandler):
                 ).first()
                 if user is None:
                     return
-                sa = user.social_auth.first()
+                sa = session.scalars(
+                    sqlalchemy.select(TornadoStorage.user).where(
+                        TornadoStorage.user.user_id == user.id
+                    )
+                ).first()
                 if sa is not None:
                     self.set_secure_cookie("user_oauth_uid", sa.uid)
             except Exception as e:

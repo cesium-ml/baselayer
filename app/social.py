@@ -467,7 +467,7 @@ class SQLAlchemyUserMixin(SQLAlchemyMixin, UserMixin):
 
     @classmethod
     def get_user(cls, pk):
-        return DBSession().query(cls.user_model()).get(pk)
+        return DBSession().query(cls.user_model()).filter_by(id=pk).first()
 
     @classmethod
     def get_users_by_email(cls, email):
@@ -489,7 +489,7 @@ class SQLAlchemyUserMixin(SQLAlchemyMixin, UserMixin):
             qs = qs.filter_by(provider=provider)
         if id:
             qs = qs.filter_by(id=id)
-        return qs
+        return qs.first()
 
     @classmethod
     def create_social_auth(cls, user, uid, provider):
@@ -584,9 +584,11 @@ class SQLAlchemyPartialMixin(SQLAlchemyMixin, PartialMixin):
 
     @classmethod
     def destroy(cls, token):
-        partial = cls.load(token)
-        if partial:
-            DBSession().delete(partial)
+        with DBSession() as session:
+            partial = session.query(cls).filter_by(token=token).first()
+            if partial:
+                session.delete(partial)
+                session.commit()
 
 
 class TornadoStorage:

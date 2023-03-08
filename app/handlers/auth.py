@@ -7,8 +7,8 @@ from social_core.utils import get_strategy, setting_name
 from baselayer.app.handlers.base import BaseHandler
 
 DEFAULTS = {
-    "STORAGE": "social_tornado.models.TornadoStorage",
-    "STRATEGY": "social_tornado.strategy.TornadoStrategy",
+    "STORAGE": "baselayer.app.social.TornadoStorage",
+    "STRATEGY": "baselayer.app.strategy.TornadoStrategy",
 }
 
 
