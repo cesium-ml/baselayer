@@ -5,10 +5,9 @@ https://github.com/python-social-auth
 """
 
 from social_core.backends.google import GoogleOAuth2
-from social_tornado.models import init_social
 
 from .env import load_env
-from .models import Base, DBSession
+from .social import init_social
 
 
 class FakeGoogleOAuth2(GoogleOAuth2):
@@ -46,4 +45,4 @@ class FakeGoogleOAuth2(GoogleOAuth2):
 
 
 # Set up TornadoStorage
-init_social(Base, DBSession, {"SOCIAL_AUTH_USER_MODEL": "baselayer.app.models.User"})
+init_social()
