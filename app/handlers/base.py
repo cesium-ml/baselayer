@@ -1,10 +1,7 @@
-import inspect
 import time
 import uuid
 from contextlib import contextmanager
 from json.decoder import JSONDecodeError
-
-import social_tornado.handlers as psa_handlers
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -30,12 +27,6 @@ from ..models import DBSession, User, VerifiedSession, bulk_verify, session_cont
 env, cfg = load_env()
 log = make_log("basehandler")
 
-# Monkey-patch Python Social Auth's base handler
-#
-# See
-# https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
-# for the original
-#
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
 
@@ -119,11 +110,6 @@ class PSABaseHandler(RequestHandler):
 
     def on_finish(self):
         DBSession.remove()
-
-
-# Monkey-patch in each method of social_tornado.handlers.BaseHandler
-for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunction):
-    setattr(psa_handlers.BaseHandler, name, fn)
 
 
 class BaseHandler(PSABaseHandler):

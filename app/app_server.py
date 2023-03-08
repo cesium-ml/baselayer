@@ -1,10 +1,10 @@
 import tornado.web
 
-# This provides `login`, `complete`, and `disconnect` endpoints
-from social_tornado.routes import SOCIAL_AUTH_ROUTES
-
 from .env import load_env
 from .handlers import (
+    AuthHandler,
+    CompleteHandler,
+    DisconnectHandler,
     LogoutHandler,
     MainPageHandler,
     ProfileHandler,
@@ -21,7 +21,7 @@ settings = {
     # Python Social Auth configuration
     "SOCIAL_AUTH_USER_MODEL": "baselayer.app.models.User",
     "SOCIAL_AUTH_STORAGE": "baselayer.app.social.TornadoStorage",
-    "SOCIAL_AUTH_STRATEGY": "social_tornado.strategy.TornadoStrategy",
+    "SOCIAL_AUTH_STRATEGY": "baselayer.app.strategy.TornadoStrategy",
     "SOCIAL_AUTH_AUTHENTICATION_BACKENDS": (
         "social_core.backends.google.GoogleOAuth2",
     ),
@@ -41,6 +41,19 @@ if cfg["server.auth.debug_login"]:
     settings["SOCIAL_AUTH_AUTHENTICATION_BACKENDS"] = (
         "baselayer.app.psa.FakeGoogleOAuth2",
     )
+
+SOCIAL_AUTH_ROUTES = [
+    tornado.web.url(r"/login/(?P<backend>[^/]+)/?", AuthHandler, name="begin"),
+    tornado.web.url(r"/complete/(?P<backend>[^/]+)/", CompleteHandler, name="complete"),
+    tornado.web.url(
+        r"/disconnect/(?P<backend>[^/]+)/?", DisconnectHandler, name="disconnect"
+    ),
+    tornado.web.url(
+        r"/disconnect/(?P<backend>[^/]+)/(?P<association_id>\d+)/?",
+        DisconnectHandler,
+        name="disconnect_individual",
+    ),
+]
 
 handlers = SOCIAL_AUTH_ROUTES + [
     (r"/baselayer/socket_auth_token", SocketAuthTokenHandler),
