@@ -3,6 +3,7 @@ import sys
 
 import pkg_resources
 from pkg_resources import DistributionNotFound, Requirement, VersionConflict
+from pkg_resources.extern.packaging.requirements import InvalidRequirement
 from status import status
 
 if len(sys.argv) < 2:
@@ -40,7 +41,13 @@ def pip(req_files):
 
 try:
     with status("Verifying Python package dependencies"):
-        pkg_resources.working_set.resolve([Requirement.parse(r) for r in requirements])
+        parsed_requirements = []
+        for r in requirements:
+            try:
+                parsed_requirements.append(Requirement.parse(r))
+            except InvalidRequirement:
+                print(f"\r[?] Ensure {r} is installed")
+        pkg_resources.working_set.resolve(parsed_requirements)
 
 except (DistributionNotFound, VersionConflict) as e:
     print(e.report())
