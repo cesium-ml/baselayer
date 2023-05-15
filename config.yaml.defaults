@@ -97,10 +97,12 @@ log:
     # log only those that trigger a warning / error
     api_calls: False
 
-    # if true, log database interactions
+    # if true, log postgres database queries
     database: False
 
     # set the debugging level (debug or info)
+    # see e.g. https://docs.sqlalchemy.org/en/20/core/engines.html#configuring-logging
+    # for specific logging levels
     database_pool: False
 
 ports:
