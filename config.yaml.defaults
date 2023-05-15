@@ -97,10 +97,11 @@ log:
     # log only those that trigger a warning / error
     api_calls: False
 
-    # if true, log postgres database queries
+    # if true, enable SQL echoing.
     database: False
 
-    # set the debugging level (debug or info)
+    # if true, enable connection pool logging
+    # can also set the debugging level (debug or info)
     # see e.g. https://docs.sqlalchemy.org/en/20/core/engines.html#configuring-logging
     # for specific logging levels
     database_pool: False
