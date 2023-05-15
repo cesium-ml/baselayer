@@ -97,8 +97,11 @@ log:
     # log only those that trigger a warning / error
     api_calls: False
 
-    database_echo: False
-    database_echo_pool: False
+    # if true, log database interactions
+    database: False
+
+    # set the debugging level (debug or info)
+    database_pool: False
 
 ports:
     websocket: 64000
