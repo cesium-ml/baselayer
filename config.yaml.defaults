@@ -97,6 +97,9 @@ log:
     # log only those that trigger a warning / error
     api_calls: False
 
+    database_echo: False
+    database_echo_pool: False
+
 ports:
     websocket: 64000
     fake_oauth: 63000

@@ -25,6 +25,8 @@ env, cfg = load_env()
 strict = cfg["security.strict"]
 use_webhook = cfg["security.slack.enabled"]
 webhook_url = cfg["security.slack.url"]
+database_echo = cfg.get("log.database_echo", False)
+database_echo_pool = cfg.get("log.database_echo_pool", False)
 
 session_context_id = contextvars.ContextVar("request_id", default=None)
 # left here for backward compatibility:
@@ -261,6 +263,8 @@ def init_db(
         client_encoding="utf8",
         executemany_mode="values_plus_batch",
         insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
+        echo=database_echo,
+        echo_pool=database_echo_pool,
         **{**default_engine_args, **engine_args},
     )
 
