@@ -100,10 +100,10 @@ log:
     # SQL logging
     # see e.g. https://docs.sqlalchemy.org/en/20/core/engines.html#configuring-logging
 
-    # if True or "debug", enable SQL echoing.
+    # if True, enable SQL echoing.
     database: False
 
-    # if true or "debug", enable connection pool logging
+    # if True, enable connection pool logging
     database_pool: False
 
 ports:
