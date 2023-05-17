@@ -1893,6 +1893,12 @@ class User(Base):
         doc="ACLs granted to user, separate from role-level ACLs",
         lazy="selectin",
     )
+    apicalls = relationship(
+        "APICall",
+        passive_deletes=True,
+        doc="API Calls by the user",
+        lazy="selectin",
+    )
     expiration_date = sa.Column(
         sa.DateTime,
         nullable=True,
@@ -2040,4 +2046,50 @@ class CronJobRun(Base):
     output = sa.Column(
         sa.String,
         doc="Cron job's subprocess output, or exception string.",
+    )
+
+
+class APICall(Base):
+    """An API call by a User."""
+
+    create = read = update = delete = accessible_by_user
+
+    user_id = sa.Column(
+        sa.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+        doc="The ID of the User that made the API call.",
+    )
+    user = relationship(
+        "User",
+        back_populates="apicalls",
+        lazy="selectin",
+        doc="The User that made the API call.",
+    )
+
+    uri = sa.Column(
+        sa.String,
+        nullable=False,
+        doc="The endpoint of the API call.",
+    )
+
+    params = sa.Column(
+        sa.String,
+        nullable=True,
+        doc="The parameters of the API call.",
+    )
+
+    method = sa.Column(
+        sa.String,
+        nullable=False,
+        doc="The HTTP method of the API call.",
+    )
+
+    size = sa.Column(
+        sa.Float,
+        nullable=False,
+        doc="The size of the query in bytes.",
+    )
+
+    success = sa.Column(
+        sa.Boolean, nullable=False, doc="Was the call successful or not?"
     )

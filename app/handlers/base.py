@@ -1,4 +1,5 @@
 import inspect
+import sys
 import time
 import uuid
 from contextlib import contextmanager
@@ -25,7 +26,14 @@ from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
-from ..models import DBSession, User, VerifiedSession, bulk_verify, session_context_id
+from ..models import (
+    APICall,
+    DBSession,
+    User,
+    VerifiedSession,
+    bulk_verify,
+    session_context_id,
+)
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -38,6 +46,18 @@ log = make_log("basehandler")
 #
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+
+
+def sizeof(obj):
+    """Estimates total memory usage of (possibly nested) `obj` by recursively calling sys.getsizeof() for list/tuple/dict/set containers
+    and adding up the results. Does NOT handle circular object references!
+    """
+    size = sys.getsizeof(obj)
+    if isinstance(obj, dict):
+        return size + sum(map(sizeof, obj.keys())) + sum(map(sizeof, obj.values()))
+    if isinstance(obj, (list, tuple, set, frozenset)):
+        return size + sum(map(sizeof, obj))
+    return size
 
 
 class NoValue:
@@ -320,6 +340,30 @@ class BaseHandler(PSABaseHandler):
         self.set_status(status)
         self.write({"status": "error", "message": message, "data": data, **extra})
 
+        if self.current_user is None:
+            return
+        with DBSession() as session:
+            session.merge(self.current_user)
+            if hasattr(self.current_user, "created_by_id"):
+                user_id = int(self.current_user.created_by_id)
+            else:
+                user_id = int(self.current_user.id)
+
+            uri_split = self.request.uri.replace("api/", "").split("?")
+            uri = uri_split[0]
+            params = "/".join(uri_split[1:])
+
+            api_call = APICall(
+                user_id=user_id,
+                method=self.request.method,
+                uri=uri,
+                params=params,
+                size=sizeof(data),
+                success=False,
+            )
+            session.add(api_call)
+            session.commit()
+
     def action(self, action, payload={}):
         """Push an action to the frontend via WebSocket connection.
 
@@ -368,6 +412,30 @@ class BaseHandler(PSABaseHandler):
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
         self.write(to_json({"status": "success", "data": data, **extra}))
+
+        if self.current_user is None:
+            return
+        with DBSession() as session:
+            session.merge(self.current_user)
+            if hasattr(self.current_user, "created_by_id"):
+                user_id = int(self.current_user.created_by_id)
+            else:
+                user_id = int(self.current_user.id)
+
+            uri_split = self.request.uri.replace("api/", "").split("?")
+            uri = uri_split[0]
+            params = "/".join(uri_split[1:])
+
+            api_call = APICall(
+                user_id=user_id,
+                method=self.request.method,
+                uri=uri,
+                params=params,
+                size=sizeof(data),
+                success=True,
+            )
+            session.add(api_call)
+            session.commit()
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
