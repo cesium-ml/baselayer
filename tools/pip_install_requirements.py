@@ -40,7 +40,9 @@ def pip(req_files):
 
 try:
     with status("Verifying Python package dependencies"):
-        pkg_resources.working_set.resolve([Requirement.parse(r) for r in requirements])
+        pkg_resources.working_set.resolve(
+            [Requirement.parse(r.split("#egg=")[-1]) for r in requirements]
+        )
 
 except (DistributionNotFound, VersionConflict) as e:
     print(e.report())

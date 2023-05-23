@@ -25,6 +25,8 @@ env, cfg = load_env()
 strict = cfg["security.strict"]
 use_webhook = cfg["security.slack.enabled"]
 webhook_url = cfg["security.slack.url"]
+log_database = cfg.get("log.database", False)
+log_database_pool = cfg.get("log.database_pool", False)
 
 session_context_id = contextvars.ContextVar("request_id", default=None)
 # left here for backward compatibility:
@@ -261,6 +263,8 @@ def init_db(
         client_encoding="utf8",
         executemany_mode="values_plus_batch",
         insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
+        echo=log_database,
+        echo_pool=log_database_pool,
         **{**default_engine_args, **engine_args},
     )
 
@@ -1349,7 +1353,7 @@ class BaseMixin:
 
         # TODO: vectorize this
         for pk in standardized:
-            instance = cls.query.options(options).get(pk.item())
+            instance = DBSession().query(cls).options(options).get(pk.item())
             if instance is None or not instance.is_accessible_by(
                 user_or_token, mode=mode
             ):
@@ -1628,7 +1632,7 @@ class BaseMixin:
         obj : baselayer.app.models.Base
            The requested entity.
         """
-        obj = cls.query.options(options).get(ident)
+        obj = DBSession().query(cls).options(options).get(ident)
 
         if obj is not None and not obj.is_readable_by(user_or_token):
             raise AccessError("Insufficient permissions.")
@@ -1655,7 +1659,7 @@ class BaseMixin:
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
-        obj = cls.query.get(id)
+        obj = DBSession().query(cls).get(id)
         if obj is not None:
             return obj
         else:
@@ -1872,7 +1876,7 @@ class User(Base):
     role_ids = association_proxy(
         "roles",
         "id",
-        creator=lambda r: Role.query.get(r),
+        creator=lambda r: DBSession().query(Role).get(r),
     )
     tokens = relationship(
         "Token",
@@ -1977,7 +1981,9 @@ class Token(Base):
         doc="The ACLs granted to the Token.",
         lazy="selectin",
     )
-    acl_ids = association_proxy("acls", "id", creator=lambda acl: ACL.query.get(acl))
+    acl_ids = association_proxy(
+        "acls", "id", creator=lambda acl: DBSession().query(ACL).get(acl)
+    )
     permissions = acl_ids
 
     name = sa.Column(
