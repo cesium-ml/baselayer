@@ -2,7 +2,6 @@ from datetime import date, datetime
 
 import simplejson as json
 from arrow.arrow import Arrow
-from bson import ObjectId
 from sqlalchemy_utils import PhoneNumber
 
 data_types = {
@@ -44,7 +43,7 @@ class Encoder(json.JSONEncoder):
         elif isinstance(o, PhoneNumber):
             return o.e164
 
-        elif isinstance(o, ObjectId):
+        elif o.__class__.__name__ == "ObjectId":
             return str(o)
 
         elif type(o) is type and o in data_types:
