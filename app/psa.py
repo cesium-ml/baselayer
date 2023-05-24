@@ -373,6 +373,7 @@ class JSONPickler:
         """Parses the JSON string and returns the corresponding python value"""
         return json.loads(value)
 
+
 # JSON type field
 class JSONType(PickleType):
     impl = Text
