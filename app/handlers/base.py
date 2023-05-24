@@ -17,13 +17,12 @@ from tornado.web import RequestHandler
 from ...log import make_log
 
 # Initialize PSA tornado models
-from .. import psa  # noqa
+from .. import psa
 from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
 from ..models import DBSession, User, VerifiedSession, bulk_verify, session_context_id
-from ..social import TornadoStorage
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -58,8 +57,8 @@ class PSABaseHandler(RequestHandler):
                     if user is None:
                         return None
                     sa = session.scalars(
-                        sqlalchemy.select(TornadoStorage.user).where(
-                            TornadoStorage.user.user_id == user_id
+                        sqlalchemy.select(psa.TornadoStorage.user).where(
+                            psa.TornadoStorage.user.user_id == user_id
                         )
                     ).first()
                     if sa is None:
@@ -84,8 +83,8 @@ class PSABaseHandler(RequestHandler):
                 if user is None:
                     return
                 sa = session.scalars(
-                    sqlalchemy.select(TornadoStorage.user).where(
-                        TornadoStorage.user.user_id == user.id
+                    sqlalchemy.select(psa.TornadoStorage.user).where(
+                        psa.TornadoStorage.user.user_id == user.id
                     )
                 ).first()
                 if sa is not None:

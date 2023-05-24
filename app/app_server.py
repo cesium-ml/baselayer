@@ -20,8 +20,8 @@ settings = {
     "login_url": "/",
     # Python Social Auth configuration
     "SOCIAL_AUTH_USER_MODEL": "baselayer.app.models.User",
-    "SOCIAL_AUTH_STORAGE": "baselayer.app.social.TornadoStorage",
-    "SOCIAL_AUTH_STRATEGY": "baselayer.app.strategy.TornadoStrategy",
+    "SOCIAL_AUTH_STORAGE": "baselayer.app.psa.TornadoStorage",
+    "SOCIAL_AUTH_STRATEGY": "baselayer.app.psa.TornadoStrategy",
     "SOCIAL_AUTH_AUTHENTICATION_BACKENDS": (
         "social_core.backends.google.GoogleOAuth2",
     ),
