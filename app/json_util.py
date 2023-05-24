@@ -43,7 +43,7 @@ class Encoder(json.JSONEncoder):
 
         elif isinstance(o, PhoneNumber):
             return o.e164
-        
+
         elif isinstance(o, ObjectId):
             return str(o)
 
