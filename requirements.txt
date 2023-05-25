@@ -13,8 +13,6 @@ pytest>=5.4.3
 sqlalchemy==2.0.0
 sqlalchemy-utils>=0.36.8
 social-auth-core==4.2.0
-social-auth-app-tornado>=1.0.0
-social-auth-storage-sqlalchemy>=1.1.0
 arrow>=0.15.4
 jinja2>=2.11.2
 python-dateutil>=2.8.1

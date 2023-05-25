@@ -1,10 +1,7 @@
-import inspect
 import time
 import uuid
 from contextlib import contextmanager
 from json.decoder import JSONDecodeError
-
-import social_tornado.handlers as psa_handlers
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -20,7 +17,7 @@ from tornado.web import RequestHandler
 from ...log import make_log
 
 # Initialize PSA tornado models
-from .. import psa  # noqa
+from .. import psa
 from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
@@ -30,12 +27,6 @@ from ..models import DBSession, User, VerifiedSession, bulk_verify, session_cont
 env, cfg = load_env()
 log = make_log("basehandler")
 
-# Monkey-patch Python Social Auth's base handler
-#
-# See
-# https://github.com/python-social-auth/social-app-tornado/blob/master/social_tornado/handlers.py
-# for the original
-#
 # Python Social Auth documentation:
 # https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
 
@@ -64,8 +55,12 @@ class PSABaseHandler(RequestHandler):
                         sqlalchemy.select(User).where(User.id == user_id)
                     ).first()
                     if user is None:
-                        return
-                    sa = user.social_auth.first()
+                        return None
+                    sa = session.scalars(
+                        sqlalchemy.select(psa.TornadoStorage.user).where(
+                            psa.TornadoStorage.user.user_id == user_id
+                        )
+                    ).first()
                     if sa is None:
                         # No SocialAuth entry; probably machine generated user
                         return user
@@ -74,6 +69,9 @@ class PSABaseHandler(RequestHandler):
                 except Exception as e:
                     session.rollback()
                     log(f"Could not get current user: {e}")
+                    return None
+        else:
+            return None
 
     def login_user(self, user):
         with DBSession() as session:
@@ -84,7 +82,11 @@ class PSABaseHandler(RequestHandler):
                 ).first()
                 if user is None:
                     return
-                sa = user.social_auth.first()
+                sa = session.scalars(
+                    sqlalchemy.select(psa.TornadoStorage.user).where(
+                        psa.TornadoStorage.user.user_id == user.id
+                    )
+                ).first()
                 if sa is not None:
                     self.set_secure_cookie("user_oauth_uid", sa.uid)
             except Exception as e:
@@ -119,11 +121,6 @@ class PSABaseHandler(RequestHandler):
 
     def on_finish(self):
         DBSession.remove()
-
-
-# Monkey-patch in each method of social_tornado.handlers.BaseHandler
-for (name, fn) in inspect.getmembers(PSABaseHandler, predicate=inspect.isfunction):
-    setattr(psa_handlers.BaseHandler, name, fn)
 
 
 class BaseHandler(PSABaseHandler):
