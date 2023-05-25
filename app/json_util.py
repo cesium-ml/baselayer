@@ -43,6 +43,9 @@ class Encoder(json.JSONEncoder):
         elif isinstance(o, PhoneNumber):
             return o.e164
 
+        elif o.__class__.__name__ == "ObjectId":
+            return str(o)
+
         elif type(o) is type and o in data_types:
             return data_types[o]
 
