@@ -116,6 +116,11 @@ http {
     {% endif %}
     client_max_body_size {{ server.max_body_size }}M;
 
+    {% if server.ssl_use_certificate %}
+    ssl_certificate {{ server.ssl_certificate }};
+    ssl_certificate_key {{ server.ssl_certificate_key }};
+    {% endif %}
+
     location / {
       # API rate limiting
       limit_req zone=custom_rate_limit burst={{ server.burst }} nodelay;

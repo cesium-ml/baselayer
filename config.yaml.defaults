@@ -26,6 +26,11 @@ server:
     # this should be set to False.
     ssl: False
 
+    # If you are using certificates, you can specify them here
+    ssl_use_certificate: False
+    ssl_certificate:
+    ssl_certificate_key:
+
     # According to the Tornado docs at
     # https://www.tornadoweb.org/en/stable/guide/running.html#processes-and-ports:
     #
