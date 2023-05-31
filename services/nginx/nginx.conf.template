@@ -111,7 +111,11 @@ http {
     {% if env.debug %}
     listen 127.0.0.1:{{ ports.app }};
     {% else %}
+    {% if server.ssl %}
+    listen {{ ports.app }} ssl;
+    {% else %}
     listen {{ ports.app }};
+    {% endif %}
     listen {{ ports.app_http_proxy }} proxy_protocol; # This is for AWS Elastic Load Balancer
     {% endif %}
     client_max_body_size {{ server.max_body_size }}M;
