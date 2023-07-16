@@ -52,5 +52,6 @@ class Encoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def to_json(obj):
-    return json.dumps(obj, cls=Encoder, indent=2, ignore_nan=True)
+def to_json(obj, **kwargs):
+    indent = kwargs.pop("indent", 2)
+    return json.dumps(obj, cls=Encoder, indent=indent, ignore_nan=True, **kwargs)
