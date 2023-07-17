@@ -32,8 +32,8 @@ class timeout_cache:
         tic = self.lastrun
         toc = time.time()
         if (toc - tic) > self.timeout or self.cache is None:
-            self.lastrun = toc
             self.cache = self.func(*args, **kwargs)
+            self.lastrun = time.time()
 
         return self.cache
 
