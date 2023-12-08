@@ -199,6 +199,6 @@ def login(driver):
 @pytest.fixture(scope="function", autouse=True)
 def reset_state(request):
     def teardown():
-        models.DBSession().rollback()
+        models.HandlerSession().rollback()
 
     request.addfinalizer(teardown)

@@ -26,7 +26,7 @@ from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import PickleType, Text
 from tornado.template import Loader, Template
 
-from baselayer.app.models import Base, DBSession, User
+from baselayer.app.models import Base, HandlerSession, User
 
 from .env import load_env
 
@@ -393,7 +393,7 @@ class SQLAlchemyMixin:
     @classmethod
     def _save_instance(cls, instance):
         instance_id = instance.id if hasattr(instance, "id") else None
-        session = DBSession()
+        session = HandlerSession()
         session.add(instance)
         if cls.COMMIT_SESSION:
             session.commit()
@@ -404,7 +404,7 @@ class SQLAlchemyMixin:
             except AssertionError:
                 session.commit()
         return (
-            DBSession.query(instance.__class__).filter_by(id=instance_id).first()
+            HandlerSession.query(instance.__class__).filter_by(id=instance_id).first()
             if instance_id
             else instance
         )
@@ -439,9 +439,9 @@ class SQLAlchemyUserMixin(SQLAlchemyMixin, UserMixin):
     @classmethod
     def allowed_to_disconnect(cls, user, backend_name, association_id=None):
         if association_id is not None:
-            qs = DBSession().query(cls).filter(cls.id != association_id)
+            qs = HandlerSession().query(cls).filter(cls.id != association_id)
         else:
-            qs = DBSession().query(cls).filter(cls.provider != backend_name)
+            qs = HandlerSession().query(cls).filter(cls.provider != backend_name)
         qs = qs.filter(cls.user == user)
 
         if hasattr(user, "has_usable_password"):  # TODO
@@ -452,7 +452,7 @@ class SQLAlchemyUserMixin(SQLAlchemyMixin, UserMixin):
 
     @classmethod
     def disconnect(cls, entry):
-        session = DBSession()
+        session = HandlerSession()
         session.delete(entry)
         try:
             session.flush()
@@ -466,7 +466,8 @@ class SQLAlchemyUserMixin(SQLAlchemyMixin, UserMixin):
         Arguments are directly passed to filter() manager method.
         """
         return (
-            DBSession().query(cls.user_model()).filter_by(*args, **kwargs).count() > 0
+            HandlerSession().query(cls.user_model()).filter_by(*args, **kwargs).count()
+            > 0
         )
 
     @classmethod
@@ -479,24 +480,29 @@ class SQLAlchemyUserMixin(SQLAlchemyMixin, UserMixin):
 
     @classmethod
     def get_user(cls, pk):
-        return DBSession().query(cls.user_model()).filter_by(id=pk).first()
+        return HandlerSession().query(cls.user_model()).filter_by(id=pk).first()
 
     @classmethod
     def get_users_by_email(cls, email):
-        return DBSession().query(cls.user_model()).filter_by(email=email).all()
+        return HandlerSession().query(cls.user_model()).filter_by(email=email).all()
 
     @classmethod
     def get_social_auth(cls, provider, uid):
         if not isinstance(uid, str):
             uid = str(uid)
         try:
-            return DBSession().query(cls).filter_by(provider=provider, uid=uid).first()
+            return (
+                HandlerSession()
+                .query(cls)
+                .filter_by(provider=provider, uid=uid)
+                .first()
+            )
         except IndexError:
             return None
 
     @classmethod
     def get_social_auth_for_user(cls, user, provider=None, id=None):
-        qs = DBSession().query(cls).filter_by(user_id=user.id)
+        qs = HandlerSession().query(cls).filter_by(user_id=user.id)
         if provider:
             qs = qs.filter_by(provider=provider)
         if id:
@@ -522,7 +528,7 @@ class SQLAlchemyNonceMixin(SQLAlchemyMixin, NonceMixin):
     def use(cls, server_url, timestamp, salt):
         kwargs = {"server_url": server_url, "timestamp": timestamp, "salt": salt}
 
-        qs = DBSession().query(cls).filter_by(**kwargs).first()
+        qs = HandlerSession().query(cls).filter_by(**kwargs).first()
         if qs is None:
             qs = cls._new_instance(cls, **kwargs)
         return qs
@@ -543,7 +549,7 @@ class SQLAlchemyAssociationMixin(SQLAlchemyMixin, AssociationMixin):
     def store(cls, server_url, association):
         # Don't use get_or_create because issued cannot be null
         assoc = (
-            DBSession()
+            HandlerSession()
             .query(cls)
             .filter_by(server_url=server_url, handle=association.handle)
             .first()
@@ -559,11 +565,11 @@ class SQLAlchemyAssociationMixin(SQLAlchemyMixin, AssociationMixin):
 
     @classmethod
     def get(cls, *args, **kwargs):
-        return DBSession().query(cls).filter_by(*args, **kwargs).first()
+        return HandlerSession().query(cls).filter_by(*args, **kwargs).first()
 
     @classmethod
     def remove(cls, ids_to_delete):
-        with DBSession() as session:
+        with HandlerSession() as session:
             assocs = session.query(cls).filter(cls.id.in_(ids_to_delete)).all()
             for assoc in assocs:
                 session.delete(assoc)
@@ -579,7 +585,7 @@ class SQLAlchemyCodeMixin(SQLAlchemyMixin, CodeMixin):
 
     @classmethod
     def get_code(cls, code):
-        return DBSession().query(cls).filter_by(code=code).first()
+        return HandlerSession().query(cls).filter_by(code=code).first()
 
 
 class SQLAlchemyPartialMixin(SQLAlchemyMixin, PartialMixin):
@@ -592,11 +598,11 @@ class SQLAlchemyPartialMixin(SQLAlchemyMixin, PartialMixin):
 
     @classmethod
     def load(cls, token):
-        return DBSession().query(cls).filter_by(token=token).first()
+        return HandlerSession().query(cls).filter_by(token=token).first()
 
     @classmethod
     def destroy(cls, token):
-        with DBSession() as session:
+        with HandlerSession() as session:
             partial = session.query(cls).filter_by(token=token).first()
             if partial:
                 session.delete(partial)

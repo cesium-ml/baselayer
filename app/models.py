@@ -28,9 +28,24 @@ webhook_url = cfg["security.slack.url"]
 log_database = cfg.get("log.database", False)
 log_database_pool = cfg.get("log.database_pool", False)
 
+
+# This provides one session per *thread*
+ThreadSession = scoped_session(sessionmaker())
+
+
+# This provides one session per *handler*
+# It is recommended to use the handler session via
+# self.Session, which has some knowledge
+# of the current user. See `handlers/base.py`
+#
+# DBSession has been renamed to HandlerSession
+# to make it clearer what it is doing.
+
+# We've renamed DBSession
+# It is not recommended to use DBSession directly;
 session_context_id = contextvars.ContextVar("request_id", default=None)
-# left here for backward compatibility:
 DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
+HandlerSession = DBSession
 
 
 class _VerifiedSession(sa.orm.session.Session):
@@ -61,7 +76,7 @@ class _VerifiedSession(sa.orm.session.Session):
         or be generating an unverified session to only query
         the user with a certain id. Example:
 
-        with DBSession() as session:
+        with HandlerSession() as session:
             user = session.scalars(
                 sa.select(User).where(User.id == user_id)
             ).first()
@@ -159,7 +174,7 @@ def bulk_verify(mode, collection, accessor):
         ).subquery()
 
         inaccessible_row_ids = (
-            DBSession()
+            HandlerSession()
             .scalars(
                 sa.select(record_cls.id)
                 .outerjoin(
@@ -258,7 +273,7 @@ def init_db(
         "max_overflow": 10,
         "pool_recycle": 3600,
     }
-    conn = sa.create_engine(
+    engine = sa.create_engine(
         url,
         client_encoding="utf8",
         executemany_mode="values_plus_batch",
@@ -268,10 +283,17 @@ def init_db(
         **{**default_engine_args, **engine_args},
     )
 
-    DBSession.configure(bind=conn, autoflush=autoflush, future=True)
-    Base.metadata.bind = conn
+    HandlerSession.configure(bind=engine, autoflush=autoflush, future=True)
+    # Convenience attribute to easily access the engine, otherwise would need
+    # HandlerSession.session_factory.kw["bind"]
+    HandlerSession.engine = engine
 
-    return conn
+    ThreadSession.configure(bind=engine, autoflush=autoflush, future=True)
+    ThreadSession.engine = engine
+
+    Base.metadata.bind = engine
+
+    return engine
 
 
 class SlugifiedStr(sa.types.TypeDecorator):
@@ -478,8 +500,8 @@ class Public(UserAccessControl):
         """
         # return only selected columns if requested
         if columns is not None:
-            return DBSession().query(*columns).select_from(cls)
-        return DBSession().query(cls)
+            return HandlerSession().query(*columns).select_from(cls)
+        return HandlerSession().query(cls)
 
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
@@ -571,9 +593,9 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         # return only selected columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
+            query = HandlerSession().query(*columns).select_from(cls)
         else:
-            query = DBSession().query(cls)
+            query = HandlerSession().query(cls)
 
         # traverse the relationship chain via sequential JOINs
         for relationship_name in self.relationship_names:
@@ -735,9 +757,9 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
 
         # return only selected columns if requested
         if columns is None:
-            base = DBSession().query(cls)
+            base = HandlerSession().query(cls)
         else:
-            base = DBSession().query(*columns).select_from(cls)
+            base = HandlerSession().query(*columns).select_from(cls)
 
         # ensure the target class has all the relationships referred to
         # in this instance
@@ -922,9 +944,9 @@ class ComposedAccessControl(UserAccessControl):
 
         # retrieve specified columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
+            query = HandlerSession().query(*columns).select_from(cls)
         else:
-            query = DBSession().query(cls)
+            query = HandlerSession().query(cls)
 
         # keep track of columns that will be null in the case of an unsuccessful
         # match for OR logic.
@@ -1076,9 +1098,12 @@ class Restricted(UserAccessControl):
         # otherwise, all records are inaccessible
         if columns is not None:
             return (
-                DBSession().query(*columns).select_from(cls).filter(sa.literal(False))
+                HandlerSession()
+                .query(*columns)
+                .select_from(cls)
+                .filter(sa.literal(False))
             )
-        return DBSession().query(cls).filter(sa.literal(False))
+        return HandlerSession().query(cls).filter(sa.literal(False))
 
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
@@ -1148,7 +1173,7 @@ class CustomUserAccessControl(UserAccessControl):
 
             Query (SQLA 1.4):
             >>>> CustomUserAccessControl(
-                DBSession().query(Department).join(Employee).group_by(
+                HandlerSession().query(Department).join(Employee).group_by(
                     Department.id
                 ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
             )
@@ -1166,8 +1191,8 @@ class CustomUserAccessControl(UserAccessControl):
             Query (SQLA 1.4):
             >>>> def access_logic(cls, user_or_token):
              ...      if user_or_token.is_system_admin:
-             ...         return DBSession().query(cls)
-             ...      return DBSession().query(cls).join(Employee).group_by(
+             ...         return HandlerSession().query(cls)
+             ...      return HandlerSession().query(cls).join(Employee).group_by(
              ...             cls.id
              ...      ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
             >>>> CustomUserAccessControl(access_logic)
@@ -1303,7 +1328,7 @@ class BaseMixin:
 
         # Query for the value of the access_func for this particular record and
         # return the result.
-        result = DBSession().execute(stmt).scalar_one() > 0
+        result = HandlerSession().execute(stmt).scalar_one() > 0
         if result is None:
             result = False
 
@@ -1353,7 +1378,7 @@ class BaseMixin:
 
         # TODO: vectorize this
         for pk in standardized:
-            instance = DBSession().query(cls).options(options).get(pk.item())
+            instance = HandlerSession().query(cls).options(options).get(pk.item())
             if instance is None or not instance.is_accessible_by(
                 user_or_token, mode=mode
             ):
@@ -1467,7 +1492,7 @@ class BaseMixin:
         standardized = np.atleast_1d(id_or_list)
         result = []
 
-        with DBSession() as session:
+        with HandlerSession() as session:
             # TODO: vectorize this
             for pk in standardized:
                 if options:
@@ -1519,7 +1544,7 @@ class BaseMixin:
             If columns is specified, will return a list of tuples
             containing the data from each column requested.
         """
-        with DBSession() as session:
+        with HandlerSession() as session:
             stmt = cls.select(user_or_token, mode, options, columns)
             values = session.scalars(stmt).all()
 
@@ -1566,7 +1591,7 @@ class BaseMixin:
             stmt = stmt.options(option)
         return stmt
 
-    query = DBSession.query_property()
+    query = HandlerSession.query_property()
 
     id = sa.Column(
         sa.Integer,
@@ -1608,8 +1633,8 @@ class BaseMixin:
     def to_dict(self):
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
-            self = DBSession().merge(self)
-            DBSession().refresh(self)
+            self = HandlerSession().merge(self)
+            HandlerSession().refresh(self)
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     @classmethod
@@ -1632,7 +1657,7 @@ class BaseMixin:
         obj : baselayer.app.models.Base
            The requested entity.
         """
-        obj = DBSession().query(cls).options(options).get(ident)
+        obj = HandlerSession().query(cls).options(options).get(ident)
 
         if obj is not None and not obj.is_readable_by(user_or_token):
             raise AccessError("Insufficient permissions.")
@@ -1659,7 +1684,7 @@ class BaseMixin:
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
-        obj = DBSession().query(cls).get(id)
+        obj = HandlerSession().query(cls).get(id)
         if obj is not None:
             return obj
         else:
@@ -1876,7 +1901,7 @@ class User(Base):
     role_ids = association_proxy(
         "roles",
         "id",
-        creator=lambda r: DBSession().query(Role).get(r),
+        creator=lambda r: HandlerSession().query(Role).get(r),
     )
     tokens = relationship(
         "Token",
@@ -1982,7 +2007,7 @@ class Token(Base):
         lazy="selectin",
     )
     acl_ids = association_proxy(
-        "acls", "id", creator=lambda acl: DBSession().query(ACL).get(acl)
+        "acls", "id", creator=lambda acl: HandlerSession().query(ACL).get(acl)
     )
     permissions = acl_ids
 

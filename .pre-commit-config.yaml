@@ -23,7 +23,7 @@ repos:
         pass_filenames: true
         exclude: baselayer|node_modules|static
   - repo: https://github.com/pycqa/flake8
-    rev: 3.8.4
+    rev: 6.1.0
     hooks:
       - id: flake8
         pass_filenames: true
