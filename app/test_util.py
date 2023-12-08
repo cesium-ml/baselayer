@@ -146,7 +146,7 @@ class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
 def driver(request):
     from selenium import webdriver
 
-    options = webdriver.firefox.options.Options()
+    options = webdriver.FirefoxOptions()
     if "BASELAYER_TEST_HEADLESS" in os.environ:
         options.headless = True
     options.set_preference("devtools.console.stdout.content", True)
