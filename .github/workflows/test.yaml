@@ -32,25 +32,29 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/setup-python@v1
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.8"
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install template app
         run: |
           git clone https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('baselayer_template_app/package.json') }}
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cache/pip
@@ -60,8 +64,7 @@ jobs:
         run: |
           cd baselayer
 
-          curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-
+          sudo apt update -y
           sudo apt install -y wget nodejs unzip firefox nginx
 
           pip install --upgrade pip
