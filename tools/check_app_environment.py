@@ -83,8 +83,8 @@ print()
 try:
     with status("Baselayer installed inside of app"):
         if not (
-            os.path.exists("../config.yaml")
-            or os.path.exists("../config.yaml.defaults")
+            os.path.exists("config.yaml")
+            or os.path.exists("config.yaml.defaults")
         ):
             raise RuntimeError()
 except RuntimeError:
