@@ -12,7 +12,7 @@ log = make_log("baselayer")
 def recursive_update(d, u):
     # Based on https://stackoverflow.com/a/3233356/214686
     for k, v in u.items():
-        if isinstance(v, collections.Mapping):
+        if isinstance(v, collections.abc.Mapping):
             r = recursive_update(d.get(k, {}) or {}, v)
             d[k] = r
         else:

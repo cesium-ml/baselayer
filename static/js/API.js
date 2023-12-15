@@ -30,8 +30,8 @@ function API(endpoint, actionType, method = "GET", body = {}, otherArgs = {}) {
       return dispatch(
         showNotification(
           "API invocation error: no actionType specified",
-          "error"
-        )
+          "error",
+        ),
       );
     }
     dispatch({ type: API_CALL, parameters });
@@ -39,7 +39,7 @@ function API(endpoint, actionType, method = "GET", body = {}, otherArgs = {}) {
       const response = await fetch(endpoint, fetchInit);
       if (response.status !== 200) {
         throw new Error(
-          `Could not fetch data from server (${response.status})`
+          `Could not fetch data from server (${response.status})`,
         );
       }
 

@@ -79,7 +79,7 @@ export function showNotification(
   note,
   type = "info",
   duration = 3000,
-  tag = "default"
+  tag = "default",
 ) {
   const thisId = nextNotificationId;
   nextNotificationId += 1;
