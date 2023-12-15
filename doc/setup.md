@@ -39,15 +39,17 @@ See [below](#configuration) for more information on modifying the baselayer conf
 - Using `apt-get`:
   `sudo apt-get install nginx supervisor postgresql libpq-dev npm nodejs-legacy`
 - It may be necessary to configure your database permissions: at
-  the end of your `pg_hba.conf` (typically in `/etc/postgresql/13.3/main`),
+  the end of your `pg_hba.conf` (typically in `/etc/postgresql/13.3/main` or `/var/lib/pgsql/data`),
   add the following lines and restart PostgreSQL
-  (`sudo service postgresql restart`):
+  (`sudo service postgresql restart` or `systemctl reload postgresql`):
 
   ```
-  local all postgres peer
-  local baselayer baselayer trust
-  local baselayer_test baselayer trust
+  # CONNECTION DATABASE USER ADDRESS METHOD
+  host template_app template_app localhost trust
+  host all postgres localhost trust
   ```
+
+  Substitute the correct database name and user, as defined in your `config.yaml`.
 
 ## Building the baselayer database
 
