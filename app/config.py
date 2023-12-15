@@ -1,4 +1,4 @@
-import collections.abc as collections
+import collections
 import os
 from pathlib import Path
 
