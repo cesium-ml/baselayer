@@ -5,7 +5,7 @@ import tornado.web
 from sqlalchemy.orm import joinedload
 
 from baselayer.app.custom_exceptions import AccessError  # noqa: F401
-from baselayer.app.models import DBSession, Role, Token, User  # noqa: F401
+from baselayer.app.models import HandlerSession, Role, Token, User  # noqa: F401
 
 
 def auth_or_token(method):
@@ -26,7 +26,7 @@ def auth_or_token(method):
         token_header = self.request.headers.get("Authorization", None)
         if token_header is not None and token_header.startswith("token "):
             token_id = token_header.replace("token", "").strip()
-            with DBSession() as session:
+            with HandlerSession() as session:
                 token = session.scalars(
                     sa.select(Token)
                     .options(

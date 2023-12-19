@@ -22,7 +22,13 @@ from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
-from ..models import DBSession, User, VerifiedSession, bulk_verify, session_context_id
+from ..models import (
+    HandlerSession,
+    User,
+    VerifiedSession,
+    bulk_verify,
+    session_context_id,
+)
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -49,7 +55,7 @@ class PSABaseHandler(RequestHandler):
         user_id = int(self.user_id())
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
-            with DBSession() as session:
+            with HandlerSession() as session:
                 try:
                     user = session.scalars(
                         sqlalchemy.select(User).where(User.id == user_id)
@@ -74,7 +80,7 @@ class PSABaseHandler(RequestHandler):
             return None
 
     def login_user(self, user):
-        with DBSession() as session:
+        with HandlerSession() as session:
             try:
                 self.set_secure_cookie("user_id", str(user.id))
                 user = session.scalars(
@@ -120,7 +126,7 @@ class PSABaseHandler(RequestHandler):
             )
 
     def on_finish(self):
-        DBSession.remove()
+        HandlerSession.remove()
 
 
 class BaseHandler(PSABaseHandler):
@@ -153,7 +159,7 @@ class BaseHandler(PSABaseHandler):
             # must merge the user object with the current session
             # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
             session.add(self.current_user)
-            session.bind = DBSession.session_factory.kw["bind"]
+            session.bind = HandlerSession.engine
             yield session
 
     def verify_permissions(self):
@@ -164,20 +170,20 @@ class BaseHandler(PSABaseHandler):
         """
 
         # get items to be inserted
-        new_rows = [row for row in DBSession().new]
+        new_rows = [row for row in HandlerSession().new]
 
         # get items to be updated
         updated_rows = [
-            row for row in DBSession().dirty if DBSession().is_modified(row)
+            row for row in HandlerSession().dirty if HandlerSession().is_modified(row)
         ]
 
         # get items to be deleted
-        deleted_rows = [row for row in DBSession().deleted]
+        deleted_rows = [row for row in HandlerSession().deleted]
 
         # get items that were read
         read_rows = [
             row
-            for row in set(DBSession().identity_map.values())
+            for row in set(HandlerSession().identity_map.values())
             - (set(updated_rows) | set(new_rows) | set(deleted_rows))
         ]
 
@@ -194,7 +200,7 @@ class BaseHandler(PSABaseHandler):
         # update transaction state in DB, but don't commit yet. this updates
         # or adds rows in the database and uses their new state in joins,
         # for permissions checking purposes.
-        DBSession().flush()
+        HandlerSession().flush()
         bulk_verify("create", new_rows, self.current_user)
 
     def verify_and_commit(self):
@@ -202,7 +208,7 @@ class BaseHandler(PSABaseHandler):
         successful, otherwise raise an AccessError.
         """
         self.verify_permissions()
-        DBSession().commit()
+        HandlerSession().commit()
 
     def prepare(self):
         self.cfg = self.application.cfg
@@ -225,7 +231,7 @@ class BaseHandler(PSABaseHandler):
         N = 5
         for i in range(1, N + 1):
             try:
-                assert DBSession.session_factory.kw["bind"] is not None
+                assert HandlerSession.engine is not None
             except Exception as e:
                 if i == N:
                     raise e

@@ -31,7 +31,7 @@ make use of include:
 
 ```
 from baselayer.app.env import load_env
-from baselayer.models import DBSession, init_db
+from baselayer.models import HandlerSession, init_db
 env, cfg = load_env()
 init_db(**cfg['database'])
 ```
@@ -39,13 +39,13 @@ init_db(**cfg['database'])
 - The session object controls various DB state operations:
 
 ```
-DBSession().add(obj)  # add a new object into the DB
-DBSession().commit()  # commit modifications to objects
-DBSession().rollback()  # recover after a DB error
+HandlerSession().add(obj)  # add a new object into the DB
+HandlerSession().commit()  # commit modifications to objects
+HandlerSession().rollback()  # recover after a DB error
 ```
 
 - Generic logic applicable to any model is included in the base model class `baselayer.app.models.Base` (`to_dict`, `__str__`, etc.), but can be overridden within a specific model
-- Models can be selected directly (`User.query.all()`), or more specific queries can be constructed via the session object (`DBSession().query(User.id).all()`)
+- Models can be selected directly (`User.query.all()`), or more specific queries can be constructed via the session object (`HandlerSession().query(User.id).all()`)
 - Convenience functionality:
   - Join relationships: some multi-step relationships are defined through joins using the `secondary` parameter to eliminate queries from the intermediate table; e.g., `User.acls` instad of `[r.acls for r in User.roles]`
   - [Association proxies](http://docs.sqlalchemy.org/en/latest/orm/extensions/associationproxy.html): shortcut to some attribute of a related object; e.g., `User.permissions` instead of `[a.id for a in User.acls]`
@@ -59,7 +59,7 @@ DBSession().rollback()  # recover after a DB error
 To start a session without verification (i.e., when not committing to DB):
 
 ```
-with DBSession() as session:
+with HandlerSession() as session:
   ...
 ```
 
@@ -121,7 +121,11 @@ with VerifiedSession(user_or_token) as session:
 ```
 
 If not using `commit()`, the call to `VerifiedSession(user_or_token)`
-can be replaced with `DBSession()` with no arguments.
+can be replaced with `HandlerSession()` with no arguments.
+
+When operating outside of a handler, such as when firing off new
+tasks, or inside of services, `ThreadSession` must be used instead of
+`HandlerSession`.
 
 ## Standards
 

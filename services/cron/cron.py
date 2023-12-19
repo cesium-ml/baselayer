@@ -8,7 +8,7 @@ import yaml
 from dateutil.parser import parse as parse_time
 
 from baselayer.app.env import load_env
-from baselayer.app.models import CronJobRun, DBSession, init_db
+from baselayer.app.models import CronJobRun, ThreadSession, init_db
 from baselayer.log import make_log
 
 log = make_log("cron")
@@ -90,9 +90,11 @@ while True:
                 output, _ = proc.communicate()
             except Exception as e:
                 log(f"Error executing {script}: {e}")
-                DBSession().add(CronJobRun(script=script, exit_status=1, output=str(e)))
+                ThreadSession().add(
+                    CronJobRun(script=script, exit_status=1, output=str(e))
+                )
             else:
-                DBSession().add(
+                ThreadSession().add(
                     CronJobRun(
                         script=script,
                         exit_status=proc.returncode,
@@ -100,6 +102,6 @@ while True:
                     )
                 )
             finally:
-                DBSession().commit()
+                ThreadSession().commit()
 
     time.sleep(60)

@@ -21,15 +21,15 @@ def status(message):
     else:
         print(f"\r[✓] {message}")
     finally:
-        models.DBSession().commit()
+        models.HandlerSession().commit()
 
 
 def drop_tables():
-    conn = models.DBSession.session_factory.kw["bind"]
-    print(f"Dropping tables on database {conn.url.database}")
+    engine = models.HandlerSession.engine
+    print(f"Dropping tables on database {engine.url.database}")
     meta = sa.MetaData()
-    meta.reflect(bind=conn)
-    meta.drop_all(bind=conn)
+    meta.reflect(bind=engine)
+    meta.drop_all(bind=engine)
 
 
 def create_tables(retry=5, add=True):
@@ -45,7 +45,6 @@ def create_tables(retry=5, add=True):
         tables.
 
     """
-    conn = models.DBSession.session_factory.kw["bind"]
     tables = models.Base.metadata.sorted_tables
     if tables and not add:
         print("Existing tables found; not creating additional tables")
@@ -53,9 +52,9 @@ def create_tables(retry=5, add=True):
 
     for i in range(1, retry + 1):
         try:
-            conn = models.DBSession.session_factory.kw["bind"]
-            print(f"Creating tables on database {conn.url.database}")
-            models.Base.metadata.create_all(conn)
+            engine = models.HandlerSession.engine
+            print(f"Creating tables on database {engine.url.database}")
+            models.Base.metadata.create_all(engine)
 
             table_list = ", ".join(list(models.Base.metadata.tables.keys()))
             print(f"Refreshed tables: {table_list}")
