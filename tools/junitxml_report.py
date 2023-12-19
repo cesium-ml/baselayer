@@ -4,7 +4,7 @@
 import argparse
 import sys
 from collections import defaultdict
-from xml.etree import cElementTree as ET
+from xml.etree import ElementTree as ET
 
 from baselayer.log import colorize
 

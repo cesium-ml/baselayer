@@ -26,7 +26,7 @@ def describe_targets(lines):
 
     N = max(len(target) for (target, desc) in targets.items())
 
-    for (target, desc) in targets.items():
+    for target, desc in targets.items():
         print(f"{target:{N}} {desc}")
 
 

@@ -1,11 +1,11 @@
 [program:dask_scheduler]
-command=dask-scheduler --host 127.0.0.1 --port={{ ports.dask }} --no-bokeh
+command=dask-scheduler --host 127.0.0.1 --port={{ ports.dask }} --no-dashboard
 environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
 stdout_logfile=log/dask_scheduler.log
 redirect_stderr=true
 
 [program:dask_worker]
-command=dask-worker --nthreads=1 --nprocs=4 127.0.0.1:{{ ports.dask }}
+command=dask-worker --nthreads=1 --nworkers=4 127.0.0.1:{{ ports.dask }}
 environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
 stdout_logfile=log/dask_workers.log
 redirect_stderr=true
