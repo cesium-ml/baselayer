@@ -14,8 +14,10 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_base, relationship, scoped_session, sessionmaker
+from sqlalchemy.orm import declarative_base, relationship, scoped_session, sessionmaker, Session
 from sqlalchemy_utils import EmailType, PhoneNumberType
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, async_scoped_session, AsyncSession
+
 
 from .custom_exceptions import AccessError
 from .env import load_env
@@ -30,7 +32,7 @@ log_database_pool = cfg.get("log.database_pool", False)
 
 session_context_id = contextvars.ContextVar("request_id", default=None)
 # left here for backward compatibility:
-DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
+DBSession = async_scoped_session(async_sessionmaker(), scopefunc=session_context_id.get)
 
 
 class _VerifiedSession(sa.orm.session.Session):
@@ -120,9 +122,9 @@ class _VerifiedSession(sa.orm.session.Session):
         super().commit()
 
 
-def VerifiedSession(user_or_token):
-    return scoped_session(
-        sessionmaker(class_=_VerifiedSession, user_or_token=user_or_token),
+def VerifiedSession(user_or_token) -> AsyncSession:
+    return async_scoped_session(
+        async_sessionmaker(sync_session_class=_VerifiedSession, user_or_token=user_or_token),
         scopefunc=session_context_id.get,
     )()
 
@@ -250,7 +252,7 @@ def init_db(
            Default 3600.
 
     """
-    url = "postgresql://{}:{}@{}:{}/{}"
+    url = "postgresql+asyncpg://{}:{}@{}:{}/{}"
     url = url.format(user, password or "", host or "", port or "", database)
 
     default_engine_args = {
@@ -258,10 +260,10 @@ def init_db(
         "max_overflow": 10,
         "pool_recycle": 3600,
     }
-    conn = sa.create_engine(
+    conn = create_async_engine(
         url,
-        client_encoding="utf8",
-        executemany_mode="values_plus_batch",
+        #client_encoding="utf8",
+        #executemany_mode="values_plus_batch",
         insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
         echo=log_database,
         echo_pool=log_database_pool,
@@ -455,7 +457,7 @@ class UserAccessControl:
 class Public(UserAccessControl):
     """A record accessible to anyone."""
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
+    async def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
         All query based functions will be deprecated when moving to
@@ -478,8 +480,8 @@ class Public(UserAccessControl):
         """
         # return only selected columns if requested
         if columns is not None:
-            return DBSession().query(*columns).select_from(cls)
-        return DBSession().query(cls)
+            return await DBSession().scalars(sa.select(*columns).select_from(cls))
+        return await DBSession().scalars(sa.select(cls))
 
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
@@ -543,7 +545,7 @@ class AccessibleIfUserMatches(UserAccessControl):
         """
         self.relationship_chain = relationship_chain
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
+    async def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
         All query based functions will be deprecated when moving to
@@ -571,9 +573,9 @@ class AccessibleIfUserMatches(UserAccessControl):
 
         # return only selected columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
+            query = await DBSession().scalars(sa.select(*columns).select_from(cls))
         else:
-            query = DBSession().query(cls)
+            query = await DBSession().scalars(sa.select(cls))
 
         # traverse the relationship chain via sequential JOINs
         for relationship_name in self.relationship_names:
@@ -711,7 +713,7 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
             raise ValueError("Need at least 1 property to check.")
         self._properties_and_modes = value
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
+    async def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
         All query based functions will be deprecated when moving to
@@ -735,9 +737,9 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
 
         # return only selected columns if requested
         if columns is None:
-            base = DBSession().query(cls)
+            base = await DBSession().scalars(sa.select(cls))
         else:
-            base = DBSession().query(*columns).select_from(cls)
+            base = await DBSession().scalars(sa.select(*columns).select_from(cls))
 
         # ensure the target class has all the relationships referred to
         # in this instance
@@ -898,7 +900,7 @@ class ComposedAccessControl(UserAccessControl):
             )
         self._logic = value
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
+    async def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
         All query based functions will be deprecated when moving to
@@ -922,9 +924,9 @@ class ComposedAccessControl(UserAccessControl):
 
         # retrieve specified columns if requested
         if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
+            query = await DBSession().scalars(sa.select(*columns).select_from(cls))
         else:
-            query = DBSession().query(cls)
+            query = await DBSession().scalars(sa.select(cls))
 
         # keep track of columns that will be null in the case of an unsuccessful
         # match for OR logic.
@@ -1047,7 +1049,7 @@ class ComposedAccessControl(UserAccessControl):
 class Restricted(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
+    async def query_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Query object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
         All query based functions will be deprecated when moving to
@@ -1076,9 +1078,9 @@ class Restricted(UserAccessControl):
         # otherwise, all records are inaccessible
         if columns is not None:
             return (
-                DBSession().query(*columns).select_from(cls).filter(sa.literal(False))
+                await DBSession().scalars(sa.select(*columns).select_from(cls).where(sa.literal(False)))
             )
-        return DBSession().query(cls).filter(sa.literal(False))
+        return await DBSession().scalars(sa.select(cls).where(sa.literal(False)))
 
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
@@ -1317,7 +1319,7 @@ class BaseMixin:
         return result
 
     @classmethod
-    def get_if_accessible_by(
+    async def get_if_accessible_by(
         cls,
         cls_id,
         user_or_token,
@@ -1353,7 +1355,7 @@ class BaseMixin:
 
         # TODO: vectorize this
         for pk in standardized:
-            instance = DBSession().query(cls).options(options).get(pk.item())
+            instance = await DBSession().scalars(sa.select(cls).options(options).where(cls.id == pk.item())).first()
             if instance is None or not instance.is_accessible_by(
                 user_or_token, mode=mode
             ):
@@ -1566,7 +1568,11 @@ class BaseMixin:
             stmt = stmt.options(option)
         return stmt
 
-    query = DBSession.query_property()
+    def query(self, *args, **kwargs):
+        """Return a SQLAlchemy query object for this record."""
+        raise NotImplementedError(
+            "query() is deprecated. Use select() or query_accessible_rows() instead."
+        )
 
     id = sa.Column(
         sa.Integer,
@@ -1605,15 +1611,15 @@ class BaseMixin:
         ]
         return f"<{type(self).__name__}({', '.join(attr_list)})>"
 
-    def to_dict(self):
+    async def to_dict(self):
         """Serialize this object to a Python dictionary."""
         if sa.inspection.inspect(self).expired:
-            self = DBSession().merge(self)
-            DBSession().refresh(self)
+            self = await DBSession().merge(self)
+            await DBSession().refresh(self)
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
     @classmethod
-    def get_if_readable_by(cls, ident, user_or_token, options=[]):
+    async def get_if_readable_by(cls, ident, user_or_token, options=[]):
         """Return an object from the database if the requesting User or Token
         has access to read the object. If the requesting User or Token does not
         have access, raise an AccessError.
@@ -1632,7 +1638,7 @@ class BaseMixin:
         obj : baselayer.app.models.Base
            The requested entity.
         """
-        obj = DBSession().query(cls).options(options).get(ident)
+        obj = await DBSession().scalars(sa.select(cls).options(options).where(cls.id == ident)).first()
 
         if obj is not None and not obj.is_readable_by(user_or_token):
             raise AccessError("Insufficient permissions.")
@@ -1656,10 +1662,10 @@ class BaseMixin:
         raise NotImplementedError("Ownership logic is application-specific")
 
     @classmethod
-    def create_or_get(cls, id):
+    async def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
-        obj = DBSession().query(cls).get(id)
+        obj = await DBSession().scalar(sa.select(cls).where(cls.id == id))
         if obj is not None:
             return obj
         else:
@@ -1768,12 +1774,14 @@ def join_model(
                 cascade="save-update, merge, refresh-expire, expunge",
                 foreign_keys=[model_attrs[column_1]],
                 overlaps=overlap_string,
+                lazy="selectin",
             ),
             model_2.__name__.lower(): relationship(
                 model_2,
                 cascade="save-update, merge, refresh-expire, expunge",
                 foreign_keys=[model_attrs[column_2]],
                 overlaps=overlap_string,
+                lazy="selectin",
             ),
             forward_ind_name: sa.Index(
                 forward_ind_name,
@@ -1876,7 +1884,7 @@ class User(Base):
     role_ids = association_proxy(
         "roles",
         "id",
-        creator=lambda r: DBSession().query(Role).get(r),
+        creator=lambda r: DBSession().scalars(sa.select(Role).where(Role.id == r)).first(),
     )
     tokens = relationship(
         "Token",
@@ -1982,7 +1990,7 @@ class Token(Base):
         lazy="selectin",
     )
     acl_ids = association_proxy(
-        "acls", "id", creator=lambda acl: DBSession().query(ACL).get(acl)
+        "acls", "id", creator=lambda acl: DBSession().scalars(sa.select(ACL).where(ACL.id == acl)).first()
     )
     permissions = acl_ids
 

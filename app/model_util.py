@@ -1,5 +1,6 @@
 import time
 from contextlib import contextmanager
+import traceback
 
 import sqlalchemy as sa
 
@@ -32,7 +33,7 @@ def drop_tables():
     meta.drop_all(bind=conn)
 
 
-def create_tables(retry=5, add=True):
+async def create_tables(retry=5, add=True):
     """Create tables for all models, retrying 5 times at intervals of 3
     seconds if the database is not reachable.
 
@@ -55,7 +56,8 @@ def create_tables(retry=5, add=True):
         try:
             conn = models.DBSession.session_factory.kw["bind"]
             print(f"Creating tables on database {conn.url.database}")
-            models.Base.metadata.create_all(conn)
+            async with conn.begin() as conn:
+                await conn.run_sync(models.Base.metadata.create_all)
 
             table_list = ", ".join(list(models.Base.metadata.tables.keys()))
             print(f"Refreshed tables: {table_list}")
@@ -68,6 +70,7 @@ def create_tables(retry=5, add=True):
             if i == retry:
                 raise e
             else:
+                print(str(traceback.format_exc()))
                 print("Could not connect to database...sleeping 3")
                 print(f"  > {e}")
                 time.sleep(3)

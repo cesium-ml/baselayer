@@ -13,6 +13,7 @@ data_types = {
     list: "list",
 }
 
+import asyncio
 
 class Encoder(json.JSONEncoder):
     """Extends json.JSONEncoder with additional capabilities/configurations."""
@@ -24,8 +25,12 @@ class Encoder(json.JSONEncoder):
         elif isinstance(o, bytes):
             return o.decode("utf-8")
 
+        # TODO: how do we handle that when to_dict is async???
+        # elif hasattr(o, "__table__"):  # SQLAlchemy model
+        #     return asyncio.run(o.to_dict())
+        # instead we throw an error for now
         elif hasattr(o, "__table__"):  # SQLAlchemy model
-            return o.to_dict()
+            raise NotImplementedError("sync to_dict not implemented yet")
 
         elif o is int:
             return "int"
@@ -52,6 +57,6 @@ class Encoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def to_json(obj, **kwargs):
+async def to_json(obj, **kwargs):
     indent = kwargs.pop("indent", 2)
     return json.dumps(obj, cls=Encoder, indent=indent, ignore_nan=True, **kwargs)

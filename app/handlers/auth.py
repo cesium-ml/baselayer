@@ -31,13 +31,13 @@ def load_backend(request_handler, strategy, name, redirect_uri):
 def psa(redirect_uri=None):
     def decorator(func):
         @wraps(func)
-        def wrapper(self, backend, *args, **kwargs):
+        async def wrapper(self, backend, *args, **kwargs):
             uri = redirect_uri
             if uri and not uri.startswith("/"):
                 uri = self.reverse_url(uri, backend)
             self.strategy = load_strategy(self)
             self.backend = load_backend(self, self.strategy, backend, uri)
-            return func(self, backend, *args, **kwargs)
+            return await func(self, backend, *args, **kwargs)
 
         return wrapper
 
@@ -57,18 +57,19 @@ class AuthHandler(BaseHandler):
 
 
 class CompleteHandler(BaseHandler):
-    def get(self, backend):
+    async def get(self, backend):
         self._complete(backend)
 
-    def post(self, backend):
+    async def post(self, backend):
         self._complete(backend)
 
     @psa("complete")
-    def _complete(self, backend):
+    async def _complete(self, backend):
+        user = await self.get_current_user()
         do_complete(
             self.backend,
             login=lambda backend, user, social_user: self.login_user(user),
-            user=self.get_current_user(),
+            user=user,
         )
 
 

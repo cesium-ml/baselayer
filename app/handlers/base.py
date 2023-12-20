@@ -1,7 +1,9 @@
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from json.decoder import JSONDecodeError
+from tornado.ioloop import IOLoop
+from tornado import gen
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -43,54 +45,54 @@ class PSABaseHandler(RequestHandler):
     def user_id(self):
         return self.get_secure_cookie("user_id")
 
-    def get_current_user(self):
+    async def get_current_user(self):
         if self.user_id() is None:
             return
         user_id = int(self.user_id())
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
-            with DBSession() as session:
+            async with DBSession() as session:
                 try:
-                    user = session.scalars(
+                    user = await session.scalar(
                         sqlalchemy.select(User).where(User.id == user_id)
-                    ).first()
+                    )
                     if user is None:
                         return None
-                    sa = session.scalars(
+                    sa = await session.scalar(
                         sqlalchemy.select(psa.TornadoStorage.user).where(
                             psa.TornadoStorage.user.user_id == user_id
                         )
-                    ).first()
+                    )
                     if sa is None:
                         # No SocialAuth entry; probably machine generated user
                         return user
                     if sa.uid.encode("utf-8") == oauth_uid:
                         return user
                 except Exception as e:
-                    session.rollback()
+                    await session.rollback()
                     log(f"Could not get current user: {e}")
                     return None
         else:
             return None
 
-    def login_user(self, user):
-        with DBSession() as session:
+    async def login_user(self, user):
+        async with DBSession() as session:
             try:
                 self.set_secure_cookie("user_id", str(user.id))
-                user = session.scalars(
+                user = await session.scalar(
                     sqlalchemy.select(User).where(User.id == user.id)
-                ).first()
+                )
                 if user is None:
                     return
-                sa = session.scalars(
+                sa = await session.scalar(
                     sqlalchemy.select(psa.TornadoStorage.user).where(
                         psa.TornadoStorage.user.user_id == user.id
                     )
-                ).first()
+                )
                 if sa is not None:
                     self.set_secure_cookie("user_oauth_uid", sa.uid)
             except Exception as e:
-                session.rollback()
+                await session.rollback()
                 log(f"Could not login user: {e}")
 
     def write_error(self, status_code, exc_info=None):
@@ -119,13 +121,16 @@ class PSABaseHandler(RequestHandler):
                 exc_info=(typ, value, tb),
             )
 
+    async def on_finish_async(self):
+        await DBSession.remove()
+
     def on_finish(self):
-        DBSession.remove()
+        IOLoop.current().add_callback(self.on_finish_async)
 
 
 class BaseHandler(PSABaseHandler):
-    @contextmanager
-    def Session(self):
+    @asynccontextmanager
+    async def Session(self):
         """
         Generate a scoped session that also has knowledge
         of the current user, so when commit() is called on it
@@ -149,11 +154,14 @@ class BaseHandler(PSABaseHandler):
         before every commit.
 
         """
-        with VerifiedSession(self.current_user) as session:
+        user = await self.current_user
+        async with VerifiedSession(user) as session:
             # must merge the user object with the current session
             # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
-            session.add(self.current_user)
-            session.bind = DBSession.session_factory.kw["bind"]
+            session.add(user)
+            session.user_or_token = user
+            session.sync_session.bind = DBSession().sync_session.bind
+            
             yield session
 
     def verify_permissions(self):
@@ -331,7 +339,7 @@ class BaseHandler(PSABaseHandler):
         """
         self.push(action, payload)
 
-    def success(self, data={}, action=None, payload={}, status=200, extra={}):
+    async def success(self, data={}, action=None, payload={}, status=200, extra={}):
         """Write data and send actions on API success.
 
         The return JSON has the following format::
@@ -364,7 +372,8 @@ class BaseHandler(PSABaseHandler):
 
         self.set_header("Content-Type", "application/json")
         self.set_status(status)
-        self.write(to_json({"status": "success", "data": data, **extra}))
+        response = await to_json({"status": "success", "data": data, **extra})
+        self.write(response)
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:

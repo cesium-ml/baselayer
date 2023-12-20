@@ -12,8 +12,8 @@ from baselayer.app.handlers.base import BaseHandler
 
 class SocketAuthTokenHandler(BaseHandler):
     @tornado.web.authenticated
-    def get(self):
-        user = self.current_user
+    async def get(self):
+        user = await self.current_user
         if user is None:
             raise RuntimeError(
                 "No current user while authenticating socket. "
