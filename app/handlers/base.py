@@ -3,7 +3,6 @@ import uuid
 from contextlib import asynccontextmanager
 from json.decoder import JSONDecodeError
 from tornado.ioloop import IOLoop
-from tornado import gen
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user

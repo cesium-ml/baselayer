@@ -1,6 +1,5 @@
 import time
 from contextlib import contextmanager
-import traceback
 
 import sqlalchemy as sa
 
@@ -70,7 +69,6 @@ async def create_tables(retry=5, add=True):
             if i == retry:
                 raise e
             else:
-                print(str(traceback.format_exc()))
                 print("Could not connect to database...sleeping 3")
                 print(f"  > {e}")
                 time.sleep(3)

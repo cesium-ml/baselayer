@@ -14,7 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_base, relationship, scoped_session, sessionmaker, Session
+from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy_utils import EmailType, PhoneNumberType
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, async_scoped_session, AsyncSession
 
@@ -262,8 +262,6 @@ def init_db(
     }
     conn = create_async_engine(
         url,
-        #client_encoding="utf8",
-        #executemany_mode="values_plus_batch",
         insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
         echo=log_database,
         echo_pool=log_database_pool,
