@@ -56,7 +56,7 @@ function getAuthToken(auth_url) {
 
 function showWebsocketNotification(dispatch, msg, tag) {
   dispatch(hideNotificationByTag(tag)).then(
-    dispatch(showNotification(msg, "warning", 50 * MS_PER_YEAR, tag))
+    dispatch(showNotification(msg, "warning", 50 * MS_PER_YEAR, tag)),
   );
 }
 
@@ -85,7 +85,7 @@ class WebSocket extends React.Component {
       showWebsocketNotification(
         dispatch,
         "No WebSocket connection: limited functionality may be available",
-        tag
+        tag,
       );
     };
 
@@ -110,7 +110,7 @@ class WebSocket extends React.Component {
           showWebsocketNotification(
             dispatch,
             "WebSocket connection authentication failed: limited functionality may be available",
-            tag
+            tag,
           );
           break;
         case "AUTH OK":
@@ -130,7 +130,7 @@ class WebSocket extends React.Component {
       showWebsocketNotification(
         dispatch,
         "No WebSocket connection: limited functionality may be available",
-        tag
+        tag,
       );
     };
   }

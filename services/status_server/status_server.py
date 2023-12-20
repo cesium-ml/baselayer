@@ -10,6 +10,10 @@ class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.set_status(503)
         self.write(f"<h2>{cfg['app.title']} is being provisioned</h2>")
+        self.write(
+            "<p>Sysadmins can run <code>make monitor</code> on the server to see how that is progressing."
+        )
+        self.write("<p>System logs are in <code>./log/app_*.log</code></p>")
 
 
 class MainAPIHandler(tornado.web.RequestHandler):

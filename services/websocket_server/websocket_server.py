@@ -160,7 +160,6 @@ class WebSocket(websocket.WebSocketHandler):
                 socket.write_message(payload)
 
         else:
-
             for socket in cls.sockets[user_id]:
                 log(f"Forwarding message to user {user_id}")
 

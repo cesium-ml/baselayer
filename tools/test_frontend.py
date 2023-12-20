@@ -75,7 +75,6 @@ def verify_server_availability(url, timeout=180):
 
 
 if __name__ == "__main__":
-
     from argparse import ArgumentParser
 
     parser = ArgumentParser()

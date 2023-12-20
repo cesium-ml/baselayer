@@ -753,7 +753,6 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
         # table against accessible related rows via their relationships
         # to the target table
         for prop in self.properties_and_modes:
-
             # get the kind of access required on the relationship
             mode = self.properties_and_modes[prop]
             relationship = sa.inspect(cls).mapper.relationships[prop]
@@ -816,7 +815,6 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
         # table against accessible related rows via their relationships
         # to the target table
         for prop in self.properties_and_modes:
-
             # get the kind of access required on the relationship
             mode = self.properties_and_modes[prop]
             relationship = sa.inspect(cls).mapper.relationships[prop]
@@ -937,7 +935,6 @@ class ComposedAccessControl(UserAccessControl):
         accessible_id_cols = []
 
         for access_control in self.access_controls:
-
             # Just ignore public ACLs
             if isinstance(access_control, Public):
                 continue
@@ -1009,7 +1006,6 @@ class ComposedAccessControl(UserAccessControl):
         accessible_id_cols = []
 
         for access_control in self.access_controls:
-
             # Just ignore public ACLs
             if isinstance(access_control, Public):
                 continue
@@ -1269,7 +1265,6 @@ class CustomUserAccessControl(UserAccessControl):
 
 
 class BaseMixin:
-
     # permission control logic
     create = read = public
     update = delete = restricted

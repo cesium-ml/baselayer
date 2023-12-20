@@ -67,7 +67,7 @@ if fail:
     print()
     print("    The failed checks were:")
     print()
-    for (pkg, exc) in fail:
+    for pkg, exc in fail:
         cmd, get_version, min_version = deps[pkg]
         print(f'    - {pkg}: `{" ".join(cmd)}`')
         print("     ", exc)
@@ -83,8 +83,7 @@ print()
 try:
     with status("Baselayer installed inside of app"):
         if not (
-            os.path.exists("../config.yaml")
-            or os.path.exists("../config.yaml.defaults")
+            os.path.exists("config.yaml") or os.path.exists("config.yaml.defaults")
         ):
             raise RuntimeError()
 except RuntimeError:

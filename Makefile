@@ -41,7 +41,7 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@cd baselayer && ./tools/check_app_environment.py
+	@baselayer/tools/check_app_environment.py
 	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
@@ -67,7 +67,7 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find . -name '[^.]*.template' | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find -L . -name '[^.]*.template' | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 system_setup: | paths dependencies fill_conf_values service_setup
 
