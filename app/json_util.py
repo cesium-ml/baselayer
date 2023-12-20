@@ -15,6 +15,7 @@ data_types = {
 
 import asyncio
 
+
 class Encoder(json.JSONEncoder):
     """Extends json.JSONEncoder with additional capabilities/configurations."""
 

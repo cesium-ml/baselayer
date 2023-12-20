@@ -1,6 +1,7 @@
 import importlib
 import time
 
+import asyncio
 import requests
 import tornado.ioloop
 import tornado.log
@@ -54,17 +55,18 @@ while not migrated_db(port):
 
 module, app_factory = app_factory.rsplit(".", 1)
 app_factory = getattr(importlib.import_module(module), app_factory)
-import asyncio
 
 loop = asyncio.get_event_loop()
 
-app = loop.run_until_complete(app_factory(
-    cfg,
-    baselayer_handlers,
-    baselayer_settings,
-    process=env.process if env.process else 0,
-    env=env,
-))
+app = loop.run_until_complete(
+    app_factory(
+        cfg,
+        baselayer_handlers,
+        baselayer_settings,
+        process=env.process if env.process else 0,
+        env=env,
+    )
+)
 app.cfg = cfg
 
 port = cfg["ports.app_internal"] + (env.process or 0)

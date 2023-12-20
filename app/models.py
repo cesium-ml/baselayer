@@ -13,11 +13,15 @@ from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_scoped_session,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy_utils import EmailType, PhoneNumberType
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, async_scoped_session, AsyncSession
-
 
 from .custom_exceptions import AccessError
 from .env import load_env
@@ -124,7 +128,9 @@ class _VerifiedSession(sa.orm.session.Session):
 
 def VerifiedSession(user_or_token) -> AsyncSession:
     return async_scoped_session(
-        async_sessionmaker(sync_session_class=_VerifiedSession, user_or_token=user_or_token),
+        async_sessionmaker(
+            sync_session_class=_VerifiedSession, user_or_token=user_or_token
+        ),
         scopefunc=session_context_id.get,
     )()
 
@@ -1075,8 +1081,8 @@ class Restricted(UserAccessControl):
 
         # otherwise, all records are inaccessible
         if columns is not None:
-            return (
-                await DBSession().scalars(sa.select(*columns).select_from(cls).where(sa.literal(False)))
+            return await DBSession().scalars(
+                sa.select(*columns).select_from(cls).where(sa.literal(False))
             )
         return await DBSession().scalars(sa.select(cls).where(sa.literal(False)))
 
@@ -1353,7 +1359,11 @@ class BaseMixin:
 
         # TODO: vectorize this
         for pk in standardized:
-            instance = await DBSession().scalars(sa.select(cls).options(options).where(cls.id == pk.item())).first()
+            instance = (
+                await DBSession()
+                .scalars(sa.select(cls).options(options).where(cls.id == pk.item()))
+                .first()
+            )
             if instance is None or not instance.is_accessible_by(
                 user_or_token, mode=mode
             ):
@@ -1636,7 +1646,11 @@ class BaseMixin:
         obj : baselayer.app.models.Base
            The requested entity.
         """
-        obj = await DBSession().scalars(sa.select(cls).options(options).where(cls.id == ident)).first()
+        obj = (
+            await DBSession()
+            .scalars(sa.select(cls).options(options).where(cls.id == ident))
+            .first()
+        )
 
         if obj is not None and not obj.is_readable_by(user_or_token):
             raise AccessError("Insufficient permissions.")
@@ -1882,7 +1896,9 @@ class User(Base):
     role_ids = association_proxy(
         "roles",
         "id",
-        creator=lambda r: DBSession().scalars(sa.select(Role).where(Role.id == r)).first(),
+        creator=lambda r: DBSession()
+        .scalars(sa.select(Role).where(Role.id == r))
+        .first(),
     )
     tokens = relationship(
         "Token",
@@ -1988,7 +2004,11 @@ class Token(Base):
         lazy="selectin",
     )
     acl_ids = association_proxy(
-        "acls", "id", creator=lambda acl: DBSession().scalars(sa.select(ACL).where(ACL.id == acl)).first()
+        "acls",
+        "id",
+        creator=lambda acl: DBSession()
+        .scalars(sa.select(ACL).where(ACL.id == acl))
+        .first(),
     )
     permissions = acl_ids
 

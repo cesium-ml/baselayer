@@ -1,12 +1,13 @@
 import functools
 
 import sqlalchemy as sa
-import tornado.web
 import tornado
+import tornado.web
 from sqlalchemy.orm import joinedload
 
 from baselayer.app.custom_exceptions import AccessError  # noqa: F401
 from baselayer.app.models import DBSession, Role, Token, User  # noqa: F401
+
 
 def auth_or_token(method):
     """Ensure that a user is signed in.
@@ -20,6 +21,7 @@ def auth_or_token(method):
       $ curl -v -H "Authorization: token 123efghj" http://localhost:5000/api/endpoint
 
     """
+
     @functools.wraps(method)
     async def wrapper(self, *args, **kwargs):
         token_header = self.request.headers.get("Authorization", None)

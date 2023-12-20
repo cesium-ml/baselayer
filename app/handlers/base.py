@@ -2,7 +2,6 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from json.decoder import JSONDecodeError
-from tornado.ioloop import IOLoop
 
 # The Python Social Auth base handler gives us:
 #   user_id, get_current_user, login_user
@@ -12,6 +11,7 @@ from tornado.ioloop import IOLoop
 # be used to look up the logged in user.
 import sqlalchemy
 import tornado.escape
+from tornado.ioloop import IOLoop
 from tornado.log import app_log
 from tornado.web import RequestHandler
 
@@ -160,7 +160,7 @@ class BaseHandler(PSABaseHandler):
             session.add(user)
             session.user_or_token = user
             session.sync_session.bind = DBSession().sync_session.bind
-            
+
             yield session
 
     def verify_permissions(self):
