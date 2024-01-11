@@ -145,6 +145,7 @@ class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
 @pytest.fixture(scope="session")
 def driver(request):
     from selenium import webdriver
+    from webdriver_manager.firefox import GeckoDriverManager
 
     options = webdriver.FirefoxOptions()
     if "BASELAYER_TEST_HEADLESS" in os.environ:
@@ -163,7 +164,10 @@ def driver(request):
         ),
     )
 
-    driver = MyCustomWebDriver(options=options)
+    service = webdriver.firefox.service.Service(
+        executable_path=GeckoDriverManager().install()
+    )
+    driver = MyCustomWebDriver(options=options, service=service)
     driver.set_window_size(1920, 1200)
     login(driver)
 
