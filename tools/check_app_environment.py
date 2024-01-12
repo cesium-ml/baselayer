@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 import textwrap
-from distutils.version import LooseVersion as Version
+from packaging.version import Version
 
 from status import status
 
