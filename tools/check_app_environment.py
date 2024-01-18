@@ -3,8 +3,8 @@ import os
 import subprocess
 import sys
 import textwrap
-from packaging.version import Version
 
+from packaging.version import Version
 from status import status
 
 
