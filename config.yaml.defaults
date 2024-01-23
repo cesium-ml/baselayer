@@ -20,8 +20,11 @@ paths:
     downloads_folder: '/tmp'
 
 server:
-    # If your server is expected to be accessed with https and not http,
-    # then set this to True
+    # Set this to true if the URL of your server is expected to be secure, i.e.
+    # https://...
+    # E.g., if you are using an HTTPS load balancer, this value will likely be true.
+    #
+    # Also see `ssl_certificate` for running nginx in SSL mode. 
     ssl: False
 
     # If you are using certificates, you can specify them here
