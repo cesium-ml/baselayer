@@ -111,7 +111,7 @@ http {
     {% if env.debug %}
     listen 127.0.0.1:{{ ports.app }};
     {% else %}
-    {% if server.ssl %}
+    {% if server.ssl_use_certificate %}
     listen {{ ports.app }} ssl;
     {% else %}
     listen {{ ports.app }};

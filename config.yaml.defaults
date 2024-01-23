@@ -20,10 +20,8 @@ paths:
     downloads_folder: '/tmp'
 
 server:
-    # Whether the base URL is http or https
-    #
-    # If you are behind a load balancer that connects to the app via http,
-    # this should be set to False.
+    # If your server is expected to be accessed with https and not http,
+    # then set this to True
     ssl: False
 
     # If you are using certificates, you can specify them here
