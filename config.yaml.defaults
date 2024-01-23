@@ -20,15 +20,15 @@ paths:
     downloads_folder: '/tmp'
 
 server:
-    # Whether the base URL is http or https
+    # Set this to true if the URL of your server is expected to be secure, i.e.
+    # https://...
+    # E.g., if you are using an HTTPS load balancer, this value will likely be true.
     #
-    # If you are behind a load balancer that connects to the app via http,
-    # this should be set to False.
+    # Also see `ssl_certificate` for running nginx in SSL mode.
     ssl: False
 
     # If you are using certificates, you can specify them here
     # See http://nginx.org/en/docs/http/configuring_https_servers.html for details
-    ssl_use_certificate: False
     ssl_certificate:
     ssl_certificate_key:
 
