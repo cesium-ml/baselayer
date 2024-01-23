@@ -24,7 +24,7 @@ server:
     # https://...
     # E.g., if you are using an HTTPS load balancer, this value will likely be true.
     #
-    # Also see `ssl_certificate` for running nginx in SSL mode. 
+    # Also see `ssl_certificate` for running nginx in SSL mode.
     ssl: False
 
     # If you are using certificates, you can specify them here
