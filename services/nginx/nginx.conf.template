@@ -18,7 +18,8 @@ http {
              application/json
              application/x-javascript
              application/xml
-             text/javascript;
+             text/javascript
+             application/javascript;
 
   # Only retry if there was a communication error, not a timeout
   # on the Tornado server (to avoid propagating "queries of death"
