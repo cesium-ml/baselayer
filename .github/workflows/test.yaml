@@ -46,7 +46,9 @@ jobs:
       - name: Install template app
         run: |
           git clone https://github.com/Theodlz/baselayer_template_app
+          cd baselayer_template_app
           git checkout brotli
+          cd ..
           cp -rf baselayer baselayer_template_app/
 
       - uses: actions/cache@v3
