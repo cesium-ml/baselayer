@@ -45,7 +45,7 @@ jobs:
 
       - name: Install template app
         run: |
-          git clone https://github.com/Theodlz/baselayer_template_app.git
+          git clone https://github.com/Theodlz/baselayer_template_app
           git checkout brotli
           cp -rf baselayer baselayer_template_app/
 
