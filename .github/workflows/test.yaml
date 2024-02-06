@@ -45,7 +45,8 @@ jobs:
 
       - name: Install template app
         run: |
-          git clone https://github.com/cesium-ml/baselayer_template_app
+          git clone https://github.com/Theodlz/baselayer_template_app.git
+          git checkout brotli
           cp -rf baselayer baselayer_template_app/
 
       - uses: actions/cache@v3
