@@ -36,12 +36,35 @@ def hash_filter(string, htype):
     return h.hexdigest()
 
 
+def nginx_brotli_module_installed():
+    # we run the `nginx -V` command to check if the nginx server is compiled with brotli support
+    # if it is, we'll find "brotli" in the output
+    import subprocess
+
+    try:
+        output = subprocess.check_output(
+            ["nginx", "-V"], stderr=subprocess.STDOUT
+        ).decode("utf-8")
+        return "brotli" in output
+    except subprocess.CalledProcessError:
+        return False
+
+
+def is_macos():
+    return os.uname().sysname == "Darwin"
+
+
 custom_filters = {"md5sum": md5sum, "version": version, "hash": hash_filter}
+
+USE_BROTLI = nginx_brotli_module_installed()
+IS_MACOS = is_macos()
 
 
 def fill_config_file_values(template_paths):
     log("Compiling configuration templates")
     env, cfg = load_env()
+    cfg["server"]["use_brotli"] = USE_BROTLI
+    cfg["server"]["is_macos"] = IS_MACOS
 
     for template_path in template_paths:
         with status(template_path):
