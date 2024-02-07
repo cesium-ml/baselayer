@@ -58,7 +58,6 @@ def nginx_brotli_installed():
         output = subprocess.check_output(
             ["nginx", "-V"], stderr=subprocess.STDOUT
         ).decode("utf-8")
-        print(f"nginx -V output:\n {output}")
         if (
             "--add-module" in output
             and "brotli" in output.split("--add-module")[1].strip()
@@ -101,7 +100,6 @@ def fill_config_file_values(template_paths):
     log("Compiling configuration templates")
     env, cfg = load_env()
     installed, dynamic, modules_dir = nginx_brotli_installed()
-    print(f"Installed: {installed}, Dynamic: {dynamic}, Modules dir: {modules_dir}")
     cfg["fill_config_feature"] = {
         "nginx_brotli": {
             "installed": installed,
