@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import subprocess
 
 import jinja2
 from status import status
@@ -36,35 +37,77 @@ def hash_filter(string, htype):
     return h.hexdigest()
 
 
-def nginx_brotli_module_installed():
-    # we run the `nginx -V` command to check if the nginx server is compiled with brotli support
-    # if it is, we'll find "brotli" in the output
-    import subprocess
+def nginx_brotli_installed():
+    """Check if the nginx brotli module is installed
+
+    Returns
+    -------
+    installed : bool
+        True if the nginx brotli module is installed, False otherwise
+    dynamic : bool
+        True if the module is dynamically loaded, False otherwise
+    modules_dir : str
+        The directory where the nginx modules are located if dynamic loading is used
+    """
+
+    installed = False
+    dynamic = False
+    dir = None
 
     try:
         output = subprocess.check_output(
             ["nginx", "-V"], stderr=subprocess.STDOUT
         ).decode("utf-8")
-        return "brotli" in output
+        if (
+            "--add-module" in output
+            and "brotli" in output.split("--add-module")[1].strip()
+        ):
+            installed = True
+        elif (
+            "--add-dynamic-module" in output
+            and "brotli" in output.split("--add-dynamic-module")[1].strip()
+        ):
+            installed = True
+            dynamic = True
+            # we try to figure out where the modules are, there are 2 possibilities
+            # 1. the --modules-path directive is used
+            # 2. the default directory is used, which is where the configuration file is located so we look for it
+            if "--modules-path" in output:
+                dir = output.split("--modules-path=")[1].split(" ")[0]
+            elif "--conf-path" in output:
+                dir = os.path.dirname(
+                    output.split("--conf-path=")[1].split(" ")[0]
+                ).replace("nginx.conf", "modules")
+            if dir is not None and not os.path.isdir(dir):
+                dir = None
+            if dir is None:
+                print(
+                    "Brotli is installed dynamically, but couldn't find the nginx modules directory. Skipping."
+                )
+                installed = False
+                dynamic = False
+            else:
+                dir = dir.rstrip("/")
     except subprocess.CalledProcessError:
-        return False
-
-
-def is_macos():
-    return os.uname().sysname == "Darwin"
+        pass
+    return installed, dynamic, dir
 
 
 custom_filters = {"md5sum": md5sum, "version": version, "hash": hash_filter}
-
-USE_BROTLI = nginx_brotli_module_installed()
-IS_MACOS = is_macos()
 
 
 def fill_config_file_values(template_paths):
     log("Compiling configuration templates")
     env, cfg = load_env()
-    cfg["server"]["use_brotli"] = USE_BROTLI
-    cfg["server"]["is_macos"] = IS_MACOS
+    installed, dynamic, modules_dir = nginx_brotli_installed()
+    print(f"Installed: {installed}, Dynamic: {dynamic}, Modules dir: {modules_dir}")
+    cfg["fill_config_feature"] = {
+        "nginx_brotli": {
+            "installed": installed,
+            "dynamic": dynamic,
+            "modules_dir": modules_dir,
+        }
+    }
 
     for template_path in template_paths:
         with status(template_path):
