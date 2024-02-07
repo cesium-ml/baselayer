@@ -88,7 +88,7 @@ jobs:
           export CURRENT_DIR=$(pwd)
           cd nginx-1.24.0
           ./configure --sbin-path=/usr/bin/nginx --conf-path=/usr/local/nginx/nginx.conf --pid-path=/usr/local/nginx/nginx.pid --with-http_ssl_module --with-stream --with-mail=dynamic --with-http_realip_module --with-compat --add-module=${CURRENT_DIR}/ngx_brotli
-          make && make install
+          sudo make && sudo make install
           nginx
 
           pip install --upgrade pip
