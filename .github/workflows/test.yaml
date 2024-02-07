@@ -76,6 +76,9 @@ jobs:
 
           sudo apt install -y wget nodejs unzip firefox
 
+          # if nginx is already installed, remove it
+          sudo apt remove -y nginx nginx-common nginx-core
+
           # install nginx from source so we can add the brotli module
           git clone --recursive https://github.com/google/ngx_brotli.git
           wget https://nginx.org/download/nginx-1.24.0.tar.gz
