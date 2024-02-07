@@ -58,6 +58,7 @@ def nginx_brotli_installed():
         output = subprocess.check_output(
             ["nginx", "-V"], stderr=subprocess.STDOUT
         ).decode("utf-8")
+        print(f"nginx -V output:\n {output}")
         if (
             "--add-module" in output
             and "brotli" in output.split("--add-module")[1].strip()
