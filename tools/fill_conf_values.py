@@ -68,17 +68,17 @@ def nginx_brotli_installed():
         else:
             # a. find the modules path
             config_path = (
-                output.split("--conf-path=")[1].split(" ")[0]
+                str(output.split("--conf-path=")[1].split(" ")[0]).strip()
                 if "--conf-path" in output
                 else None
             )
             modules_path = (
-                output.split("--modules-path=")[1].split(" ")[0]
+                str(output.split("--modules-path=")[1].split(" ")[0]).strip()
                 if "--modules-path" in output
                 else None
             )
             # if there's no modules path, try to guess it from the config path
-            if not modules_path and config_path:
+            if config_path and not modules_path:
                 modules_path = os.path.dirname(config_path).replace(
                     "nginx.conf", "modules"
                 )
@@ -87,6 +87,7 @@ def nginx_brotli_installed():
 
             # b. check if there is a brotli module in the modules path
             if modules_path:
+                modules_path = modules_path.rstrip("/")
                 if all(
                     os.path.isfile(os.path.join(modules_path, f))
                     for f in [
