@@ -77,6 +77,7 @@ def nginx_brotli_installed():
                 if "--modules-path" in output
                 else None
             )
+            # if there's no modules path, try to guess it from the config path
             if not modules_path and config_path:
                 modules_path = os.path.dirname(config_path).replace(
                     "nginx.conf", "modules"
