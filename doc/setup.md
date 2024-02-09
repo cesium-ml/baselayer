@@ -40,47 +40,14 @@ See [below](#configuration) for more information on modifying the baselayer conf
 - Using `apt-get`:
   `sudo apt-get install supervisor postgresql libpq-dev npm nodejs-legacy`
 
-  - If you want to run NGINX as is (without brotli), you can simply install it with `sudo apt-get install nginx`.
-    If want to use [brotli compression](https://en.wikipedia.org/wiki/Brotli) with NGINX (to have better compression rates for the frontend), you can install NGINX with the `ngx_brotli` module with these commands:
+  - If you want to run NGINX as is (without brotli), you can simply install it with `sudo apt-get install nginx`. If you want to use brotli, you will need to install nginx and the brotli module from another source with:
 
   ```
-  # install nginx from source so we can add the brotli module
-  git clone --recursive https://github.com/google/ngx_brotli.git
-  wget https://nginx.org/download/nginx-1.24.0.tar.gz
-  tar zxf nginx-1.24.0.tar.gz
-  cd ngx_brotli/deps/brotli
-  mkdir out && cd out
-  cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_C_FLAGS="-Ofast -m64 -march=native -mtune=native -flto -funroll-loops -ffunction-sections -fdata-sections -Wl,--gc-sections" -DCMAKE_CXX_FLAGS="-Ofast -m64 -march=native -mtune=native -flto -funroll-loops -ffunction-sections -fdata-sections -Wl,--gc-sections" -DCMAKE_INSTALL_PREFIX=./installed ..
-  cmake --build . --config Release --target brotlienc
-  cd ../../../..
-  export CURRENT_DIR=$(pwd)
-  cd nginx-1.24.0
-  ./configure --sbin-path=/usr/sbin/nginx --conf-path=/usr/local/nginx/nginx.conf --pid-path=/usr/local/nginx/nginx.pid --with-http_ssl_module --with-stream --with-mail=dynamic --with-http_realip_module --with-compat --add-module=${CURRENT_DIR}/ngx_brotli
-  sudo make && sudo make install
+  sudo apt remove -y nginx nginx-common nginx-core
+  sudo add-apt-repository ppa:ondrej/nginx-mainline -y
+  sudo apt update -y
+  sudo apt install -y nginx libnginx-mod-brotli
   ```
-
-  To run it as a service, create an Nginx systemd unit file by running `sudo nano /lib/systemd/system/nginx.service` and adding the following content:
-
-  ```
-  [Unit]
-  Description=The NGINX HTTP and reverse proxy server
-  After=syslog.target network-online.target remote-fs.target nss-lookup.target
-  Wants=network-online.target
-
-  [Service]
-  Type=forking
-  PIDFile=/usr/local/nginx/nginx.pid
-  ExecStartPre=/usr/sbin/nginx -t
-  ExecStart=/usr/sbin/nginx
-  ExecReload=/usr/sbin/nginx -s reload
-  ExecStop=/bin/kill -s QUIT $MAINPID
-  PrivateTmp=true
-
-  [Install]
-  WantedBy=multi-user.target
-  ```
-
-  Then run `sudo systemctl start nginx` to start the server. To start it automatically at boot, run `sudo systemctl enable nginx`.
 
 - It may be necessary to configure your database permissions: at
   the end of your `pg_hba.conf` (typically in `/etc/postgresql/13.3/main` or `/var/lib/pgsql/data`),
