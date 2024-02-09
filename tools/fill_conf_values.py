@@ -46,51 +46,62 @@ def nginx_brotli_installed():
         True if the nginx brotli module is installed, False otherwise
     dynamic : bool
         True if the module is dynamically loaded, False otherwise
-    modules_dir : str
+    modules_path : str
         The directory where the nginx modules are located if dynamic loading is used
     """
 
     installed = False
     dynamic = False
-    dir = None
+    modules_path = None
 
     try:
         output = subprocess.check_output(
             ["nginx", "-V"], stderr=subprocess.STDOUT
         ).decode("utf-8")
+        # Option 1: installed at compilation: always loaded
         if (
             "--add-module" in output
             and "brotli" in output.split("--add-module")[1].strip()
         ):
             installed = True
-        elif (
-            "--add-dynamic-module" in output
-            and "brotli" in output.split("--add-dynamic-module")[1].strip()
-        ):
-            installed = True
-            dynamic = True
-            # we try to figure out where the modules are, there are 2 possibilities
-            # 1. the --modules-path directive is used
-            # 2. the default directory is used, which is where the configuration file is located so we look for it
-            if "--modules-path" in output:
-                dir = output.split("--modules-path=")[1].split(" ")[0]
-            elif "--conf-path" in output:
-                dir = os.path.dirname(
-                    output.split("--conf-path=")[1].split(" ")[0]
-                ).replace("nginx.conf", "modules")
-            if dir is not None and not os.path.isdir(dir):
-                dir = None
-            if dir is None:
-                print(
-                    "Brotli is installed dynamically, but couldn't find the nginx modules directory. Skipping."
+        # Option 2: installed dynamically at compilation or later: has to be loaded
+        else:
+            # a. find the modules path
+            config_path = (
+                output.split("--conf-path=")[1].split(" ")[0]
+                if "--conf-path" in output
+                else None
+            )
+            modules_path = (
+                output.split("--modules-path=")[1].split(" ")[0]
+                if "--modules-path" in output
+                else None
+            )
+            if not modules_path and config_path:
+                modules_path = os.path.dirname(config_path).replace(
+                    "nginx.conf", "modules"
                 )
-                installed = False
-                dynamic = False
-            else:
-                dir = dir.rstrip("/")
+                if not modules_path or not os.path.isdir(modules_path):
+                    modules_path = None
+
+            # b. check if there is a brotli module in the modules path
+            if modules_path:
+                if all(
+                    os.path.isfile(os.path.join(modules_path, f))
+                    for f in [
+                        "ngx_http_brotli_filter_module.so",
+                        "ngx_http_brotli_static_module.so",
+                    ]
+                ):
+                    installed = True
+                    dynamic = True
+                else:
+                    installed = False
+                    dynamic = False
+                    modules_path = None
     except subprocess.CalledProcessError:
         pass
-    return installed, dynamic, dir
+    return installed, dynamic, modules_path
 
 
 custom_filters = {"md5sum": md5sum, "version": version, "hash": hash_filter}
@@ -99,12 +110,12 @@ custom_filters = {"md5sum": md5sum, "version": version, "hash": hash_filter}
 def fill_config_file_values(template_paths):
     log("Compiling configuration templates")
     env, cfg = load_env()
-    installed, dynamic, modules_dir = nginx_brotli_installed()
+    installed, dynamic, modules_path = nginx_brotli_installed()
     cfg["fill_config_feature"] = {
         "nginx_brotli": {
             "installed": installed,
             "dynamic": dynamic,
-            "modules_dir": modules_dir,
+            "modules_path": modules_path,
         }
     }
 

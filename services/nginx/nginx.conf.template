@@ -1,9 +1,9 @@
 error_log log/error.log error;
 pid run/nginx.pid;
 
-{% if fill_config_feature.nginx_brotli.dynamic and fill_config_feature.nginx_brotli.modules_dir %}
-load_module {{ fill_config_feature.nginx_brotli.modules_dir }}/ngx_http_brotli_filter_module.so; # for compressing responses on-the-fly
-load_module {{ fill_config_feature.nginx_brotli.modules_dir }}/ngx_http_brotli_static_module.so; # for serving pre-compressed files
+{% if fill_config_feature.nginx_brotli.dynamic and fill_config_feature.nginx_brotli.modules_path %}
+load_module {{ fill_config_feature.nginx_brotli.modules_path }}/ngx_http_brotli_filter_module.so; # for compressing responses on-the-fly
+load_module {{ fill_config_feature.nginx_brotli.modules_path }}/ngx_http_brotli_static_module.so; # for serving pre-compressed files
 {% endif %}
 
 
