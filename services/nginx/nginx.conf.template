@@ -1,6 +1,12 @@
 error_log log/error.log error;
 pid run/nginx.pid;
 
+{% if fill_config_feature.nginx_brotli.dynamic and fill_config_feature.nginx_brotli.modules_path %}
+load_module {{ fill_config_feature.nginx_brotli.modules_path }}/ngx_http_brotli_filter_module.so; # for compressing responses on-the-fly
+load_module {{ fill_config_feature.nginx_brotli.modules_path }}/ngx_http_brotli_static_module.so; # for serving pre-compressed files
+{% endif %}
+
+
 # Choose number of NGINX worker processes based on number of CPUs
 worker_processes auto;
 
@@ -20,6 +26,19 @@ http {
              application/xml
              text/javascript
              application/javascript;
+
+  {% if fill_config_feature.nginx_brotli.installed %}
+  # also enable brotli compression
+  brotli on;
+  brotli_comp_level 6;
+  brotli_types text/plain
+               text/css
+               application/json
+               application/x-javascript
+               application/xml
+               text/javascript
+               application/javascript;
+  {% endif %}
 
   # Only retry if there was a communication error, not a timeout
   # on the Tornado server (to avoid propagating "queries of death"

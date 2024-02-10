@@ -13,7 +13,8 @@ Clone that application, and then proceed with the following instructions.
 
 ### On macOS
 
-- Using [Homebrew](http://brew.sh/): `brew install supervisor nginx postgresql node`
+- Using [Homebrew](http://brew.sh/): `brew install supervisor postgresql node`
+  - If you want to use [brotli compression](https://en.wikipedia.org/wiki/Brotli) with NGINX (better compression rates for the frontend), you can install NGINX with the `ngx_brotli` module with this command: `brew tap denji/nginx && brew install nginx-full --with-brotli`. _If you already had NGINX installed, you may need to uninstall it first with `brew unlink nginx`._ Otherwise, you can install NGINX normally with `brew install nginx`.
   - Start the postgresql server:
     - to start automatically at login: `brew services start postgresql`
     - to start manually: `pg_ctl -D /usr/local/var/postgres start`
@@ -37,7 +38,19 @@ See [below](#configuration) for more information on modifying the baselayer conf
 ### On Linux
 
 - Using `apt-get`:
-  `sudo apt-get install nginx supervisor postgresql libpq-dev npm nodejs-legacy`
+  `sudo apt-get install supervisor postgresql libpq-dev npm nodejs-legacy`
+
+  If you want to use [brotli compression](https://en.wikipedia.org/wiki/Brotli) with NGINX (better compression rates for the frontend), you have to install NGINX and the brotli module from another source with:
+
+  ```
+  sudo apt remove -y nginx nginx-common nginx-core
+  sudo add-apt-repository ppa:ondrej/nginx-mainline -y
+  sudo apt update -y
+  sudo apt install -y nginx libnginx-mod-brotli
+  ```
+
+  Otherwise, you can install NGINX normally with `sudo apt-get install nginx`.
+
 - It may be necessary to configure your database permissions: at
   the end of your `pg_hba.conf` (typically in `/etc/postgresql/13.3/main` or `/var/lib/pgsql/data`),
   add the following lines and restart PostgreSQL
