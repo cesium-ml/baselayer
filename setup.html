@@ -107,8 +107,9 @@ and running. A simple example of such an application is provides as a
 <section id="on-macos">
 <h3>On macOS<a class="headerlink" href="#on-macos" title="Permalink to this heading"></a></h3>
 <ul class="simple">
-<li><p>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">nginx</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></p>
+<li><p>Using <a class="reference external" href="http://brew.sh/">Homebrew</a>: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">node</span></code></p>
 <ul>
+<li><p>If you want to use <a class="reference external" href="https://en.wikipedia.org/wiki/Brotli">brotli compression</a> with NGINX (better compression rates for the frontend), you can install NGINX with the <code class="docutils literal notranslate"><span class="pre">ngx_brotli</span></code> module with this command: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">tap</span> <span class="pre">denji/nginx</span> <span class="pre">&amp;&amp;</span> <span class="pre">brew</span> <span class="pre">install</span> <span class="pre">nginx-full</span> <span class="pre">--with-brotli</span></code>. <em>If you already had NGINX installed, you may need to uninstall it first with <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">unlink</span> <span class="pre">nginx</span></code>.</em> Otherwise, you can install NGINX normally with <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">install</span> <span class="pre">nginx</span></code>.</p></li>
 <li><p>Start the postgresql server:</p>
 <ul>
 <li><p>to start automatically at login: <code class="docutils literal notranslate"><span class="pre">brew</span> <span class="pre">services</span> <span class="pre">start</span> <span class="pre">postgresql</span></code></p></li>
@@ -139,7 +140,16 @@ Port 5000 is not free for the latest macOS version, Monterey.</p>
 <h3>On Linux<a class="headerlink" href="#on-linux" title="Permalink to this heading"></a></h3>
 <ul>
 <li><p>Using <code class="docutils literal notranslate"><span class="pre">apt-get</span></code>:
-<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">npm</span> <span class="pre">nodejs-legacy</span></code></p></li>
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">npm</span> <span class="pre">nodejs-legacy</span></code></p>
+<p>If you want to use <a class="reference external" href="https://en.wikipedia.org/wiki/Brotli">brotli compression</a> with NGINX (better compression rates for the frontend), you have to install NGINX and the brotli module from another source with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">remove</span> <span class="o">-</span><span class="n">y</span> <span class="n">nginx</span> <span class="n">nginx</span><span class="o">-</span><span class="n">common</span> <span class="n">nginx</span><span class="o">-</span><span class="n">core</span>
+<span class="n">sudo</span> <span class="n">add</span><span class="o">-</span><span class="n">apt</span><span class="o">-</span><span class="n">repository</span> <span class="n">ppa</span><span class="p">:</span><span class="n">ondrej</span><span class="o">/</span><span class="n">nginx</span><span class="o">-</span><span class="n">mainline</span> <span class="o">-</span><span class="n">y</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">update</span> <span class="o">-</span><span class="n">y</span>
+<span class="n">sudo</span> <span class="n">apt</span> <span class="n">install</span> <span class="o">-</span><span class="n">y</span> <span class="n">nginx</span> <span class="n">libnginx</span><span class="o">-</span><span class="n">mod</span><span class="o">-</span><span class="n">brotli</span>
+</pre></div>
+</div>
+<p>Otherwise, you can install NGINX normally with <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">nginx</span></code>.</p>
+</li>
 <li><p>It may be necessary to configure your database permissions: at
 the end of your <code class="docutils literal notranslate"><span class="pre">pg_hba.conf</span></code> (typically in <code class="docutils literal notranslate"><span class="pre">/etc/postgresql/13.3/main</span></code> or <code class="docutils literal notranslate"><span class="pre">/var/lib/pgsql/data</span></code>),
 add the following lines and restart PostgreSQL
