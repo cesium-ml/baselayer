@@ -14,7 +14,13 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_base, relationship, scoped_session, sessionmaker
+from sqlalchemy.orm import (
+    declarative_base,
+    load_only,
+    relationship,
+    scoped_session,
+    sessionmaker,
+)
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
 from .custom_exceptions import AccessError
@@ -1226,7 +1232,7 @@ class CustomUserAccessControl(UserAccessControl):
             # here query is not of type sqlalchemy.Query, but sqlalchemy.Select
             # so we use the appropriate method to retrieve the columns
             if columns is not None:
-                query = query.with_only_columns(*columns)
+                query = query.options(load_only(*columns))
 
         return query
 
