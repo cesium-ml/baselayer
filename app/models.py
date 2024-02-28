@@ -14,7 +14,13 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_base, relationship, scoped_session, sessionmaker
+from sqlalchemy.orm import (
+    declarative_base,
+    load_only,
+    relationship,
+    scoped_session,
+    sessionmaker,
+)
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
 from .custom_exceptions import AccessError
@@ -1218,12 +1224,15 @@ class CustomUserAccessControl(UserAccessControl):
 
         if self.query is not None:
             query = self.query
+            # retrieve specified columns if requested
+            if columns is not None:
+                query = query.with_entities(*columns)
         else:
             query = self.query_generator(cls, user_or_token)
-
-        # retrieve specified columns if requested
-        if columns is not None:
-            query = query.with_entities(*columns)
+            # here query is not of type sqlalchemy.Query, but sqlalchemy.Select
+            # so we use the appropriate method to retrieve the columns
+            if columns is not None:
+                query = query.options(load_only(*columns))
 
         return query
 
@@ -1423,9 +1432,12 @@ class BaseMixin:
             )
 
         logic = getattr(cls, mode)
-        return logic.query_accessible_rows(cls, user_or_token, columns=columns).options(
-            options
+        accessible_rows = logic.query_accessible_rows(
+            cls, user_or_token, columns=columns
         )
+        if len(options) > 0:
+            return accessible_rows.options(*options)
+        return accessible_rows
 
     @classmethod
     def get(
