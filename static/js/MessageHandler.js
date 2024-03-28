@@ -34,7 +34,12 @@ class MessageHandler {
 const notificationHandler = (actionType, payload, dispatch) => {
   if (actionType === SHOW_NOTIFICATION) {
     const { note, type } = payload;
-    dispatch(showNotification(note, type));
+    let { duration } = payload;
+    // if the duration is missing or invalid (negative or too large), use the default
+    if (!duration || duration <= 0 || duration >= 30000) {
+      duration = 3000;
+    }
+    dispatch(showNotification(note, type, duration));
   }
 };
 
