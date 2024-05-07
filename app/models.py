@@ -1880,7 +1880,7 @@ class User(Base):
         sa.Boolean,
         nullable=False,
         server_default="false",
-        doc="Whether the user is a bot account.",
+        doc="Whether or not the user account should be flagged as a bot account.",
     )
 
     roles = relationship(
