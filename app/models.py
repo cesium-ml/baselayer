@@ -1851,6 +1851,11 @@ class User(Base):
 
     first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
     last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
+    bio = sa.Column(
+        sa.String,
+        nullable=True,
+        doc="A short biography of the user, or description for bot accounts.",
+    )
     affiliations = sa.Column(
         sa.ARRAY(sa.String),
         nullable=False,
@@ -1870,6 +1875,12 @@ class User(Base):
     oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(
         JSONB, nullable=True, doc="The user's application settings."
+    )
+    bot = sa.Column(
+        sa.Boolean,
+        nullable=False,
+        server_default="false",
+        doc="Whether the user is a bot account.",
     )
 
     roles = relationship(
