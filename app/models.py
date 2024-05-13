@@ -1876,7 +1876,7 @@ class User(Base):
     preferences = sa.Column(
         JSONB, nullable=True, doc="The user's application settings."
     )
-    bot = sa.Column(
+    is_bot = sa.Column(
         sa.Boolean,
         nullable=False,
         server_default="false",
