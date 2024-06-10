@@ -144,6 +144,8 @@ class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
 
 @pytest.fixture(scope="session")
 def driver(request):
+    import shutil
+
     from selenium import webdriver
     from webdriver_manager.firefox import GeckoDriverManager
 
@@ -164,9 +166,11 @@ def driver(request):
         ),
     )
 
-    service = webdriver.firefox.service.Service(
-        executable_path=GeckoDriverManager().install()
-    )
+    executable_path = shutil.which("geckodriver")
+    if executable_path is None:
+        executable_path = GeckoDriverManager().install()
+    service = webdriver.firefox.service.Service(executable_path=executable_path)
+
     driver = MyCustomWebDriver(options=options, service=service)
     driver.set_window_size(1920, 1200)
     login(driver)

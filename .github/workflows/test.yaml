@@ -60,6 +60,10 @@ jobs:
             ~/.cache/pip
           key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
 
+      - uses: browser-actions/setup-geckodriver@latest
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install system dependencies
         run: |
           cd baselayer
@@ -100,14 +104,6 @@ jobs:
 
       - name: Install Geckodriver / Selenium
         run: |
-          GECKO_VER=0.34.0
-          CACHED_DOWNLOAD_DIR=~/.local/downloads
-          FILENAME=geckodriver-v${GECKO_VER}-linux64.tar.gz
-
-          if [[ ! -f ${CACHED_DOWNLOAD_DIR=}/${FILENAME} ]]; then
-            wget https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VER}/${FILENAME} --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
-          fi
-          sudo tar -xzf ${CACHED_DOWNLOAD_DIR}/geckodriver-v${GECKO_VER}-linux64.tar.gz -C /usr/local/bin
           geckodriver --version
           pip install selenium==4.8.3
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
