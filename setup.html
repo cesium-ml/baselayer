@@ -62,6 +62,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#launch">Launch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#deployment-options">Deployment options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#debug-mode">Debug mode</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="dev.html">Developer notes</a></li>
@@ -198,6 +199,26 @@ FLAGS environment variable:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">FLAGS</span><span class="o">=</span><span class="s2">&quot;--config=myconfig.yaml&quot;</span> <span class="n">make</span> <span class="n">run</span>
 </pre></div>
 </div>
+</section>
+<section id="debug-mode">
+<h2>Debug mode<a class="headerlink" href="#debug-mode" title="Permalink to this heading"></a></h2>
+<p>By default, <code class="docutils literal notranslate"><span class="pre">baselayer</span></code> runs in debug mode. In debug mode:</p>
+<ul class="simple">
+<li><p>The server binds to localhost, not 0.0.0.0 (i.e., is not publicly
+accessible).</p></li>
+<li><p>Authentication always succeeds, but does not connect to any oauth
+provider.</p></li>
+<li><p>Code changes cause automatic reloads of the app, and recompilation
+of Javascript bundles.</p></li>
+<li></li>
+</ul>
+<p>When switching to production mode (<code class="docutils literal notranslate"><span class="pre">debug</span></code> set to False in the config
+file):</p>
+<ul class="simple">
+<li><p>The server binds to 0.0.0.0.</p></li>
+<li><p>Javascript bundles are not compiled; they need to be pre-compiled
+using <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">bundle</span></code>.</p></li>
+</ul>
 </section>
 </section>
 
