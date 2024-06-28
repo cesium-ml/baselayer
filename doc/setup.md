@@ -90,3 +90,22 @@ FLAGS environment variable:
 ```
 FLAGS="--config=myconfig.yaml" make run
 ```
+
+## Debug mode
+
+By default, `baselayer` runs in debug mode. In debug mode:
+
+- The server binds to localhost, not 0.0.0.0 (i.e., is not publicly
+  accessible).
+- Authentication always succeeds, but does not connect to any oauth
+  provider.
+- Code changes cause automatic reloads of the app, and recompilation
+  of Javascript bundles.
+-
+
+When switching to production mode (`debug` set to False in the config
+file):
+
+- The server binds to 0.0.0.0.
+- Javascript bundles are not compiled; they need to be pre-compiled
+  using `make bundle`.
