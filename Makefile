@@ -25,7 +25,7 @@ B=\033[1m
 N=\033[0m
 
 bundle = static/build/main.bundle.js
-webpack = npx webpack
+rspack = npx rspack
 
 # NOTE: These targets are meant to be *included* in the parent app
 #       Makefile.  See end of this file for baselayer specific targets.
@@ -55,13 +55,13 @@ db_clear: ## Delete all data from the database.
 db_clear: dependencies
 	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
 
-$(bundle): webpack.config.js package.json
-	@$(webpack)
+$(bundle): rspack.config.js package.json
+	@$(rspack)
 
 bundle: $(bundle)
 
 bundle-watch:
-	$(webpack) -w
+	$(rspack) -w
 
 paths:
 	@mkdir -p log run tmp
