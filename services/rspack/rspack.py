@@ -4,11 +4,11 @@ import sys
 from baselayer.app.env import load_env, parser
 from baselayer.log import make_log
 
-parser.description = "Launch webpack microservice"
+parser.description = "Launch rspack microservice"
 
 env, cfg = load_env()
 
-log = make_log("service/webpack")
+log = make_log("service/rspack")
 
 
 def run(cmd):
@@ -19,8 +19,8 @@ def run(cmd):
 
 
 if env.debug:
-    log("Debug mode detected, launching webpack monitor")
-    p = run(["npx", "webpack", "--watch"])
+    log("Debug mode detected, launching rspack monitor")
+    p = run(["npx", "rspack", "--watch"])
     sys.exit(p.returncode)
 else:
     log("Production mode; not building JavaScript bundle")
