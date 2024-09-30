@@ -17,7 +17,7 @@ def supervisor_status():
     int
         Return code of ``supervisorctl``.  This will be 0 for all
         services running, or 3 if one of them exited (note: this is
-        expected when, e.g., webpack exits normally).
+        expected when, e.g., rspack exits normally).
     """
     result = subprocess.run(
         "python -m supervisor.supervisorctl -c baselayer/conf/supervisor/supervisor.conf status",
