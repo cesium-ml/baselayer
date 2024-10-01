@@ -75,6 +75,7 @@ def permissions(acl_list):
                 raise tornado.web.HTTPError(401)
             return method(self, *args, **kwargs)
 
+        wrapper.__permissions__ = acl_list
         return wrapper
 
     return check_acls
