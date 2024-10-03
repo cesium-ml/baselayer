@@ -61,3 +61,7 @@ Sometimes, the supervisor configuration needs information from the
 configuration file, therefore `supervisor.conf` can instead be
 provided as `supervisor.conf.template`, which will be compiled before
 launching. See, e.g., `services/dask`.
+
+## Web Application
+
+Baselayer comes with a microservice capable of bundling a web application. A great example of this is given in the [template application](https://github.com/cesium-ml/baselayer_template_app). When building your own application on top of baselayer, you'll need to add your own `static` directory at the root of your project, as well as a `rspack.config.js` file to bundle your application. The `rspack.config.js` from the template application is a good starting point, and will be sufficient for most use cases. Instead of using the very popular [webpack](https://webpack.js.org/), we use [rspack](https://rspack.dev/) as a 1:1 replacement. It covers all the features needed by baselayer, but offers much faster build times in development and production modes. We've noticed a x2 speedup on average when building a complex & heavy web app such as [SkyPortal](https://github.com/skyportal/skyportal), and at least a x5 speedup when re-building the app in watch mode, which we use to update the web app in real-time when developing.
