@@ -43,9 +43,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install template app (modified, temporary)
+      - name: Install template app
         run: |
-          git clone -b rspack-v1 https://github.com/Theodlz/baselayer_template_app
+          git clone https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
       - uses: actions/cache@v4
