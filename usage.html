@@ -54,6 +54,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#permissions">Permissions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#microservices">Microservices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#web-application">Web Application</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="extending.html">Extending baselayer</a></li>
@@ -141,6 +142,10 @@ all services. E.g., to only load the <code class="docutils literal notranslate">
 configuration file, therefore <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> can instead be
 provided as <code class="docutils literal notranslate"><span class="pre">supervisor.conf.template</span></code>, which will be compiled before
 launching. See, e.g., <code class="docutils literal notranslate"><span class="pre">services/dask</span></code>.</p>
+</section>
+<section id="web-application">
+<h2>Web Application<a class="headerlink" href="#web-application" title="Link to this heading"></a></h2>
+<p>Baselayer comes with a microservice capable of bundling a web application. A great example of this is given in the <a class="reference external" href="https://github.com/cesium-ml/baselayer_template_app">template application</a>. When building your own application on top of baselayer, you’ll need to add your own <code class="docutils literal notranslate"><span class="pre">static</span></code> directory at the root of your project, as well as a <code class="docutils literal notranslate"><span class="pre">rspack.config.js</span></code> file to bundle your application. The <code class="docutils literal notranslate"><span class="pre">rspack.config.js</span></code> from the template application is a good starting point, and will be sufficient for most use cases. Instead of using the very popular <a class="reference external" href="https://webpack.js.org/">webpack</a>, we use <a class="reference external" href="https://rspack.dev/">rspack</a> as a 1:1 replacement. It covers all the features needed by baselayer, but offers much faster build times in development and production modes. We’ve noticed a x2 speedup on average when building a complex &amp; heavy web app such as <a class="reference external" href="https://github.com/skyportal/skyportal">SkyPortal</a>, and at least a x5 speedup when re-building the app in watch mode, which we use to update the web app in real-time when developing.</p>
 </section>
 </section>
 
