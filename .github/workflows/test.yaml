@@ -86,7 +86,11 @@ jobs:
           ### UV python package manager installation
           curl -LsSf https://astral.sh/uv/install.sh | sh
 
-          uv pip install --upgrade pip --system && uv pip install wheel --system
+          cd baselayer_template_app
+
+          uv venv --python 3.10 && source .venv/bin/activate
+
+          uv pip install --upgrade pip && uv pip install wheel
 
           ### bun installation
           curl -fsSL https://bun.sh/install | bash
@@ -101,13 +105,16 @@ jobs:
 
       - name: Install Geckodriver / Selenium
         run: |
+          source .venv/bin/activate
           geckodriver --version
-          uv pip install selenium==4.8.3 --system
+          uv pip install selenium==4.8.3
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Write configuration & build DB
         run: |
           cd baselayer_template_app
+
+          source .venv/bin/activate
 
           cat << EOF > config.yaml
             database:
@@ -141,6 +148,7 @@ jobs:
       - name: Test template app
         run: |
           cd baselayer_template_app
+          source .venv/bin/activate
           make test_headless
 
       - name: Upload logs
