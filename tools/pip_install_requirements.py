@@ -19,7 +19,7 @@ for req_file in all_req_files:
 
 
 def pip(req_files):
-    args = ["pip", "install"]
+    args = ["uv", "pip", "install"]
     for req_file in req_files:
         args.extend(["-r", req_file])
     p = subprocess.Popen(

@@ -41,7 +41,7 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@PYTHONPATH=. pip install packaging
+	@PYTHONPATH=. uv pip install packaging
 	@baselayer/tools/check_app_environment.py
 	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
@@ -146,10 +146,6 @@ test_report: ## Print report on failed tests
 test_report:
 	@PYTHONPATH='.' baselayer/tools/junitxml_report.py test-results/junit.xml
 
-# Call this target to see which Javascript dependencies are not up to date
-check-js-updates:
-	./baselayer/tools/check_js_updates.sh
-
 # Lint targets
 lint-install: ## Install ESLint and a git pre-commit hook.
 lint-install: cp-lint-yaml lint-githook
@@ -182,7 +178,7 @@ lint-githook:
 
 # Documentation targets, run from the `baselayer` directory
 baselayer_doc_reqs:
-	pip install -q -r requirements.docs.txt
+	uv pip install -q -r requirements.docs.txt
 
 baselayer_html: | baselayer_doc_reqs
 	export SPHINXOPTS=-W; make -C doc html

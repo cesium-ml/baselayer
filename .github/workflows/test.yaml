@@ -51,8 +51,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: |
-            ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('baselayer_template_app/package.json') }}
+            ~/.bun
+          key: ${{ runner.os }}-bun-${{ hashFiles('baselayer_template_app/package.json') }}
 
       - uses: actions/cache@v4
         with:
@@ -87,17 +87,12 @@ jobs:
           sudo apt install nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter -y
 
 
-          pip install --upgrade pip
-          pip install wheel
+          uv pip install --upgrade pip && uv pip install wheel
 
-          export NPM_PACKAGES="${HOME}/.npm-packages"
-          export PATH=${NPM_PACKAGES}/bin:$PATH
-          export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
-
-          sudo npm -g install npm@latest
+          bun upgrade
 
           which python; python --version
-          echo npm $(npm --version)
+          echo bun $(bun --version)
           echo node $(node --version)
           nginx -v
           firefox --version
@@ -105,7 +100,7 @@ jobs:
       - name: Install Geckodriver / Selenium
         run: |
           geckodriver --version
-          pip install selenium==4.8.3
+          uv pip install selenium==4.8.3
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Write configuration & build DB
