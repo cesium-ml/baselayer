@@ -41,7 +41,7 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@PYTHONPATH=. uv pip install packaging
+	@PYTHONPATH=. uv pip install packaging setuptools wheel
 	@baselayer/tools/check_app_environment.py
 	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
