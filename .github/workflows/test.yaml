@@ -102,6 +102,7 @@ jobs:
 
       - name: Install Geckodriver / Selenium
         run: |
+          cd baselayer_template_app
           source .venv/bin/activate
           geckodriver --version
           uv pip install selenium==4.8.3
@@ -110,7 +111,6 @@ jobs:
       - name: Write configuration & build DB
         run: |
           cd baselayer_template_app
-
           source .venv/bin/activate
 
           cat << EOF > config.yaml
