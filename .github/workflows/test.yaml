@@ -62,9 +62,6 @@ jobs:
 
       - name: Install system dependencies
         run: |
-
-          cd baselayer
-
           sudo apt update -y
 
           ### firefox installation
