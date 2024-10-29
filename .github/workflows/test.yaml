@@ -90,13 +90,12 @@ jobs:
 
           ### bun installation
           curl -fsSL https://bun.sh/install | bash
-          source /home/runner/.bashrc
 
-          bun upgrade
+          ~/.bun/bin upgrade
 
           which python; python --version
           echo uv $(uv --version)
-          echo bun $(bun --version)
+          echo bun $(~/.bun/bin --version)
           nginx -v
           firefox --version
 
