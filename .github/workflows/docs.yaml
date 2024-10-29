@@ -33,11 +33,13 @@ jobs:
       - name: Install dependencies
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
+          uv venv --python 3.10 && source .venv/bin/activate
           uv pip install --upgrade pip
           uv pip install -r requirements.docs.txt
 
       - name: Build docs
         run: |
+          source .venv/bin/activate
           cd doc
           make html
           touch _build/html/.nojekyll
