@@ -86,7 +86,7 @@ jobs:
           ### UV python package manager installation
           curl -LsSf https://astral.sh/uv/install.sh | sh
 
-          uv pip install --upgrade pip && uv pip install wheel
+          uv pip install --upgrade pip --system && uv pip install wheel --system
 
           ### bun installation
           curl -fsSL https://bun.sh/install | bash
@@ -103,7 +103,7 @@ jobs:
       - name: Install Geckodriver / Selenium
         run: |
           geckodriver --version
-          uv pip install selenium==4.8.3
+          uv pip install selenium==4.8.3 --system
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Write configuration & build DB
