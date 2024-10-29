@@ -91,11 +91,11 @@ jobs:
           ### bun installation
           curl -fsSL https://bun.sh/install | bash
 
-          ~/.bun/bin upgrade
+          ~/.bun/bin/bun upgrade
 
           which python; python --version
           echo uv $(uv --version)
-          echo bun $(~/.bun/bin --version)
+          echo bun $(~/.bun/bin/bun --version)
           nginx -v
           firefox --version
 
