@@ -38,7 +38,7 @@ See [below](#configuration) for more information on modifying the baselayer conf
 ### On Linux
 
 - Using `apt-get`:
-  `sudo apt-get install supervisor postgresql libpq-dev npm nodejs-legacy`
+  `sudo apt-get install supervisor postgresql libpq-dev nodejs-legacy`
 
   If you want to use [brotli compression](https://en.wikipedia.org/wiki/Brotli) with NGINX (better compression rates for the frontend), you have to install NGINX and the brotli module from another source with:
 
@@ -50,6 +50,12 @@ See [below](#configuration) for more information on modifying the baselayer conf
   ```
 
   Otherwise, you can install NGINX normally with `sudo apt-get install nginx`.
+
+  Then, we install `Bun` (a javascript runtime, faster equivalent to `node+npm`):
+
+  ```
+  curl -fsSL https://bun.sh/install | bash
+  ```
 
 - It may be necessary to configure your database permissions: at
   the end of your `pg_hba.conf` (typically in `/etc/postgresql/13.3/main` or `/var/lib/pgsql/data`),
