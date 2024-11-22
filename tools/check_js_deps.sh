@@ -2,29 +2,28 @@
 
 set -e
 
-CHECKER="node_modules/.bin/check-dependencies"
+# in this script, we want to use bun install to check if all the dependencies are installed
+# if we run bun install and:
+# - it contains and error message, print it out and exit
+# - it contains "(no changes)" in the output, then we know all the dependencies are installed
+# - otherwise, we tell the user that there are missing dependencies that were installed
+
 INSTALLER="bun install"
 
-if [[ ! -x ${CHECKER} ]]; then
-    bun install check-dependencies
+# first run it and save the output
+output=$(${INSTALLER} 2>&1)
+
+# if we got an error message, print it out and exit with an error
+if [ $? -ne 0 ]; then
+    echo "✗ Error installing Javascript dependencies:"
+    echo "${output}"
+    exit 1
 fi
 
-# We suppress output for the next command because, annoyingly, it reports
-# that a dependency is unsatisfied even if the --install flag is specified,
-# and that package has been successfully installed
-if ${CHECKER} ; then
-    status=0
+# check if the output contains "(no changes)"
+if echo "${output}" | grep -q "(no changes)"; then
+     echo "✓ All Javascript dependencies satisfied."
 else
-    status=1
-fi
-
-if [ ${status} -ne 0 ]; then
     echo "✗ Some Javascript dependencies are unsatisfied."
-    echo "✗ Attempting to install missing dependencies..."
-    ${INSTALLER}
-fi
-
-# Print report, if any unsatisfied dependencies remain
-if ${CHECKER}; then
-    echo "✓ All Javascript dependencies satisfied."
+    echo "✓ Missing dependencies have been installed."
 fi

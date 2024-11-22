@@ -1,5 +1,5 @@
 SHELL = /bin/bash
-ESLINT=npx eslint
+ESLINT=bun eslint
 
 .DEFAULT_GOAL := help
 
@@ -9,6 +9,11 @@ FLAGS:=$(if $(FLAGS),$(FLAGS),--config=config.yaml)
 
 PYTHON=PYTHONPATH=. python
 ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
+
+# Set the Python package installer to use
+# if uv is available set it to uv pip, otherwise use pip
+# for that simply call the uv command, and if we get a non-zero exit code, we know it's not available
+PYTHON_PGK_INSTALLER := $(shell command -v uv 2>&1 >/dev/null && echo "uv pip" || echo "pip")
 
 # Flags are propagated to supervisord via the FLAGS environment variable
 # Inside of supervisord configuration files, you may reference them using
@@ -25,7 +30,7 @@ B=\033[1m
 N=\033[0m
 
 bundle = static/build/main.bundle.js
-rspack = npx rspack
+rspack = bun rspack
 
 # NOTE: These targets are meant to be *included* in the parent app
 #       Makefile.  See end of this file for baselayer specific targets.
@@ -41,7 +46,7 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@PYTHONPATH=. uv pip install packaging setuptools wheel
+	@PYTHONPATH=. $(PYTHON_PGK_INSTALLER) install packaging setuptools wheel
 	@baselayer/tools/check_app_environment.py
 	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
@@ -178,7 +183,7 @@ lint-githook:
 
 # Documentation targets, run from the `baselayer` directory
 baselayer_doc_reqs:
-	uv pip install -q -r requirements.docs.txt
+	$(PYTHON_PGK_INSTALLER) install -q -r requirements.docs.txt
 
 baselayer_html: | baselayer_doc_reqs
 	export SPHINXOPTS=-W; make -C doc html

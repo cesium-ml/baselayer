@@ -5,6 +5,14 @@ import pkg_resources
 from pkg_resources import DistributionNotFound, Requirement, VersionConflict
 from status import status
 
+uv = True
+# check if the uv command is available
+# if not, use pip directly
+try:
+    subprocess.run(["uv", "--version"], stdout=subprocess.PIPE)
+except FileNotFoundError:
+    uv = False
+
 if len(sys.argv) < 2:
     print(
         "Usage: pip_install_requirements.py requirements.txt [requirements_other.txt]"
@@ -19,9 +27,14 @@ for req_file in all_req_files:
 
 
 def pip(req_files):
-    args = ["uv", "pip", "install"]
+    if uv:
+        args = ["uv", "pip", "install"]
+    else:
+        args = ["pip", "install"]
+
     for req_file in req_files:
         args.extend(["-r", req_file])
+
     p = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
