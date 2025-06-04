@@ -151,7 +151,7 @@ def driver(request):
 
     options = webdriver.FirefoxOptions()
     if "BASELAYER_TEST_HEADLESS" in os.environ:
-        options.headless = True
+        options.add_argument("-headless")
     options.set_preference("devtools.console.stdout.content", True)
     options.set_preference("browser.download.manager.showWhenStarting", False)
     options.set_preference("browser.download.folderList", 2)
