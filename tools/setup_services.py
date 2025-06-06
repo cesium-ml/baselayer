@@ -94,7 +94,9 @@ def validate_plugin_compatibility(plugin_name: str, plugin_path: str):
             return False
 
     except ImportError:
-        log(f"Could not find package {name} which plugin {plugin_name} depends on")
+        log(
+            f"Could not find package {name} which plugin {plugin_name} depends on. Skipping."
+        )
         return False
 
     return True
