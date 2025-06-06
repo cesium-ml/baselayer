@@ -36,7 +36,7 @@ export const Notifications = () => {
     note: {
       color: "white",
       fontWeight: 600,
-      padding: "1em 1.3em",
+      padding: "1.3em",
       marginBottom: "0.5em",
       width: "100%",
       borderRadius: "8px",
