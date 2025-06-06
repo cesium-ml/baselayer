@@ -1,19 +1,38 @@
 import os
+import subprocess
 from collections import Counter
 from os.path import join as pjoin
-import subprocess
 
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
 log = make_log("baselayer")
 
+
+def generate_supervisor_config(service_name, service_path):
+    """
+    Generates a supervisor configuration for a given service.
+    """
+    supervisor_conf_template = f"""
+[program:{service_name}]
+command=/usr/bin/env python {pjoin(service_path, 'main.py')} %(ENV_FLAGS)s
+environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
+stdout_logfile=log/{service_name}_service.log
+redirect_stderr=true
+"""
+    # Write the configuration to a file
+    with open(f"{service_path}/supervisor.conf", "w") as f:
+        f.write(supervisor_conf_template)
+
+
 def download_plugin_services():
-    env, cfg = load_env()
+    _, cfg = load_env()
 
     services_path = cfg["services.paths"]
 
     plugins = cfg.get("plugins", {})
+    plugins = plugins if plugins else {}
+
     plugin_services = []
 
     log(f"Discovered {len(plugins)} plugins")
@@ -25,9 +44,56 @@ def download_plugin_services():
 
         git_repo = plugin_info["url"].split(".git")[0].split("/")[-1]
         plugin_path = pjoin(services_path[-1], git_repo)
+        branch = plugin_info.get("branch", "main")
 
         if os.path.exists(plugin_path):
             if os.path.exists(pjoin(plugin_path, ".git")):
+                # Check if the git repo currently has modified files, if it does, skip update
+                # added files are fine, but modified files could cause issues
+                modified_files = (
+                    subprocess.Popen(
+                        f"cd {plugin_path} && git status --porcelain",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    .communicate()[0]
+                    .decode()
+                    .strip()
+                )
+                if modified_files:
+                    log(f"Plugin {plugin_name} has modified files, skipping update.")
+                    continue
+
+                last_commit = (
+                    subprocess.Popen(
+                        f"cd {plugin_path} && git rev-parse HEAD",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    .communicate()[0]
+                    .decode()
+                    .strip()
+                )
+                remote_commit = (
+                    subprocess.Popen(
+                        f"cd {plugin_path} && git rev-parse origin/{branch}",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    .communicate()[0]
+                    .decode()
+                    .strip()
+                )
+                if last_commit == remote_commit:
+                    log(
+                        f"Plugin {plugin_name} is already up to date on branch {branch}, skipping update."
+                    )
+                    plugin_services.append(plugin_name)
+                    continue
+
                 log(f"Updating plugin {plugin_name}")
                 _, stderr = subprocess.Popen(
                     f"cd {plugin_path} && git pull",
@@ -39,7 +105,9 @@ def download_plugin_services():
                     log(f"Error updating plugin {plugin_name}: {stderr}")
                     continue
             else:
-                log(f"Skipping plugin {plugin_name} because a microservice with the same name exists at {plugin_path}")
+                log(
+                    f"Skipping plugin {plugin_name} because a microservice with the same name exists at {plugin_path}"
+                )
             continue
         else:
             log(f"Cloning plugin {plugin_name}")
@@ -49,14 +117,18 @@ def download_plugin_services():
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ).communicate()
-            if stderr and len(stderr) > 0:
+            if stderr and stderr.decode().strip() != f"Cloning into '{git_repo}'...":
                 log(f"Error cloning plugin {plugin_name}: {stderr}")
                 continue
         plugin_services.append(plugin_name)
+        # we want to create a supervisor config for it
+        generate_supervisor_config(plugin_name, plugin_path)
+
     return plugin_services
 
+
 def copy_supervisor_configs():
-    env, cfg = load_env()
+    _, cfg = load_env()
 
     services = {}
     for path in cfg["services.paths"]:
