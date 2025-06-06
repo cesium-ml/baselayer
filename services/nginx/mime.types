@@ -57,6 +57,7 @@ application/geopackage+sqlite3			gpkg;
 application/gltf-buffer				glbin glbuf;
 application/gml+xml				gml;
 application/gzip				gz tgz;
+application/br                  br;
 application/hyperstudio				stk;
 application/inkml+xml				ink inkml;
 application/ipfix				ipfix;

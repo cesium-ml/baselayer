@@ -65,7 +65,7 @@ def verify_server_availability(url, timeout=180):
             )
             response = requests.get(url + "/static/build/main.bundle.js")
             assert response.status_code == 200, (
-                "Javascript bundle not found," " did Webpack fail?"
+                "Javascript bundle not found," " did rspack fail?"
             )
             return  # all checks passed
         except Exception as e:
@@ -75,7 +75,6 @@ def verify_server_availability(url, timeout=180):
 
 
 if __name__ == "__main__":
-
     from argparse import ArgumentParser
 
     parser = ArgumentParser()

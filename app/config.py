@@ -1,4 +1,4 @@
-import collections.abc as collections
+import collections
 import os
 from pathlib import Path
 
@@ -12,7 +12,7 @@ log = make_log("baselayer")
 def recursive_update(d, u):
     # Based on https://stackoverflow.com/a/3233356/214686
     for k, v in u.items():
-        if isinstance(v, collections.Mapping):
+        if isinstance(v, collections.abc.Mapping):
             r = recursive_update(d.get(k, {}) or {}, v)
             d[k] = r
         else:
@@ -109,7 +109,7 @@ def load_config(config_files=[]):
         Path(basedir / "config.yaml.defaults"),
         Path(basedir / "../config.yaml.defaults"),
     ] + config_files
-    all_configs = [cfg for cfg in all_configs if os.path.isfile(cfg)]
+    all_configs = [cfg for cfg in all_configs if os.path.exists(os.path.normpath(cfg))]
     all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
 
     cfg = Config(all_configs)

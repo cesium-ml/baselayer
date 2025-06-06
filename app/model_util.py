@@ -1,5 +1,4 @@
 import time
-from contextlib import contextmanager
 
 import sqlalchemy as sa
 
@@ -8,20 +7,6 @@ from baselayer.app import models
 # Do not remove this "unused" import; it is required for
 # psa to initialize the Tornado models
 from . import psa  # noqa: F401
-
-
-@contextmanager
-def status(message):
-    print(f"[·] {message}", end="")
-    try:
-        yield
-    except:  # noqa: E722
-        print(f"\r[✗] {message}")
-        raise
-    else:
-        print(f"\r[✓] {message}")
-    finally:
-        models.DBSession().commit()
 
 
 def drop_tables():

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import subprocess
 
 import jinja2
 from status import status
@@ -36,12 +37,89 @@ def hash_filter(string, htype):
     return h.hexdigest()
 
 
+def nginx_brotli_installed():
+    """Check if the nginx brotli module is installed
+
+    Returns
+    -------
+    installed : bool
+        True if the nginx brotli module is installed, False otherwise
+    dynamic : bool
+        True if the module is dynamically loaded, False otherwise
+    modules_path : str
+        The directory where the nginx modules are located if dynamic loading is used
+    """
+
+    installed = False
+    dynamic = False
+    modules_path = None
+
+    try:
+        output = subprocess.check_output(
+            ["nginx", "-V"], stderr=subprocess.STDOUT
+        ).decode("utf-8")
+        # Option 1: installed at compilation: always loaded
+        if (
+            "--add-module" in output
+            and "brotli" in output.split("--add-module")[1].strip()
+        ):
+            installed = True
+        # Option 2: installed dynamically at compilation or later: has to be loaded
+        else:
+            # a. find the modules path
+            config_path = (
+                str(output.split("--conf-path=")[1].split(" ")[0]).strip()
+                if "--conf-path" in output
+                else None
+            )
+            modules_path = (
+                str(output.split("--modules-path=")[1].split(" ")[0]).strip()
+                if "--modules-path" in output
+                else None
+            )
+            # if there's no modules path, try to guess it from the config path
+            if config_path and not modules_path:
+                modules_path = os.path.dirname(config_path).replace(
+                    "nginx.conf", "modules"
+                )
+                if not modules_path or not os.path.isdir(modules_path):
+                    modules_path = None
+
+            # b. check if there is a brotli module in the modules path
+            if modules_path:
+                modules_path = modules_path.rstrip("/")
+                if all(
+                    os.path.isfile(os.path.join(modules_path, f))
+                    for f in [
+                        "ngx_http_brotli_filter_module.so",
+                        "ngx_http_brotli_static_module.so",
+                    ]
+                ):
+                    installed = True
+                    dynamic = True
+                else:
+                    installed = False
+                    dynamic = False
+                    modules_path = None
+    except subprocess.CalledProcessError:
+        pass
+    return installed, dynamic, modules_path
+
+
 custom_filters = {"md5sum": md5sum, "version": version, "hash": hash_filter}
 
 
 def fill_config_file_values(template_paths):
     log("Compiling configuration templates")
     env, cfg = load_env()
+    installed, dynamic, modules_path = nginx_brotli_installed()
+    cfg["fill_config_feature"] = {
+        "nginx_brotli": {
+            "installed": installed,
+            "dynamic": dynamic,
+            "modules_path": modules_path,
+        }
+    }
 
     for template_path in template_paths:
         with status(template_path):

@@ -63,6 +63,7 @@ export const Notifications = () => {
         {notifications.map((notification) => (
           <div
             key={notification.id}
+            data-testid={`notification-${notification.id}`}
             style={{ ...style.note, background: noteColor[notification.type] }}
             onClick={() => dispatch(hideNotification(notification.id))}
           >
@@ -79,7 +80,7 @@ export function showNotification(
   note,
   type = "info",
   duration = 3000,
-  tag = "default"
+  tag = "default",
 ) {
   const thisId = nextNotificationId;
   nextNotificationId += 1;

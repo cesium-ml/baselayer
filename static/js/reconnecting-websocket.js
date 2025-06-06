@@ -241,7 +241,7 @@
           console.debug(
             "ReconnectingWebSocket",
             "connection-timeout",
-            self.url
+            self.url,
           );
         }
         timedOut = true;
@@ -293,7 +293,7 @@
             },
             timeout > self.maxReconnectInterval
               ? self.maxReconnectInterval
-              : timeout
+              : timeout,
           );
         }
       };
@@ -303,7 +303,7 @@
             "ReconnectingWebSocket",
             "onmessage",
             self.url,
-            event.data
+            event.data,
           );
         }
         var e = generateEvent("message");

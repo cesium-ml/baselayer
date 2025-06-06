@@ -14,7 +14,13 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.orm import declarative_base, relationship, scoped_session, sessionmaker
+from sqlalchemy.orm import (
+    declarative_base,
+    load_only,
+    relationship,
+    scoped_session,
+    sessionmaker,
+)
 from sqlalchemy_utils import EmailType, PhoneNumberType
 
 from .custom_exceptions import AccessError
@@ -747,7 +753,6 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
         # table against accessible related rows via their relationships
         # to the target table
         for prop in self.properties_and_modes:
-
             # get the kind of access required on the relationship
             mode = self.properties_and_modes[prop]
             relationship = sa.inspect(cls).mapper.relationships[prop]
@@ -810,7 +815,6 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
         # table against accessible related rows via their relationships
         # to the target table
         for prop in self.properties_and_modes:
-
             # get the kind of access required on the relationship
             mode = self.properties_and_modes[prop]
             relationship = sa.inspect(cls).mapper.relationships[prop]
@@ -931,7 +935,6 @@ class ComposedAccessControl(UserAccessControl):
         accessible_id_cols = []
 
         for access_control in self.access_controls:
-
             # Just ignore public ACLs
             if isinstance(access_control, Public):
                 continue
@@ -1003,7 +1006,6 @@ class ComposedAccessControl(UserAccessControl):
         accessible_id_cols = []
 
         for access_control in self.access_controls:
-
             # Just ignore public ACLs
             if isinstance(access_control, Public):
                 continue
@@ -1222,12 +1224,15 @@ class CustomUserAccessControl(UserAccessControl):
 
         if self.query is not None:
             query = self.query
+            # retrieve specified columns if requested
+            if columns is not None:
+                query = query.with_entities(*columns)
         else:
             query = self.query_generator(cls, user_or_token)
-
-        # retrieve specified columns if requested
-        if columns is not None:
-            query = query.with_entities(*columns)
+            # here query is not of type sqlalchemy.Query, but sqlalchemy.Select
+            # so we use the appropriate method to retrieve the columns
+            if columns is not None:
+                query = query.options(load_only(*columns))
 
         return query
 
@@ -1263,7 +1268,6 @@ class CustomUserAccessControl(UserAccessControl):
 
 
 class BaseMixin:
-
     # permission control logic
     create = read = public
     update = delete = restricted
@@ -1428,9 +1432,12 @@ class BaseMixin:
             )
 
         logic = getattr(cls, mode)
-        return logic.query_accessible_rows(cls, user_or_token, columns=columns).options(
-            options
+        accessible_rows = logic.query_accessible_rows(
+            cls, user_or_token, columns=columns
         )
+        if len(options) > 0:
+            return accessible_rows.options(*options)
+        return accessible_rows
 
     @classmethod
     def get(
@@ -1844,6 +1851,11 @@ class User(Base):
 
     first_name = sa.Column(sa.String, nullable=True, doc="The User's first name.")
     last_name = sa.Column(sa.String, nullable=True, doc="The User's last name.")
+    bio = sa.Column(
+        sa.String,
+        nullable=True,
+        doc="A short biography of the user, or description for bot accounts.",
+    )
     affiliations = sa.Column(
         sa.ARRAY(sa.String),
         nullable=False,
@@ -1863,6 +1875,12 @@ class User(Base):
     oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(
         JSONB, nullable=True, doc="The user's application settings."
+    )
+    is_bot = sa.Column(
+        sa.Boolean,
+        nullable=False,
+        server_default="false",
+        doc="Whether or not the user account should be flagged as a bot account.",
     )
 
     roles = relationship(

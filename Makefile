@@ -25,7 +25,7 @@ B=\033[1m
 N=\033[0m
 
 bundle = static/build/main.bundle.js
-webpack = npx webpack
+rspack = npx rspack
 
 # NOTE: These targets are meant to be *included* in the parent app
 #       Makefile.  See end of this file for baselayer specific targets.
@@ -41,7 +41,8 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@cd baselayer && ./tools/check_app_environment.py
+	@PYTHONPATH=. pip install packaging
+	@baselayer/tools/check_app_environment.py
 	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
@@ -54,20 +55,20 @@ db_clear: ## Delete all data from the database.
 db_clear: dependencies
 	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
 
-$(bundle): webpack.config.js package.json
-	@$(webpack)
+$(bundle): rspack.config.js package.json
+	@$(rspack)
 
 bundle: $(bundle)
 
 bundle-watch:
-	$(webpack) -w
+	$(rspack) -w
 
 paths:
 	@mkdir -p log run tmp
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find . -name '[^.]*.template' | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find -L . -name '[^.]*.template' | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 system_setup: | paths dependencies fill_conf_values service_setup
 

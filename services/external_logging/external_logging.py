@@ -42,7 +42,7 @@ def check_config(config, service):
             ),
         ]
 
-    for (cond, msg) in conditions:
+    for cond, msg in conditions:
         if cond:
             log(msg)
 

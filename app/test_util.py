@@ -144,9 +144,12 @@ class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
 
 @pytest.fixture(scope="session")
 def driver(request):
-    from selenium import webdriver
+    import shutil
 
-    options = webdriver.firefox.options.Options()
+    from selenium import webdriver
+    from webdriver_manager.firefox import GeckoDriverManager
+
+    options = webdriver.FirefoxOptions()
     if "BASELAYER_TEST_HEADLESS" in os.environ:
         options.headless = True
     options.set_preference("devtools.console.stdout.content", True)
@@ -163,7 +166,12 @@ def driver(request):
         ),
     )
 
-    driver = MyCustomWebDriver(options=options)
+    executable_path = shutil.which("geckodriver")
+    if executable_path is None:
+        executable_path = GeckoDriverManager().install()
+    service = webdriver.firefox.service.Service(executable_path=executable_path)
+
+    driver = MyCustomWebDriver(options=options, service=service)
     driver.set_window_size(1920, 1200)
     login(driver)
 

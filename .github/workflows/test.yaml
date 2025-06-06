@@ -32,37 +32,60 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/setup-python@v1
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.8"
+          python-version: "3.10"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install template app
         run: |
           git clone https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.npm
           key: ${{ runner.os }}-npm-${{ hashFiles('baselayer_template_app/package.json') }}
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
           key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
 
+      - uses: browser-actions/setup-geckodriver@latest
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install system dependencies
         run: |
           cd baselayer
 
-          curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo apt update -y
 
-          sudo apt install -y wget nodejs unzip firefox nginx
+          ### firefox installation
+          sudo snap remove firefox
+          sudo add-apt-repository ppa:mozillateam/ppa
+          printf 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001' | sudo tee /etc/apt/preferences.d/mozilla-firefox
+
+          sudo apt install -y wget nodejs unzip firefox
+
+          # if nginx is already installed, remove it
+          sudo apt remove -y nginx nginx-common nginx-core nginx-full
+          sudo apt purge -y nginx nginx-common nginx-core nginx-full
+
+          # add the PPA repository with brotli support for nginx
+          sudo add-apt-repository ppa:ondrej/nginx -y
+          sudo apt update -y
+          sudo apt install nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter -y
+
 
           pip install --upgrade pip
           pip install wheel
@@ -81,16 +104,8 @@ jobs:
 
       - name: Install Geckodriver / Selenium
         run: |
-          GECKO_VER=0.30.0
-          CACHED_DOWNLOAD_DIR=~/.local/downloads
-          FILENAME=geckodriver-v${GECKO_VER}-linux64.tar.gz
-
-          if [[ ! -f ${CACHED_DOWNLOAD_DIR=}/${FILENAME} ]]; then
-            wget https://github.com/mozilla/geckodriver/releases/download/v${GECKO_VER}/${FILENAME} --directory-prefix=${CACHED_DOWNLOAD_DIR} --no-clobber
-          fi
-          sudo tar -xzf ${CACHED_DOWNLOAD_DIR}/geckodriver-v${GECKO_VER}-linux64.tar.gz -C /usr/local/bin
           geckodriver --version
-          pip install --upgrade selenium
+          pip install selenium==4.8.3
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Write configuration & build DB
@@ -132,7 +147,7 @@ jobs:
           make test_headless
 
       - name: Upload logs
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         if: ${{ always() }}
         with:
           name: logs

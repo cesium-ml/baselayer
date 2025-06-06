@@ -1,6 +1,12 @@
 error_log log/error.log error;
 pid run/nginx.pid;
 
+{% if fill_config_feature.nginx_brotli.dynamic and fill_config_feature.nginx_brotli.modules_path %}
+load_module {{ fill_config_feature.nginx_brotli.modules_path }}/ngx_http_brotli_filter_module.so; # for compressing responses on-the-fly
+load_module {{ fill_config_feature.nginx_brotli.modules_path }}/ngx_http_brotli_static_module.so; # for serving pre-compressed files
+{% endif %}
+
+
 # Choose number of NGINX worker processes based on number of CPUs
 worker_processes auto;
 
@@ -18,7 +24,21 @@ http {
              application/json
              application/x-javascript
              application/xml
-             text/javascript;
+             text/javascript
+             application/javascript;
+
+  {% if fill_config_feature.nginx_brotli.installed %}
+  # also enable brotli compression
+  brotli on;
+  brotli_comp_level 6;
+  brotli_types text/plain
+               text/css
+               application/json
+               application/x-javascript
+               application/xml
+               text/javascript
+               application/javascript;
+  {% endif %}
 
   # Only retry if there was a communication error, not a timeout
   # on the Tornado server (to avoid propagating "queries of death"
@@ -111,7 +131,7 @@ http {
     {% if env.debug %}
     listen 127.0.0.1:{{ ports.app }};
     {% else %}
-    {% if server.ssl %}
+    {% if server.ssl_certificate %}
     listen {{ ports.app }} ssl;
     {% else %}
     listen {{ ports.app }};
@@ -120,7 +140,7 @@ http {
     {% endif %}
     client_max_body_size {{ server.max_body_size }}M;
 
-    {% if server.ssl_use_certificate %}
+    {% if server.ssl_certificate %}
     ssl_certificate {{ server.ssl_certificate }};
     ssl_certificate_key {{ server.ssl_certificate_key }};
     {% endif %}

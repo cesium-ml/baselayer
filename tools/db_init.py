@@ -91,7 +91,7 @@ for current_db in all_dbs:
 
         p = run(
             f'{psql_cmd} {admin_flags}\
-                  -c "CREATE DATABASE {current_db};"'
+                  -c "CREATE DATABASE {current_db} OWNER {user};"'
         )
         if p.returncode == 0:
             run(
