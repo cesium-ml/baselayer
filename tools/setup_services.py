@@ -49,13 +49,13 @@ def get_plugin_compatible_version(plugin_config: dict):
         return None, None
 
     tool_name = next(iter(plugin_config["tool"]))
-    tool_version = plugin_config["tool"][tool_name].get("version", None)
+    tool_version_requirement = plugin_config["tool"][tool_name].get("version", None)
 
-    if not tool_version:
+    if not tool_version_requirement:
         log(f"Plugin config for '{tool_name}' does not specify a version")
         return None, None
 
-    return tool_name, tool_version
+    return tool_name, tool_version_requirement
 
 
 def validate_version(version_string, requirement_string):
@@ -92,7 +92,6 @@ def validate_plugin_compatibility(plugin_name: str, plugin_path: str):
                 f"Plugin {plugin_name} is incompatible: required {version_requirement}, found {installed_version}. Skipping."
             )
             return False
-
     except ImportError:
         log(
             f"Could not find package {name} which plugin {plugin_name} depends on. Skipping."
@@ -130,6 +129,7 @@ def download_plugin_services():
                 modified_files = (
                     subprocess.Popen(
                         f"cd {plugin_path} && git status --porcelain",
+                        # TODO: this checks for added/modified/delete, but we only want modified
                         shell=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -172,6 +172,10 @@ def download_plugin_services():
                         log(f"Updating plugin {plugin_name}")
                         _, stderr = subprocess.Popen(
                             f"cd {plugin_path} && git pull",
+                            # TODO: don't just pull but:
+                            # - if "branch" is specified, checkout that branch's latest commit
+                            # - if "branch" is specified AND "sha" is specified, checkout that sha/commit on that branch
+                            # - if no "branch" is specified but "version" is specified, checkout that version tag
                             shell=True,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
@@ -195,6 +199,7 @@ def download_plugin_services():
             if stderr and stderr.decode().strip() != f"Cloning into '{git_repo}'...":
                 log(f"Error cloning plugin {plugin_name}: {stderr}")
                 continue
+            # TODO: error handling for clone failure
 
         # validate plugin compatibility:
         if validate_plugin_compatibility(plugin_name, plugin_path):
@@ -206,7 +211,7 @@ def download_plugin_services():
     return plugin_services
 
 
-def copy_supervisor_configs():
+def copy_supervisor_configs(activated_plugins=[]):
     _, cfg = load_env()
 
     services = {}
@@ -216,6 +221,15 @@ def copy_supervisor_configs():
                 d for d in os.listdir(path) if os.path.isdir(pjoin(path, d))
             ]
             services.update({s: pjoin(path, s) for s in path_services})
+
+    all_plugins_path = cfg.get("services.plugins_path", "./plugins")
+    for p in activated_plugins:
+        services.update({p: pjoin(all_plugins_path, p)})
+
+    # TODO (in a future PR): loop over all services, check if they are a git submodule or not
+    # if they are a submodule make sure they are initialized and updated
+    # this should be discussed, it does not seem necessary as soon as we have the
+    # config based plugin system working
 
     duplicates = [k for k, v in Counter(services.keys()).items() if v > 1]
     if duplicates:
@@ -254,6 +268,6 @@ def copy_supervisor_configs():
 
 
 if __name__ == "__main__":
-    download_plugin_services()
+    activated_plugins = download_plugin_services()
     print()
-    copy_supervisor_configs()
+    copy_supervisor_configs(activated_plugins)
