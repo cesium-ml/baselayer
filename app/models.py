@@ -1946,6 +1946,23 @@ class User(Base):
         """The base model for User subclasses."""
         return User
 
+    def assert_group_accessible(self, group_id):
+        """Raise an error if the user or token does not have access to the given group.
+
+        Parameters
+        ----------
+        group_id : int or str
+            The ID of the group to check.
+
+        Raises
+        ------
+        AccessError
+            If the user or token does not have access to the group.
+        """
+        accessible_group_ids = {group.id for group in self.groups}
+        if not is_admin(self) and int(group_id) not in accessible_group_ids:
+            raise AccessError(f"Group {group_id} is not accessible by the current user.")
+
     def is_authenticated(self):
         """Boolean flag indicating whether the User is currently
         authenticated."""
