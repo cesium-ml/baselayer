@@ -118,8 +118,7 @@ def download_plugin_services():
             log(f"Skipping plugin {plugin_name} because it has no URL")
             continue
 
-        git_repo = plugin_info["url"].split(".git")[0].split("/")[-1]
-        plugin_path = pjoin(plugins_path, git_repo)
+        plugin_path = pjoin(plugins_path, plugin_name)
         branch = plugin_info.get("branch", "main")
 
         if os.path.exists(plugin_path):
@@ -191,12 +190,16 @@ def download_plugin_services():
         else:
             log(f"Cloning plugin {plugin_name}")
             _, stderr = subprocess.Popen(
-                f"cd {plugins_path} && git clone {plugin_info['url']}",
+                f"git clone --branch {branch} {plugin_info['url']} {pjoin(plugins_path, plugin_name)}",
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             ).communicate()
-            if stderr and stderr.decode().strip() != f"Cloning into '{git_repo}'...":
+            if (
+                stderr
+                and stderr.decode().strip()
+                != f"Cloning into '{pjoin(plugins_path, plugin_name)}'..."
+            ):
                 log(f"Error cloning plugin {plugin_name}: {stderr}")
                 continue
             # TODO: error handling for clone failure
