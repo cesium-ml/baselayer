@@ -1894,7 +1894,7 @@ class User(Base):
     role_ids = association_proxy(
         "roles",
         "id",
-        creator=lambda r: DBSession().query(Role).get(r),
+        creator=lambda r: DBSession().scalar(sa.select(Role).where(Role.id == r)),
     )
     tokens = relationship(
         "Token",
@@ -2000,7 +2000,9 @@ class Token(Base):
         lazy="selectin",
     )
     acl_ids = association_proxy(
-        "acls", "id", creator=lambda acl: DBSession().query(ACL).get(acl)
+        "acls",
+        "id",
+        creator=lambda acl: DBSession().scalar(sa.select(ACL).where(ACL.id == acl)),
     )
     permissions = acl_ids
 
