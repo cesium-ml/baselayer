@@ -98,6 +98,9 @@ def validate_plugin_compatibility(plugin_name: str, plugin_path: str):
         )
         return False
 
+    # TODO: check that the "name" in the plugin_config (pyproject.toml)
+    # matches the plugin_name (i.e. the name given to the plugin in the config.yaml)
+
     return True
 
 
