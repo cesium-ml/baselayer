@@ -142,21 +142,22 @@ def download_plugin_services():
                 )
                 .communicate()[0]
                 .decode()
-                .strip()
+                .splitlines()
             )
-            if modified_files:
+            modified_lines = [line for line in modified_files if "M" in line[:2]]
+            if modified_lines:
                 log(f"Plugin {plugin_name} has modified files, skipping update.")
             else:
                 last_commit = (
                     subprocess.Popen(
-                        f"cd {plugin_path} && git rev-parse HEAD",
+                        f"cd {plugin_path} && git status --porcelain",
                         shell=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                     )
                     .communicate()[0]
                     .decode()
-                    .strip()
+                    .splitlines()
                 )
                 remote_commit = (
                     subprocess.Popen(
