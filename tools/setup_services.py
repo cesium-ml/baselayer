@@ -209,6 +209,49 @@ def download_plugin_services():
                     stderr=subprocess.PIPE,
                 ).communicate()
 
+                # Check current branch
+                current_branch = (
+                    subprocess.Popen(
+                        f"cd {plugin_path} && git branch --show-current",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    .communicate()[0]
+                    .decode()
+                    .strip()
+                )
+
+                # If we're not on the correct branch, switch to it
+                if current_branch != branch:
+                    log(
+                        f"Switching plugin {plugin_name} from branch {current_branch} to {branch}"
+                    )
+                    _, stderr = subprocess.Popen(
+                        f"cd {plugin_path} && git checkout {branch}",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    ).communicate()
+                    if stderr and len(stderr) > 0:
+                        stderr_str = (
+                            stderr.decode() if isinstance(stderr, bytes) else stderr
+                        )
+                        # Filter out normal git checkout output
+                        is_normal_output = (
+                            ("Switched to branch" in stderr_str)
+                            or ("Already on" in stderr_str)
+                            or (
+                                "Branch" in stderr_str
+                                and "set up to track" in stderr_str
+                            )
+                        )
+                        if not is_normal_output:
+                            log(
+                                f"Error switching plugin {plugin_name} to branch {branch}: {stderr}"
+                            )
+                            continue
+
                 last_commit = (
                     subprocess.Popen(
                         f"cd {plugin_path} && git rev-parse HEAD",
