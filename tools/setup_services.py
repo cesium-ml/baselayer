@@ -125,13 +125,31 @@ def download_plugin_services():
         branch = plugin_info.get("branch", "main")
 
         if os.path.exists(plugin_path):
-            if os.path.exists(pjoin(plugin_path, ".git")):
-                # Check if the git repo currently has modified files, if it does, skip update
-                # added files are fine, but modified files could cause issues
-                modified_files = (
+            if not os.path.exists(pjoin(plugin_path, ".git")):
+                log(
+                    f"Directory containing plugin {plugin_name} is not a valid git repository, skipping update."
+                )
+                continue
+            # Check if the git repo currently has modified files, if it does, skip update
+            # added files are fine, but modified files could cause issues
+            modified_files = (
+                subprocess.Popen(
+                    f"cd {plugin_path} && git status --porcelain",
+                    # TODO: this checks for added/modified/delete, but we only want modified
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                .communicate()[0]
+                .decode()
+                .strip()
+            )
+            if modified_files:
+                log(f"Plugin {plugin_name} has modified files, skipping update.")
+            else:
+                last_commit = (
                     subprocess.Popen(
-                        f"cd {plugin_path} && git status --porcelain",
-                        # TODO: this checks for added/modified/delete, but we only want modified
+                        f"cd {plugin_path} && git rev-parse HEAD",
                         shell=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -140,56 +158,37 @@ def download_plugin_services():
                     .decode()
                     .strip()
                 )
-                if modified_files:
-                    log(f"Plugin {plugin_name} has modified files, skipping update.")
-                else:
-                    last_commit = (
-                        subprocess.Popen(
-                            f"cd {plugin_path} && git rev-parse HEAD",
-                            shell=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                        )
-                        .communicate()[0]
-                        .decode()
-                        .strip()
+                remote_commit = (
+                    subprocess.Popen(
+                        f"cd {plugin_path} && git rev-parse origin/{branch}",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
                     )
-                    remote_commit = (
-                        subprocess.Popen(
-                            f"cd {plugin_path} && git rev-parse origin/{branch}",
-                            shell=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                        )
-                        .communicate()[0]
-                        .decode()
-                        .strip()
-                    )
-                    if last_commit == remote_commit:
-                        log(
-                            f"Plugin {plugin_name} is already up to date on branch {branch}, skipping update."
-                        )
-                        plugin_services.append(plugin_name)
-                    else:
-                        log(f"Updating plugin {plugin_name}")
-                        _, stderr = subprocess.Popen(
-                            f"cd {plugin_path} && git pull",
-                            # TODO: don't just pull but:
-                            # - if "branch" is specified, checkout that branch's latest commit
-                            # - if "branch" is specified AND "sha" is specified, checkout that sha/commit on that branch
-                            # - if no "branch" is specified but "version" is specified, checkout that version tag
-                            shell=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                        ).communicate()
-                        if stderr and len(stderr) > 0:
-                            log(f"Error updating plugin {plugin_name}: {stderr}")
-                            continue
-            else:
-                log(
-                    f"Skipping plugin {plugin_name} because a microservice with the same name exists at {plugin_path}"
+                    .communicate()[0]
+                    .decode()
+                    .strip()
                 )
-                continue
+                if last_commit == remote_commit:
+                    log(
+                        f"Plugin {plugin_name} is already up to date on branch {branch}, skipping update."
+                    )
+                    plugin_services.append(plugin_name)
+                else:
+                    log(f"Updating plugin {plugin_name}")
+                    _, stderr = subprocess.Popen(
+                        f"cd {plugin_path} && git pull",
+                        # TODO: don't just pull but:
+                        # - if "branch" is specified, checkout that branch's latest commit
+                        # - if "branch" is specified AND "sha" is specified, checkout that sha/commit on that branch
+                        # - if no "branch" is specified but "version" is specified, checkout that version tag
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    ).communicate()
+                    if stderr and len(stderr) > 0:
+                        log(f"Error updating plugin {plugin_name}: {stderr}")
+                        continue
         else:
             log(f"Cloning plugin {plugin_name}")
             _, stderr = subprocess.Popen(
@@ -208,11 +207,11 @@ def download_plugin_services():
             # TODO: error handling for clone failure
 
         # validate plugin compatibility:
-        if validate_plugin_compatibility(plugin_name, plugin_path):
-            plugin_services.append(plugin_name)
-            generate_supervisor_config(plugin_name, plugin_path)
-        else:
+        if not validate_plugin_compatibility(plugin_name, plugin_path):
             continue
+
+        plugin_services.append(plugin_name)
+        generate_supervisor_config(plugin_name, plugin_path)
 
     return plugin_services
 
