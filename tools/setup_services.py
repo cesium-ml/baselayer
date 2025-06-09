@@ -123,6 +123,7 @@ def download_plugin_services():
 
         plugin_path = pjoin(plugins_path, plugin_name)
         branch = plugin_info.get("branch", "main")
+        sha = plugin_info.get("sha", None)
 
         if os.path.exists(plugin_path):
             if not os.path.exists(pjoin(plugin_path, ".git")):
@@ -135,7 +136,6 @@ def download_plugin_services():
             modified_files = (
                 subprocess.Popen(
                     f"cd {plugin_path} && git status --porcelain",
-                    # TODO: this checks for added/modified/delete, but we only want modified
                     shell=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -147,17 +147,75 @@ def download_plugin_services():
             modified_lines = [line for line in modified_files if "M" in line[:2]]
             if modified_lines:
                 log(f"Plugin {plugin_name} has modified files, skipping update.")
-            else:
-                last_commit = (
+            elif sha:
+                # If SHA is specified, check if we're already at that commit
+                current_commit = (
                     subprocess.Popen(
-                        f"cd {plugin_path} && git status --porcelain",
+                        f"cd {plugin_path} && git rev-parse HEAD",
                         shell=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                     )
                     .communicate()[0]
                     .decode()
-                    .splitlines()
+                    .strip()
+                )
+                if current_commit == sha:
+                    log(
+                        f"Plugin {plugin_name} is already at SHA {sha}, skipping update."
+                    )
+                    plugin_services.append(plugin_name)
+                else:
+                    log(f"Updating plugin {plugin_name} to SHA {sha}")
+                    # Fetch latest changes and checkout specific SHA
+                    _, stderr = subprocess.Popen(
+                        f"cd {plugin_path} && git fetch origin && git checkout {sha}",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    ).communicate()
+                    # Filter out normal git output and detached HEAD warnings
+                    if stderr and len(stderr) > 0:
+                        stderr_str = (
+                            stderr.decode() if isinstance(stderr, bytes) else stderr
+                        )
+                        # Check if stderr contains only normal git output or detached HEAD warnings
+                        is_normal_output = (
+                            ("FETCH_HEAD" in stderr_str and "branch" in stderr_str)
+                            or (
+                                "detached HEAD" in stderr_str
+                                and "HEAD is now at" in stderr_str
+                            )
+                            or (
+                                "Previous HEAD position was" in stderr_str
+                                and "HEAD is now at" in stderr_str
+                            )
+                        )
+                        if not is_normal_output:
+                            log(
+                                f"Error updating plugin {plugin_name} to SHA {sha}: {stderr}"
+                            )
+                            continue
+            else:
+                # No SHA specified, check if we're up to date with the branch
+                # First fetch to get latest remote refs
+                subprocess.Popen(
+                    f"cd {plugin_path} && git fetch origin {branch}",
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                ).communicate()
+
+                last_commit = (
+                    subprocess.Popen(
+                        f"cd {plugin_path} && git rev-parse HEAD",
+                        shell=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    .communicate()[0]
+                    .decode()
+                    .strip()
                 )
                 remote_commit = (
                     subprocess.Popen(
@@ -176,9 +234,9 @@ def download_plugin_services():
                     )
                     plugin_services.append(plugin_name)
                 else:
-                    log(f"Updating plugin {plugin_name}")
+                    log(f"Updating plugin {plugin_name} to branch {branch}")
                     _, stderr = subprocess.Popen(
-                        f"cd {plugin_path} && git pull",
+                        f"cd {plugin_path} && git pull origin {branch}",
                         # TODO: don't just pull but:
                         # - if "branch" is specified, checkout that branch's latest commit
                         # - if "branch" is specified AND "sha" is specified, checkout that sha/commit on that branch
@@ -188,8 +246,18 @@ def download_plugin_services():
                         stderr=subprocess.PIPE,
                     ).communicate()
                     if stderr and len(stderr) > 0:
-                        log(f"Error updating plugin {plugin_name}: {stderr}")
-                        continue
+                        stderr_str = (
+                            stderr.decode() if isinstance(stderr, bytes) else stderr
+                        )
+                        # Filter out normal git pull output
+                        is_normal_output = (
+                            ("FETCH_HEAD" in stderr_str and "branch" in stderr_str)
+                            or ("Already up to date" in stderr_str)
+                            or ("Fast-forward" in stderr_str)
+                        )
+                        if not is_normal_output:
+                            log(f"Error updating plugin {plugin_name}: {stderr}")
+                            continue
         else:
             log(f"Cloning plugin {plugin_name}")
             _, stderr = subprocess.Popen(
@@ -205,7 +273,33 @@ def download_plugin_services():
             ):
                 log(f"Error cloning plugin {plugin_name}: {stderr}")
                 continue
-            # TODO: error handling for clone failure
+
+            # If SHA is specified, checkout that specific commit after cloning
+            if sha:
+                log(f"Checking out SHA {sha} for plugin {plugin_name}")
+                _, stderr = subprocess.Popen(
+                    f"cd {plugin_path} && git checkout {sha}",
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                ).communicate()
+                # Filter out normal git output and detached HEAD warnings
+                if stderr and len(stderr) > 0:
+                    stderr_str = (
+                        stderr.decode() if isinstance(stderr, bytes) else stderr
+                    )
+                    # Check if stderr contains only detached HEAD warnings or normal checkout output
+                    is_normal_output = (
+                        "detached HEAD" in stderr_str and "HEAD is now at" in stderr_str
+                    ) or (
+                        "Previous HEAD position was" in stderr_str
+                        and "HEAD is now at" in stderr_str
+                    )
+                    if not is_normal_output:
+                        log(
+                            f"Error checking out SHA {sha} for plugin {plugin_name}: {stderr}"
+                        )
+                        continue
 
         # validate plugin compatibility:
         if not validate_plugin_compatibility(plugin_name, plugin_path):
