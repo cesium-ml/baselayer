@@ -98,8 +98,11 @@ def validate_plugin_compatibility(plugin_name: str, plugin_path: str):
         )
         return False
 
-    # TODO: check that the "name" in the plugin_config (pyproject.toml)
-    # matches the plugin_name (i.e. the name given to the plugin in the config.yaml)
+    if plugin_config["project"]["name"] != plugin_name:
+        log(
+            f"Plugin {plugin_name} has a different name in its config ({plugin_config['project']['name']}). Skipping."
+        )
+        return False
 
     return True
 
@@ -238,8 +241,6 @@ def download_plugin_services():
                     _, stderr = subprocess.Popen(
                         f"cd {plugin_path} && git pull origin {branch}",
                         # TODO: don't just pull but:
-                        # - if "branch" is specified, checkout that branch's latest commit
-                        # - if "branch" is specified AND "sha" is specified, checkout that sha/commit on that branch
                         # - if no "branch" is specified but "version" is specified, checkout that version tag
                         shell=True,
                         stdout=subprocess.PIPE,
