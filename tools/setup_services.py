@@ -145,12 +145,10 @@ def run_git_command(args, plugin_path, plugin_name):
 
 def download_plugin_services():
     _, cfg = load_env()
-
     plugins_path = cfg.get("services.plugins_path", "./plugins")
     os.makedirs(plugins_path, exist_ok=True)
 
     plugins = cfg.get("plugins", {})
-
     plugin_services = []
 
     log(f"Discovered {len(plugins)} plugins")
@@ -160,225 +158,235 @@ def download_plugin_services():
             log(f"Skipping plugin {plugin_name} because it has no URL")
             continue
 
-        plugin_path = pjoin(plugins_path, plugin_name)
-        branch = plugin_info.get("branch", "main")
-        sha = plugin_info.get("sha", None)
-        version_tag = plugin_info.get("version", None)
-
-        if os.path.exists(plugin_path):
-            if not os.path.exists(pjoin(plugin_path, ".git")):
-                log(
-                    f"Directory containing plugin {plugin_name} is not a valid git repository, skipping update."
-                )
-                continue
-            # Check if the git repo currently has modified files, if it does, skip update
-            # added files are fine, but modified files could cause issues
-            try:
-                modified_files, _ = run_git_command(
-                    ["status", "--porcelain"], plugin_path, plugin_name
-                )
-            except subprocess.CalledProcessError:
-                modified_files = []
-
-            modified_lines = [line for line in modified_files if "M" in line[:2]]
-
-            if modified_lines:
-                log(f"Plugin {plugin_name} has modified files, skipping update.")
-            elif version_tag:
-                # If version tag is specified, check if we're already at that tag
-                try:
-                    result = subprocess.run(
-                        ["git", "describe", "--exact-match", "--tags", "HEAD"],
-                        cwd=plugin_path,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.DEVNULL,
-                        text=True,
-                        check=True,
-                    )
-                    current_tag = result.stdout.strip() or "no-tag"
-                except subprocess.CalledProcessError:
-                    current_tag = "no-tag"
-
-                if current_tag == version_tag:
-                    log(
-                        f"Plugin {plugin_name} is already at version {version_tag}, skipping update."
-                    )
-                    plugin_services.append(plugin_name)
-                else:
-                    log(f"Updating plugin {plugin_name} to version {version_tag}")
-                    # Fetch latest changes and checkout specific version tag
-                    try:
-                        run_git_command(
-                            ["fetch", "origin", "--tags"], plugin_path, plugin_name
-                        )
-                        run_git_command(
-                            ["checkout", version_tag], plugin_path, plugin_name
-                        )
-
-                    except subprocess.CalledProcessError:
-                        log(
-                            f"Failed to fetch or checkout version {version_tag} for plugin {plugin_name}"
-                        )
-                        continue
-
-            elif sha:
-                # If SHA is specified, check if we're already at that commit
-                try:
-                    stdout_lines, _ = run_git_command(
-                        ["rev-parse", "HEAD"], plugin_path, plugin_name
-                    )
-                    current_commit = stdout_lines[0] if stdout_lines else ""
-                except subprocess.CalledProcessError:
-                    current_commit = ""
-                    log(f"Failed to get current commit for plugin {plugin_name}")
-
-                if current_commit == sha:
-                    log(
-                        f"Plugin {plugin_name} is already at SHA {sha}, skipping update."
-                    )
-                    plugin_services.append(plugin_name)
-                else:
-                    log(f"Updating plugin {plugin_name} to SHA {sha}")
-                    # Fetch latest changes and checkout specific SHA
-                    try:
-                        run_git_command(["fetch", "origin"], plugin_path, plugin_name)
-                        run_git_command(["checkout", sha], plugin_path, plugin_name)
-
-                    except subprocess.CalledProcessError:
-                        log(
-                            f"Failed to fetch or checkout SHA {sha} for plugin {plugin_name}"
-                        )
-                        continue
-
-            else:
-                # No SHA or version specified, check if we're up to date with the branch
-                # First fetch to get latest remote refs
-                try:
-                    run_git_command(
-                        ["fetch", "origin", branch], plugin_path, plugin_name
-                    )
-                except subprocess.CalledProcessError as e:
-                    log(
-                        f"Failed to fetch branch {branch} for plugin {plugin_name}: {e}"
-                    )
-
-                try:
-                    stdout_lines, _ = run_git_command(
-                        ["branch", "--show-current"], plugin_path, plugin_name
-                    )
-                    current_branch = stdout_lines[0] if stdout_lines else ""
-                except subprocess.CalledProcessError:
-                    current_branch = ""
-                    log(f"Failed to get current branch for plugin {plugin_name}")
-
-                # If we're not on the correct branch, switch to it
-                if current_branch != branch:
-                    log(
-                        f"Switching plugin {plugin_name} from branch {current_branch} to {branch}"
-                    )
-                    try:
-                        stdout_lines, stderr_str = run_git_command(
-                            ["checkout", branch], plugin_path, plugin_name
-                        )
-                    except subprocess.CalledProcessError:
-                        log(f"[ERROR] Git checkout failed for plugin {plugin_name}")
-                        continue
-
-                    # Validate plugin compatibility after successful branch switch
-                    if not validate_plugin_compatibility(plugin_name, plugin_path):
-                        continue
-
-                    # After successful branch switch and validation, add to services and generate config
-                    plugin_services.append(plugin_name)
-                    generate_supervisor_config(plugin_name, plugin_path)
-                    continue
-
-                try:
-                    stdout_lines, _ = run_git_command(
-                        ["rev-parse", "HEAD"], plugin_path, plugin_name
-                    )
-                    last_commit = stdout_lines[0] if stdout_lines else ""
-                except subprocess.CalledProcessError:
-                    last_commit = ""
-                    log(f"Failed to get last commit for plugin {plugin_name}")
-
-                try:
-                    stdout_lines, _ = run_git_command(
-                        ["rev-parse", f"origin/{branch}"], plugin_path, plugin_name
-                    )
-                    remote_commit = stdout_lines[0] if stdout_lines else ""
-                except subprocess.CalledProcessError:
-                    remote_commit = ""
-                    log(
-                        f"Failed to get remote commit for branch {branch} in plugin {plugin_name}"
-                    )
-
-                if last_commit == remote_commit:
-                    log(
-                        f"Plugin {plugin_name} is already up to date on branch {branch}, skipping update."
-                    )
-                    plugin_services.append(plugin_name)
-                else:
-                    log(f"Updating plugin {plugin_name} to latest on branch {branch}")
-                    try:
-                        run_git_command(
-                            ["pull", "origin", branch], plugin_path, plugin_name
-                        )
-                    except subprocess.CalledProcessError:
-                        log(f"Failed to pull branch {branch} for plugin {plugin_name}")
-                        continue
-
-        else:
-            log(f"Cloning plugin {plugin_name}")
-            clone_path = pjoin(plugins_path, plugin_name)
-            clone_cmd = [
-                "git",
-                "clone",
-                "--branch",
-                branch,
-                plugin_info["url"],
-                clone_path,
-            ]
-            try:
-                result = subprocess.run(
-                    clone_cmd,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-            except subprocess.CalledProcessError:
-                continue
-
-            # If version tag is specified, checkout that specific tag after cloning
-            # Version tag has priority over SHA - if version is specified, SHA is ignored
-            if version_tag:
-                log(f"Checking out version {version_tag} for plugin {plugin_name}")
-                try:
-                    # Fetch origin tags
-                    run_git_command(
-                        ["fetch", "origin", "--tags"], plugin_path, plugin_name
-                    )
-                    # Checkout the version tag
-                    run_git_command(["checkout", version_tag], plugin_path, plugin_name)
-                except subprocess.CalledProcessError:
-                    continue
-
-            # If SHA is specified (and no version tag), checkout that specific commit after cloning
-            elif sha:
-                log(f"Checking out SHA {sha} for plugin {plugin_name}")
-                try:
-                    run_git_command(["checkout", sha], plugin_path, plugin_name)
-                except subprocess.CalledProcessError:
-                    continue
-
-        # validate plugin compatibility:
-        if not validate_plugin_compatibility(plugin_name, plugin_path):
-            continue
-
-        plugin_services.append(plugin_name)
-        generate_supervisor_config(plugin_name, plugin_path)
+        if process_plugin(plugin_name, plugin_info, plugins_path):
+            plugin_services.append(plugin_name)
 
     return plugin_services
+
+
+def process_plugin(plugin_name, plugin_info, plugins_path):
+    """Process a single plugin - clone or update as needed."""
+    plugin_path = pjoin(plugins_path, plugin_name)
+
+    if os.path.exists(plugin_path):
+        success = update_existing_plugin(plugin_name, plugin_info, plugin_path)
+    else:
+        success = clone_new_plugin(plugin_name, plugin_info, plugin_path)
+
+    if success and validate_plugin_compatibility(plugin_name, plugin_path):
+        generate_supervisor_config(plugin_name, plugin_path)
+        return True
+
+    return False
+
+
+def update_existing_plugin(plugin_name, plugin_info, plugin_path):
+    """Update an existing plugin repository."""
+    if not is_valid_git_repo(plugin_path):
+        return False
+
+    if has_modified_files(plugin_path, plugin_name):
+        return False
+
+    version_tag = plugin_info.get("version")
+    sha = plugin_info.get("sha")
+    branch = plugin_info.get("branch", "main")
+
+    if version_tag:
+        return update_to_version(plugin_name, plugin_path, version_tag)
+    elif sha:
+        return update_to_sha(plugin_name, plugin_path, sha)
+    else:
+        return update_to_branch(plugin_name, plugin_path, branch)
+
+
+def clone_new_plugin(plugin_name, plugin_info, plugin_path):
+    """Clone a new plugin repository."""
+    branch = plugin_info.get("branch", "main")
+    version_tag = plugin_info.get("version")
+    sha = plugin_info.get("sha")
+
+    log(f"Cloning plugin {plugin_name}")
+    clone_cmd = [
+        "clone",
+        "--branch",
+        branch,
+        plugin_info["url"],
+        plugin_path,
+    ]
+
+    try:
+        run_git_command(clone_cmd, ".", plugin_name)
+    except subprocess.CalledProcessError:
+        return False
+
+    # If version tag is specified, checkout that specific tag after cloning
+    # Version tag has priority over SHA - if version is specified, SHA is ignored
+    if version_tag:
+        log(f"Checking out version {version_tag} for plugin {plugin_name}")
+        try:
+            # Fetch origin tags
+            run_git_command(["fetch", "origin", "--tags"], plugin_path, plugin_name)
+            # Checkout the version tag
+            run_git_command(["checkout", version_tag], plugin_path, plugin_name)
+        except subprocess.CalledProcessError:
+            return False
+
+    # If SHA is specified (and no version tag), checkout that specific commit after cloning
+    elif sha:
+        log(f"Checking out SHA {sha} for plugin {plugin_name}")
+        try:
+            run_git_command(["checkout", sha], plugin_path, plugin_name)
+        except subprocess.CalledProcessError:
+            return False
+
+    return True
+
+
+def update_to_version(plugin_name, plugin_path, version_tag):
+    """Update plugin to a specific version tag."""
+    # Check if we're already at that tag
+    try:
+        stdout_lines, _ = run_git_command(
+            ["describe", "--exact-match", "--tags", "HEAD"],
+            plugin_path=plugin_path,
+            plugin_name=plugin_name,
+        )
+        current_tag = stdout_lines[0] if stdout_lines else "no-tag"
+    except subprocess.CalledProcessError:
+        current_tag = "no-tag"
+
+    if current_tag == version_tag:
+        log(
+            f"Plugin {plugin_name} is already at version {version_tag}, skipping update."
+        )
+        return True
+    else:
+        log(f"Updating plugin {plugin_name} to version {version_tag}")
+        # Fetch latest changes and checkout specific version tag
+        try:
+            run_git_command(["fetch", "origin", "--tags"], plugin_path, plugin_name)
+            run_git_command(["checkout", version_tag], plugin_path, plugin_name)
+            return True
+        except subprocess.CalledProcessError:
+            log(
+                f"Failed to fetch or checkout version {version_tag} for plugin {plugin_name}"
+            )
+            return False
+
+
+def update_to_sha(plugin_name, plugin_path, sha):
+    """Update plugin to a specific SHA commit."""
+    # Check if we're already at that commit
+    try:
+        stdout_lines, _ = run_git_command(
+            ["rev-parse", "HEAD"], plugin_path, plugin_name
+        )
+        current_commit = stdout_lines[0] if stdout_lines else ""
+    except subprocess.CalledProcessError:
+        current_commit = ""
+        log(f"Failed to get current commit for plugin {plugin_name}")
+
+    if current_commit == sha:
+        log(f"Plugin {plugin_name} is already at SHA {sha}, skipping update.")
+        return True
+    else:
+        log(f"Updating plugin {plugin_name} to SHA {sha}")
+        # Fetch latest changes and checkout specific SHA
+        try:
+            run_git_command(["fetch", "origin"], plugin_path, plugin_name)
+            run_git_command(["checkout", sha], plugin_path, plugin_name)
+            return True
+        except subprocess.CalledProcessError:
+            log(f"Failed to fetch or checkout SHA {sha} for plugin {plugin_name}")
+            return False
+
+
+def update_to_branch(plugin_name, plugin_path, branch):
+    """Update plugin to the latest commit on a specific branch."""
+    # First fetch to get latest remote refs
+    try:
+        run_git_command(["fetch", "origin", branch], plugin_path, plugin_name)
+    except subprocess.CalledProcessError as e:
+        log(f"Failed to fetch branch {branch} for plugin {plugin_name}: {e}")
+        return False
+
+    try:
+        stdout_lines, _ = run_git_command(
+            ["branch", "--show-current"], plugin_path, plugin_name
+        )
+        current_branch = stdout_lines[0] if stdout_lines else ""
+    except subprocess.CalledProcessError:
+        current_branch = ""
+        log(f"Failed to get current branch for plugin {plugin_name}")
+
+    # If we're not on the correct branch, switch to it
+    if current_branch != branch:
+        log(f"Switching plugin {plugin_name} from branch {current_branch} to {branch}")
+        try:
+            run_git_command(["checkout", branch], plugin_path, plugin_name)
+        except subprocess.CalledProcessError:
+            log(f"[ERROR] Git checkout failed for plugin {plugin_name}")
+            return False
+        return True
+
+    # Check if we're up to date with the remote branch
+    try:
+        stdout_lines, _ = run_git_command(
+            ["rev-parse", "HEAD"], plugin_path, plugin_name
+        )
+        last_commit = stdout_lines[0] if stdout_lines else ""
+    except subprocess.CalledProcessError:
+        last_commit = ""
+        log(f"Failed to get last commit for plugin {plugin_name}")
+
+    try:
+        stdout_lines, _ = run_git_command(
+            ["rev-parse", f"origin/{branch}"], plugin_path, plugin_name
+        )
+        remote_commit = stdout_lines[0] if stdout_lines else ""
+    except subprocess.CalledProcessError:
+        remote_commit = ""
+        log(f"Failed to get remote commit for branch {branch} in plugin {plugin_name}")
+
+    if last_commit == remote_commit:
+        log(
+            f"Plugin {plugin_name} is already up to date on branch {branch}, skipping update."
+        )
+        return True
+    else:
+        log(f"Updating plugin {plugin_name} to latest on branch {branch}")
+        try:
+            run_git_command(["pull", "origin", branch], plugin_path, plugin_name)
+            return True
+        except subprocess.CalledProcessError:
+            log(f"Failed to pull branch {branch} for plugin {plugin_name}")
+            return False
+
+
+def is_valid_git_repo(plugin_path):
+    """Check if the plugin path contains a valid git repository."""
+    if not os.path.exists(pjoin(plugin_path, ".git")):
+        log(f"Directory {plugin_path} is not a valid git repository, skipping update.")
+        return False
+    return True
+
+
+def has_modified_files(plugin_path, plugin_name):
+    """Check if the git repo has modified files that would prevent update."""
+    try:
+        modified_files, _ = run_git_command(
+            ["status", "--porcelain"], plugin_path, plugin_name
+        )
+    except subprocess.CalledProcessError:
+        modified_files = []
+
+    modified_lines = [line for line in modified_files if "M" in line[:2]]
+
+    if modified_lines:
+        log(f"Plugin {plugin_name} has modified files, skipping update.")
+        return True
+    return False
 
 
 def copy_supervisor_configs(activated_plugins=[]):
