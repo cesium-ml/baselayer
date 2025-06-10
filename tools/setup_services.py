@@ -107,6 +107,42 @@ def validate_plugin_compatibility(plugin_name: str, plugin_path: str):
     return True
 
 
+def run_git_command(args, plugin_path, plugin_name):
+    """
+    Run a git command in the specified plugin path.
+
+    Args:
+        args (list): Git command, e.g. ['checkout', 'main']
+        plugin_path (str): Directory where the command runs
+        plugin_name (str): Used in error logs
+
+    Returns:
+        stdout_lines (list of str): Output lines from stdout
+        stderr_str (str): Full stderr output
+
+    Raises:
+        subprocess.CalledProcessError: If the command fails
+    """
+    try:
+        result = subprocess.run(
+            ["git"] + args,
+            cwd=plugin_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        return result.stdout.splitlines(), result.stderr
+
+    except subprocess.CalledProcessError as e:
+        msg = f"[ERROR] Git command failed: {' '.join(args)}"
+        if plugin_name:
+            msg += f" (plugin: {plugin_name})"
+        msg += f"\n{e.stderr}"
+        print(msg)
+        raise
+
+
 def download_plugin_services():
     _, cfg = load_env()
 
@@ -137,33 +173,32 @@ def download_plugin_services():
                 continue
             # Check if the git repo currently has modified files, if it does, skip update
             # added files are fine, but modified files could cause issues
-            modified_files = (
-                subprocess.Popen(
-                    f"cd {plugin_path} && git status --porcelain",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+            try:
+                modified_files, _ = run_git_command(
+                    ["status", "--porcelain"], plugin_path, plugin_name
                 )
-                .communicate()[0]
-                .decode()
-                .splitlines()
-            )
+            except subprocess.CalledProcessError:
+                modified_files = []
+
             modified_lines = [line for line in modified_files if "M" in line[:2]]
+
             if modified_lines:
                 log(f"Plugin {plugin_name} has modified files, skipping update.")
             elif version_tag:
                 # If version tag is specified, check if we're already at that tag
-                current_tag = (
-                    subprocess.Popen(
-                        f"cd {plugin_path} && git describe --exact-match --tags HEAD 2>/dev/null || echo 'no-tag'",
-                        shell=True,
+                try:
+                    result = subprocess.run(
+                        ["git", "describe", "--exact-match", "--tags", "HEAD"],
+                        cwd=plugin_path,
                         stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                        stderr=subprocess.DEVNULL,
+                        text=True,
+                        check=True,
                     )
-                    .communicate()[0]
-                    .decode()
-                    .strip()
-                )
+                    current_tag = result.stdout.strip() or "no-tag"
+                except subprocess.CalledProcessError:
+                    current_tag = "no-tag"
+
                 if current_tag == version_tag:
                     log(
                         f"Plugin {plugin_name} is already at version {version_tag}, skipping update."
@@ -172,47 +207,31 @@ def download_plugin_services():
                 else:
                     log(f"Updating plugin {plugin_name} to version {version_tag}")
                     # Fetch latest changes and checkout specific version tag
-                    _, stderr = subprocess.Popen(
-                        f"cd {plugin_path} && git fetch origin --tags && git checkout {version_tag}",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                    ).communicate()
-                    # Filter out normal git output and detached HEAD warnings
-                    if stderr and len(stderr) > 0:
-                        stderr_str = (
-                            stderr.decode() if isinstance(stderr, bytes) else stderr
+                    try:
+                        run_git_command(
+                            ["fetch", "origin", "--tags"], plugin_path, plugin_name
                         )
-                        # Check if stderr contains only normal git output or detached HEAD warnings
-                        is_normal_output = (
-                            ("FETCH_HEAD" in stderr_str)
-                            or (
-                                "detached HEAD" in stderr_str
-                                and "HEAD is now at" in stderr_str
-                            )
-                            or (
-                                "Previous HEAD position was" in stderr_str
-                                and "HEAD is now at" in stderr_str
-                            )
+                        run_git_command(
+                            ["checkout", version_tag], plugin_path, plugin_name
                         )
-                        if not is_normal_output:
-                            log(
-                                f"Error updating plugin {plugin_name} to version {version_tag}: {stderr}"
-                            )
-                            continue
+
+                    except subprocess.CalledProcessError:
+                        log(
+                            f"Failed to fetch or checkout version {version_tag} for plugin {plugin_name}"
+                        )
+                        continue
+
             elif sha:
                 # If SHA is specified, check if we're already at that commit
-                current_commit = (
-                    subprocess.Popen(
-                        f"cd {plugin_path} && git rev-parse HEAD",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                try:
+                    stdout_lines, _ = run_git_command(
+                        ["rev-parse", "HEAD"], plugin_path, plugin_name
                     )
-                    .communicate()[0]
-                    .decode()
-                    .strip()
-                )
+                    current_commit = stdout_lines[0] if stdout_lines else ""
+                except subprocess.CalledProcessError:
+                    current_commit = ""
+                    log(f"Failed to get current commit for plugin {plugin_name}")
+
                 if current_commit == sha:
                     log(
                         f"Plugin {plugin_name} is already at SHA {sha}, skipping update."
@@ -221,109 +240,79 @@ def download_plugin_services():
                 else:
                     log(f"Updating plugin {plugin_name} to SHA {sha}")
                     # Fetch latest changes and checkout specific SHA
-                    _, stderr = subprocess.Popen(
-                        f"cd {plugin_path} && git fetch origin && git checkout {sha}",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                    ).communicate()
-                    # Filter out normal git output and detached HEAD warnings
-                    if stderr and len(stderr) > 0:
-                        stderr_str = (
-                            stderr.decode() if isinstance(stderr, bytes) else stderr
+                    try:
+                        run_git_command(["fetch", "origin"], plugin_path, plugin_name)
+                        run_git_command(["checkout", sha], plugin_path, plugin_name)
+
+                    except subprocess.CalledProcessError:
+                        log(
+                            f"Failed to fetch or checkout SHA {sha} for plugin {plugin_name}"
                         )
-                        # Check if stderr contains only normal git output or detached HEAD warnings
-                        is_normal_output = (
-                            ("FETCH_HEAD" in stderr_str and "branch" in stderr_str)
-                            or (
-                                "detached HEAD" in stderr_str
-                                and "HEAD is now at" in stderr_str
-                            )
-                            or (
-                                "Previous HEAD position was" in stderr_str
-                                and "HEAD is now at" in stderr_str
-                            )
-                        )
-                        if not is_normal_output:
-                            log(
-                                f"Error updating plugin {plugin_name} to SHA {sha}: {stderr}"
-                            )
-                            continue
+                        continue
+
             else:
                 # No SHA or version specified, check if we're up to date with the branch
                 # First fetch to get latest remote refs
-                subprocess.Popen(
-                    f"cd {plugin_path} && git fetch origin {branch}",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                ).communicate()
-
-                # Check current branch
-                current_branch = (
-                    subprocess.Popen(
-                        f"cd {plugin_path} && git branch --show-current",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                try:
+                    run_git_command(
+                        ["fetch", "origin", branch], plugin_path, plugin_name
                     )
-                    .communicate()[0]
-                    .decode()
-                    .strip()
-                )
+                except subprocess.CalledProcessError as e:
+                    log(
+                        f"Failed to fetch branch {branch} for plugin {plugin_name}: {e}"
+                    )
+
+                try:
+                    stdout_lines, _ = run_git_command(
+                        ["branch", "--show-current"], plugin_path, plugin_name
+                    )
+                    current_branch = stdout_lines[0] if stdout_lines else ""
+                except subprocess.CalledProcessError:
+                    current_branch = ""
+                    log(f"Failed to get current branch for plugin {plugin_name}")
 
                 # If we're not on the correct branch, switch to it
                 if current_branch != branch:
                     log(
                         f"Switching plugin {plugin_name} from branch {current_branch} to {branch}"
                     )
-                    _, stderr = subprocess.Popen(
-                        f"cd {plugin_path} && git checkout {branch}",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                    ).communicate()
-                    if stderr and len(stderr) > 0:
-                        stderr_str = (
-                            stderr.decode() if isinstance(stderr, bytes) else stderr
+                    try:
+                        stdout_lines, stderr_str = run_git_command(
+                            ["checkout", branch], plugin_path, plugin_name
                         )
-                        # Filter out normal git checkout output
-                        is_normal_output = (
-                            ("Switched to branch" in stderr_str)
-                            or ("Already on" in stderr_str)
-                            or (
-                                "Branch" in stderr_str
-                                and "set up to track" in stderr_str
-                            )
-                        )
-                        if not is_normal_output:
-                            log(
-                                f"Error switching plugin {plugin_name} to branch {branch}: {stderr}"
-                            )
-                            continue
+                    except subprocess.CalledProcessError:
+                        log(f"[ERROR] Git checkout failed for plugin {plugin_name}")
+                        continue
 
-                last_commit = (
-                    subprocess.Popen(
-                        f"cd {plugin_path} && git rev-parse HEAD",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                    # Validate plugin compatibility after successful branch switch
+                    if not validate_plugin_compatibility(plugin_name, plugin_path):
+                        continue
+
+                    # After successful branch switch and validation, add to services and generate config
+                    plugin_services.append(plugin_name)
+                    generate_supervisor_config(plugin_name, plugin_path)
+                    continue
+
+                try:
+                    stdout_lines, _ = run_git_command(
+                        ["rev-parse", "HEAD"], plugin_path, plugin_name
                     )
-                    .communicate()[0]
-                    .decode()
-                    .strip()
-                )
-                remote_commit = (
-                    subprocess.Popen(
-                        f"cd {plugin_path} && git rev-parse origin/{branch}",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
+                    last_commit = stdout_lines[0] if stdout_lines else ""
+                except subprocess.CalledProcessError:
+                    last_commit = ""
+                    log(f"Failed to get last commit for plugin {plugin_name}")
+
+                try:
+                    stdout_lines, _ = run_git_command(
+                        ["rev-parse", f"origin/{branch}"], plugin_path, plugin_name
                     )
-                    .communicate()[0]
-                    .decode()
-                    .strip()
-                )
+                    remote_commit = stdout_lines[0] if stdout_lines else ""
+                except subprocess.CalledProcessError:
+                    remote_commit = ""
+                    log(
+                        f"Failed to get remote commit for branch {branch} in plugin {plugin_name}"
+                    )
+
                 if last_commit == remote_commit:
                     log(
                         f"Plugin {plugin_name} is already up to date on branch {branch}, skipping update."
@@ -331,99 +320,56 @@ def download_plugin_services():
                     plugin_services.append(plugin_name)
                 else:
                     log(f"Updating plugin {plugin_name} to latest on branch {branch}")
-                    _, stderr = subprocess.Popen(
-                        f"cd {plugin_path} && git pull origin {branch}",
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                    ).communicate()
-                    if stderr and len(stderr) > 0:
-                        stderr_str = (
-                            stderr.decode() if isinstance(stderr, bytes) else stderr
+                    try:
+                        run_git_command(
+                            ["pull", "origin", branch], plugin_path, plugin_name
                         )
-                        # Filter out normal git pull output
-                        is_normal_output = (
-                            ("FETCH_HEAD" in stderr_str and "branch" in stderr_str)
-                            or ("Already up to date" in stderr_str)
-                            or ("Fast-forward" in stderr_str)
-                        )
-                        if not is_normal_output:
-                            log(f"Error updating plugin {plugin_name}: {stderr}")
-                            continue
+                    except subprocess.CalledProcessError:
+                        log(f"Failed to pull branch {branch} for plugin {plugin_name}")
+                        continue
+
         else:
             log(f"Cloning plugin {plugin_name}")
-            _, stderr = subprocess.Popen(
-                f"git clone --branch {branch} {plugin_info['url']} {pjoin(plugins_path, plugin_name)}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            ).communicate()
-            if (
-                stderr
-                and stderr.decode().strip()
-                != f"Cloning into '{pjoin(plugins_path, plugin_name)}'..."
-            ):
-                log(f"Error cloning plugin {plugin_name}: {stderr}")
+            clone_path = pjoin(plugins_path, plugin_name)
+            clone_cmd = [
+                "git",
+                "clone",
+                "--branch",
+                branch,
+                plugin_info["url"],
+                clone_path,
+            ]
+            try:
+                result = subprocess.run(
+                    clone_cmd,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+            except subprocess.CalledProcessError:
                 continue
 
             # If version tag is specified, checkout that specific tag after cloning
             # Version tag has priority over SHA - if version is specified, SHA is ignored
             if version_tag:
                 log(f"Checking out version {version_tag} for plugin {plugin_name}")
-                _, stderr = subprocess.Popen(
-                    f"cd {plugin_path} && git fetch origin --tags && git checkout {version_tag}",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                ).communicate()
-                # Filter out normal git output and detached HEAD warnings
-                if stderr and len(stderr) > 0:
-                    stderr_str = (
-                        stderr.decode() if isinstance(stderr, bytes) else stderr
+                try:
+                    # Fetch origin tags
+                    run_git_command(
+                        ["fetch", "origin", "--tags"], plugin_path, plugin_name
                     )
-                    # Check if stderr contains only detached HEAD warnings or normal checkout output
-                    is_normal_output = (
-                        ("FETCH_HEAD" in stderr_str)
-                        or (
-                            "detached HEAD" in stderr_str
-                            and "HEAD is now at" in stderr_str
-                        )
-                        or (
-                            "Previous HEAD position was" in stderr_str
-                            and "HEAD is now at" in stderr_str
-                        )
-                    )
-                    if not is_normal_output:
-                        log(
-                            f"Error checking out version {version_tag} for plugin {plugin_name}: {stderr}"
-                        )
-                        continue
+                    # Checkout the version tag
+                    run_git_command(["checkout", version_tag], plugin_path, plugin_name)
+                except subprocess.CalledProcessError:
+                    continue
+
             # If SHA is specified (and no version tag), checkout that specific commit after cloning
             elif sha:
                 log(f"Checking out SHA {sha} for plugin {plugin_name}")
-                _, stderr = subprocess.Popen(
-                    f"cd {plugin_path} && git checkout {sha}",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                ).communicate()
-                # Filter out normal git output and detached HEAD warnings
-                if stderr and len(stderr) > 0:
-                    stderr_str = (
-                        stderr.decode() if isinstance(stderr, bytes) else stderr
-                    )
-                    # Check if stderr contains only detached HEAD warnings or normal checkout output
-                    is_normal_output = (
-                        "detached HEAD" in stderr_str and "HEAD is now at" in stderr_str
-                    ) or (
-                        "Previous HEAD position was" in stderr_str
-                        and "HEAD is now at" in stderr_str
-                    )
-                    if not is_normal_output:
-                        log(
-                            f"Error checking out SHA {sha} for plugin {plugin_name}: {stderr}"
-                        )
-                        continue
+                try:
+                    run_git_command(["checkout", sha], plugin_path, plugin_name)
+                except subprocess.CalledProcessError:
+                    continue
 
         # validate plugin compatibility:
         if not validate_plugin_compatibility(plugin_name, plugin_path):
