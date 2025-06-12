@@ -38,7 +38,7 @@ def read_plugin_config(plugin_path):
 
 def get_plugin_compatible_version(plugin_config: dict):
     # if the plugin specifies a "tool.<name>" section with
-    # a version requirement, retrive it
+    # a version requirement, retrieve it
     if "tool" not in plugin_config:
         log("Plugin config does not contain 'tool' section")
         return None, None
