@@ -501,6 +501,15 @@ def copy_supervisor_configs(external_services=[]):
             ]
             services.update({s: pjoin(path, s) for s in path_services})
 
+    all_plugins_path = cfg.get("services.plugins_path", "./plugins")
+    for p in activated_plugins:
+        services.update({p: pjoin(all_plugins_path, p)})
+
+    # TODO (in a future PR): loop over all services, check if they are a git submodule or not
+    # if they are a submodule make sure they are initialized and updated
+    # this should be discussed, it does not seem necessary as soon as we have the
+    # config based plugin system working
+
     duplicates = [k for k, v in Counter(services.keys()).items() if v > 1]
     if duplicates:
         raise RuntimeError(f"Duplicate service definitions found for {duplicates}")
