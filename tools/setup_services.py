@@ -40,7 +40,7 @@ def get_plugin_compatible_version(plugin_config: dict):
     # if the plugin specifies a "tool.<name>" section with
     # a version requirement, retrieve it
     if "tool" not in plugin_config:
-        log("Plugin config does not contain 'tool' section")
+        log("Plugin `pyproject.toml` does not contain 'tool' section")
         return None, None
     # there should only be one key in tool, which is the name of the package
     # for which we are installing the plugin
