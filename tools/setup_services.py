@@ -12,7 +12,6 @@ from baselayer.log import make_log
 
 # let's try to use tomllib for Python 3.11+, and otherwise fall back to tomli
 # (the standalone tomli package, or the one from setuptools)
-loaded_toml = False
 try:
     import tomllib as tl
 except (ImportError, ModuleNotFoundError):
