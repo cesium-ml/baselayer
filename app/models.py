@@ -1841,8 +1841,27 @@ RoleACL.__doc__ = "Join table class mapping Roles to ACLs."
 def is_admin(self):
     return "System admin" in self.permissions
 
+class AccessVerificationMixin:
+    @property
+    def is_admin(self):
+        return "System admin" in self.permissions
 
-class User(Base):
+    def assert_group_accessible(self, group_id):
+        """Raise an error if the user or token does not have access to the given group.
+        Parameters
+        ----------
+        group_id : int or str
+            The ID of the group to check.
+        Raises
+        ------
+        AccessError
+            If the user or token does not have access to the group.
+        """
+        accessible_group_ids = {group.id for group in self.groups}
+        if not self.is_admin and int(group_id) not in accessible_group_ids:
+            raise AccessError(f"Group {group_id} is not accessible by the current user.")
+
+class User(Base, AccessVerificationMixin):
     """An application user."""
 
     username = sa.Column(
@@ -1946,23 +1965,6 @@ class User(Base):
         """The base model for User subclasses."""
         return User
 
-    def assert_group_accessible(self, group_id):
-        """Raise an error if the user or token does not have access to the given group.
-
-        Parameters
-        ----------
-        group_id : int or str
-            The ID of the group to check.
-
-        Raises
-        ------
-        AccessError
-            If the user or token does not have access to the group.
-        """
-        accessible_group_ids = {group.id for group in self.groups}
-        if not is_admin(self) and int(group_id) not in accessible_group_ids:
-            raise AccessError(f"Group {group_id} is not accessible by the current user.")
-
     def is_authenticated(self):
         """Boolean flag indicating whether the User is currently
         authenticated."""
@@ -1976,14 +1978,12 @@ class User(Base):
             else self.expiration_date > datetime.now()
         )
 
-    is_admin = property(is_admin)
-
 
 UserACL = join_model("user_acls", User, ACL)
 UserACL.__doc__ = "Join table mapping Users to ACLs"
 
 
-class Token(Base):
+class Token(Base, AccessVerificationMixin):
     """A command line token that can be used to programmatically access the API
     as a particular User."""
 
@@ -2027,8 +2027,6 @@ class Token(Base):
         default=lambda: str(uuid.uuid4()),
         doc="The name of the token.",
     )
-
-    is_admin = property(is_admin)
 
     def is_readable_by(self, user_or_token):
         """Return a boolean indicating whether this Token is readable by the
