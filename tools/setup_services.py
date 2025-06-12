@@ -4,11 +4,10 @@ from collections import Counter
 from importlib import import_module
 from os.path import join as pjoin
 
-from packaging import version
-from packaging.specifiers import SpecifierSet
-
 from baselayer.app.env import load_env
 from baselayer.log import make_log
+from packaging import version
+from packaging.specifiers import SpecifierSet
 
 # let's try to use tomllib for Python 3.11+, and otherwise fall back to tomli
 # (the standalone tomli package, or the one from setuptools)

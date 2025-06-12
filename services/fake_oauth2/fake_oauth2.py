@@ -2,10 +2,9 @@ import uuid
 
 import tornado.ioloop
 import tornado.web
+from baselayer.app.env import load_env
 from tornado.httputil import url_concat
 from tornado.web import RequestHandler
-
-from baselayer.app.env import load_env
 
 
 class FakeGoogleOAuth2AuthHandler(RequestHandler):

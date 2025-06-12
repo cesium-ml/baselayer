@@ -1,10 +1,9 @@
 from functools import wraps
 
+from baselayer.app.handlers.base import BaseHandler
 from social_core.actions import do_auth, do_complete, do_disconnect
 from social_core.backends.utils import get_backend
 from social_core.utils import get_strategy, setting_name
-
-from baselayer.app.handlers.base import BaseHandler
 
 DEFAULTS = {
     "STORAGE": "baselayer.app.psa.TornadoStorage",

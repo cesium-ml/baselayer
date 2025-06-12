@@ -1,6 +1,5 @@
 import tornado.ioloop
 import tornado.web
-
 from baselayer.app.env import load_env
 
 env, cfg = load_env()

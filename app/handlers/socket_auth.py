@@ -2,7 +2,6 @@ import datetime
 
 import jwt
 import tornado.web
-
 from baselayer.app.handlers.base import BaseHandler
 
 # !!!

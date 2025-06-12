@@ -4,10 +4,9 @@ import os
 import subprocess
 
 import jinja2
-from status import status
-
 from baselayer.app.env import load_env
 from baselayer.log import make_log
+from status import status
 
 log = make_log("baselayer")
 
