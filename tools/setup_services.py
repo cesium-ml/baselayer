@@ -1,21 +1,48 @@
 import os
 import subprocess
 from collections import Counter
+from importlib import import_module
 from os.path import join as pjoin
 
-import tomli
 from packaging import version
 from packaging.specifiers import SpecifierSet
 
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
+# let's try to use tomllib for Python 3.11+, and otherwise fall back to tomli
+# (the standalone tomli package, or the one from setuptools)
+loaded_toml = False
+try:
+    import tomllib as tl
+except (ImportError, ModuleNotFoundError):
+    try:
+        import tomli as tl
+    except ImportError:
+        try:
+            import setuptools._vendor.tomli as tl
+        except ImportError:
+            raise ImportError(
+                "Could not find tomli or tomllib for reading pyproject.toml files"
+            )
+
 log = make_log("baselayer")
 
 
-def generate_supervisor_config(service_name, service_path):
+def generate_supervisor_config(service_name: str, service_path: str) -> str:
     """
     Generates a supervisor configuration for a given service.
+
+    Parameters
+    ------
+    service_name: str
+        Name of the service to generate the configuration for.
+    service_path: str
+        Path to the service directory where the main.py file is located.
+
+    Returns
+    -------
+    str: The generated supervisor configuration template.
     """
     supervisor_conf_template = f"""
 [program:{service_name}]
@@ -24,50 +51,44 @@ environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
 stdout_logfile=log/{service_name}_service.log
 redirect_stderr=true
 """
-    # Write the configuration to a file
-    with open(f"{service_path}/supervisor.conf", "w") as f:
-        f.write(supervisor_conf_template)
+    return supervisor_conf_template
 
 
-def read_plugin_config(plugin_path):
-    # read the config (pyproject.toml) for the plugin
+def read_plugin_config(plugin_path: str) -> dict:
+    """
+    Reads the plugin configuration from pyproject.toml.
+
+    Parameters
+    ------
+    plugin_path: str
+        Path to the plugin directory containing pyproject.toml.
+
+    Returns
+    -------
+    dict: Parsed configuration dictionary.
+    """
     config_path = pjoin(plugin_path, "pyproject.toml")
-    with open(config_path, "rb") as f:
-        return tomli.load(f)
+    try:
+        with open(config_path, "rb") as f:
+            return tl.load(f)
+    except FileNotFoundError:
+        return None
 
 
-def get_plugin_compatible_version(plugin_config: dict):
-    # if the plugin specifies a "tool.<name>" section with
-    # a version requirement, retrieve it
-    if "tool" not in plugin_config:
-        log("Plugin `pyproject.toml` does not contain 'tool' section")
-        return None, None
-    # there should only be one key in tool, which is the name of the package
-    # for which we are installing the plugin
-    if len(plugin_config["tool"]) != 1:
-        log("Plugin config must have exactly one 'tool' section")
-        return None, None
-
-    tool_name = next(iter(plugin_config["tool"]))
-    tool_version_requirement = plugin_config["tool"][tool_name].get("version", None)
-
-    if not tool_version_requirement:
-        log(f"Plugin config for '{tool_name}' does not specify a version")
-        return None, None
-
-    return tool_name, tool_version_requirement
-
-
-def validate_version(version_string, requirement_string):
+def validate_version(version_string: str, requirement_string: str) -> bool:
     """
     Validate a version against a version requirement.
 
-    Args:
-        version_string (str): The version to check (e.g., "1.2.3")
-        requirement_string (str): The requirement specification (e.g., ">=1.0.0", "==1.2.3", ">=1.0,<2.0")
+    Parameters
+    ----------
+    version_string: str
+        The version to validate (e.g., "1.2.3").
+    requirement_string: str
+        The version requirement (e.g., ">=1.0,<2.0").
 
-    Returns:
-        bool: True if version satisfies the requirement, False otherwise
+    Returns
+    -------
+    bool: True if the version satisfies the requirement, False otherwise.
     """
     try:
         v = version.parse(version_string)
@@ -78,50 +99,92 @@ def validate_version(version_string, requirement_string):
         return False
 
 
-def validate_plugin_compatibility(plugin_name: str, plugin_path: str):
-    plugin_config = read_plugin_config(plugin_path)
-    name, version_requirement = get_plugin_compatible_version(plugin_config)
-    if not (name and version_requirement):
+def validate_service_compatibility(service_path: str) -> bool:
+    """
+    Validate if a service is compatible with the current environment based on its optional pyproject.toml.
+
+    Parameters
+    ----------
+    service_path: str
+        Path to the service directory containing pyproject.toml.
+
+    Returns
+    -------
+    bool: True if the service is compatible or has no pyproject.toml, False otherwise.
+    """
+    service_name = os.path.basename(service_path)
+    plugin_config = read_plugin_config(service_path)
+    if plugin_config is None:
         return True
-    try:
-        mod = __import__(name)
-        installed_version = mod.__version__
+
+    if plugin_config.get("project", {}).get("name"):
+        service_name = plugin_config["project"]["name"]
+
+    if "tool" not in plugin_config:
+        log("Plugin `pyproject.toml` does not contain 'tool' section")
+        return False
+
+    # tool section specifies which software can a plugin work with
+    for name, value in plugin_config["tool"].items():
+        if not isinstance(value, dict):
+            log(
+                f"Invalid tool section for {name}: expected a dictionary, got {type(value)}"
+            )
+            return False
+
+        try:
+            mod = import_module(name)
+        except ImportError:
+            log(f"Plugin {service_name} requires {name}, but it is not installed.")
+            continue
+
+        version_requirement = value.get("version", None)
+        if not version_requirement:
+            log(
+                f"Plugin {service_name} does not specify a version requirement in tool.{name}.version"
+            )
+            continue
+
+        try:
+            installed_version = mod.__version__
+            if not isinstance(installed_version, str):
+                log(
+                    f"Plugin {service_name} requires {name} with version {version_requirement}, but installed version is not a string ({installed_version})."
+                )
+                return False
+        except ImportError:
+            log(
+                f"Plugin {service_name} requires {name} with version {version_requirement}, but unable to determine installed version."
+            )
+            return False
 
         if not validate_version(installed_version, version_requirement):
             log(
-                f"Plugin {plugin_name} is incompatible: required {version_requirement}, found {installed_version}. Skipping."
+                f"Plugin {service_name} is incompatible: required {version_requirement}, found {installed_version}. Skipping."
             )
             return False
-    except ImportError:
-        log(
-            f"Could not find package {name} which plugin {plugin_name} depends on. Skipping."
-        )
-        return False
-
-    if plugin_config["project"]["name"] != plugin_name:
-        log(
-            f"Plugin {plugin_name} has a different name in its config ({plugin_config['project']['name']}). Skipping."
-        )
-        return False
 
     return True
 
 
-def run_git_command(args, plugin_path, plugin_name):
+def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
     """
     Run a git command in the specified plugin path.
 
-    Args:
-        args (list): Git command, e.g. ['checkout', 'main']
-        plugin_path (str): Directory where the command runs
-        plugin_name (str): Used in error logs
+    Parameters
+    ----------
+    args: list
+        Git command to run, e.g. ['checkout', 'main']
+    plugin_path: str
+        Directory where the command runs
+    plugin_name: str
+        Name of the plugin, used in error logs
 
-    Returns:
-        stdout_lines (list of str): Output lines from stdout
-        stderr_str (str): Full stderr output
-
-    Raises:
-        subprocess.CalledProcessError: If the command fails
+    Returns
+    -------
+    tuple: (stdout_lines, stderr_lines)
+        stdout_lines: List of output lines from stdout
+        stderr_lines: List of output lines from stderr
     """
     try:
         result = subprocess.run(
@@ -131,265 +194,304 @@ def run_git_command(args, plugin_path, plugin_name):
             text=True,
             check=True,
         )
-
-        return result.stdout.splitlines(), result.stderr
+        return result.stdout.splitlines(), result.stderr.splitlines()
 
     except subprocess.CalledProcessError as e:
         msg = f"[ERROR] Git command failed: {' '.join(args)}"
         if plugin_name:
             msg += f" (plugin: {plugin_name})"
         msg += f"\n{e.stderr}"
-        print(msg)
-        raise
+        raise RuntimeError(msg) from e
 
 
-def download_plugin_services():
-    _, cfg = load_env()
-    plugins_path = cfg.get("services.plugins_path", "./plugins")
-    os.makedirs(plugins_path, exist_ok=True)
+def is_git_repo(plugin_path: str) -> bool:
+    """Check if the plugin path contains a valid git repository.
 
-    plugins = cfg.get("plugins", {})
-    plugin_services = []
+    Parameters
+    ----------
+    plugin_path: str
+        Path to the plugin directory.
 
-    log(f"Discovered {len(plugins)} plugins")
-
-    for plugin_name, plugin_info in plugins.items():
-        if "url" not in plugin_info:
-            log(f"Skipping plugin {plugin_name} because it has no URL")
-            continue
-
-        if process_plugin(plugin_name, plugin_info, plugins_path):
-            plugin_services.append(plugin_name)
-
-    return plugin_services
-
-
-def process_plugin(plugin_name, plugin_info, plugins_path):
-    """Process a single plugin - clone or update as needed."""
-    plugin_path = pjoin(plugins_path, plugin_name)
-
-    if os.path.exists(plugin_path):
-        success = update_existing_plugin(plugin_name, plugin_info, plugin_path)
-    else:
-        success = clone_new_plugin(plugin_name, plugin_info, plugin_path)
-
-    if success and validate_plugin_compatibility(plugin_name, plugin_path):
-        generate_supervisor_config(plugin_name, plugin_path)
-        return True
-
-    return False
-
-
-def update_existing_plugin(plugin_name, plugin_info, plugin_path):
-    """Update an existing plugin repository."""
-    if not is_valid_git_repo(plugin_path):
-        return False
-
-    if has_modified_files(plugin_path, plugin_name):
-        return False
-
-    version_tag = plugin_info.get("version")
-    sha = plugin_info.get("sha")
-    branch = plugin_info.get("branch", "main")
-
-    if version_tag:
-        return update_to_version(plugin_name, plugin_path, version_tag)
-    elif sha:
-        return update_to_sha(plugin_name, plugin_path, sha)
-    else:
-        return update_to_branch(plugin_name, plugin_path, branch)
-
-
-def clone_new_plugin(plugin_name, plugin_info, plugin_path):
-    """Clone a new plugin repository."""
-    branch = plugin_info.get("branch", "main")
-    version_tag = plugin_info.get("version")
-    sha = plugin_info.get("sha")
-
-    log(f"Cloning plugin {plugin_name}")
-    clone_cmd = [
-        "clone",
-        "--branch",
-        branch,
-        plugin_info["url"],
-        plugin_path,
-    ]
-
-    try:
-        run_git_command(clone_cmd, ".", plugin_name)
-    except subprocess.CalledProcessError:
-        return False
-
-    # If version tag is specified, checkout that specific tag after cloning
-    # Version tag has priority over SHA - if version is specified, SHA is ignored
-    if version_tag:
-        log(f"Checking out version {version_tag} for plugin {plugin_name}")
-        try:
-            # Fetch origin tags
-            run_git_command(["fetch", "origin", "--tags"], plugin_path, plugin_name)
-            # Checkout the version tag
-            run_git_command(["checkout", version_tag], plugin_path, plugin_name)
-        except subprocess.CalledProcessError:
-            return False
-
-    # If SHA is specified (and no version tag), checkout that specific commit after cloning
-    elif sha:
-        log(f"Checking out SHA {sha} for plugin {plugin_name}")
-        try:
-            run_git_command(["checkout", sha], plugin_path, plugin_name)
-        except subprocess.CalledProcessError:
-            return False
-
-    return True
-
-
-def update_to_version(plugin_name, plugin_path, version_tag):
-    """Update plugin to a specific version tag."""
-    # Check if we're already at that tag
-    try:
-        stdout_lines, _ = run_git_command(
-            ["describe", "--exact-match", "--tags", "HEAD"],
-            plugin_path=plugin_path,
-            plugin_name=plugin_name,
-        )
-        current_tag = stdout_lines[0] if stdout_lines else "no-tag"
-    except subprocess.CalledProcessError:
-        current_tag = "no-tag"
-
-    if current_tag == version_tag:
-        log(
-            f"Plugin {plugin_name} is already at version {version_tag}, skipping update."
-        )
-        return True
-    else:
-        log(f"Updating plugin {plugin_name} to version {version_tag}")
-        # Fetch latest changes and checkout specific version tag
-        try:
-            run_git_command(["fetch", "origin", "--tags"], plugin_path, plugin_name)
-            run_git_command(["checkout", version_tag], plugin_path, plugin_name)
-            return True
-        except subprocess.CalledProcessError:
-            log(
-                f"Failed to fetch or checkout version {version_tag} for plugin {plugin_name}"
-            )
-            return False
-
-
-def update_to_sha(plugin_name, plugin_path, sha):
-    """Update plugin to a specific SHA commit."""
-    # Check if we're already at that commit
-    try:
-        stdout_lines, _ = run_git_command(
-            ["rev-parse", "HEAD"], plugin_path, plugin_name
-        )
-        current_commit = stdout_lines[0] if stdout_lines else ""
-    except subprocess.CalledProcessError:
-        current_commit = ""
-        log(f"Failed to get current commit for plugin {plugin_name}")
-
-    if current_commit == sha:
-        log(f"Plugin {plugin_name} is already at SHA {sha}, skipping update.")
-        return True
-    else:
-        log(f"Updating plugin {plugin_name} to SHA {sha}")
-        # Fetch latest changes and checkout specific SHA
-        try:
-            run_git_command(["fetch", "origin"], plugin_path, plugin_name)
-            run_git_command(["checkout", sha], plugin_path, plugin_name)
-            return True
-        except subprocess.CalledProcessError:
-            log(f"Failed to fetch or checkout SHA {sha} for plugin {plugin_name}")
-            return False
-
-
-def update_to_branch(plugin_name, plugin_path, branch):
-    """Update plugin to the latest commit on a specific branch."""
-    # First fetch to get latest remote refs
-    try:
-        run_git_command(["fetch", "origin", branch], plugin_path, plugin_name)
-    except subprocess.CalledProcessError as e:
-        log(f"Failed to fetch branch {branch} for plugin {plugin_name}: {e}")
-        return False
-
-    try:
-        stdout_lines, _ = run_git_command(
-            ["branch", "--show-current"], plugin_path, plugin_name
-        )
-        current_branch = stdout_lines[0] if stdout_lines else ""
-    except subprocess.CalledProcessError:
-        current_branch = ""
-        log(f"Failed to get current branch for plugin {plugin_name}")
-
-    # If we're not on the correct branch, switch to it
-    if current_branch != branch:
-        log(f"Switching plugin {plugin_name} from branch {current_branch} to {branch}")
-        try:
-            run_git_command(["checkout", branch], plugin_path, plugin_name)
-        except subprocess.CalledProcessError:
-            log(f"[ERROR] Git checkout failed for plugin {plugin_name}")
-            return False
-        return True
-
-    # Check if we're up to date with the remote branch
-    try:
-        stdout_lines, _ = run_git_command(
-            ["rev-parse", "HEAD"], plugin_path, plugin_name
-        )
-        last_commit = stdout_lines[0] if stdout_lines else ""
-    except subprocess.CalledProcessError:
-        last_commit = ""
-        log(f"Failed to get last commit for plugin {plugin_name}")
-
-    try:
-        stdout_lines, _ = run_git_command(
-            ["rev-parse", f"origin/{branch}"], plugin_path, plugin_name
-        )
-        remote_commit = stdout_lines[0] if stdout_lines else ""
-    except subprocess.CalledProcessError:
-        remote_commit = ""
-        log(f"Failed to get remote commit for branch {branch} in plugin {plugin_name}")
-
-    if last_commit == remote_commit:
-        log(
-            f"Plugin {plugin_name} is already up to date on branch {branch}, skipping update."
-        )
-        return True
-    else:
-        log(f"Updating plugin {plugin_name} to latest on branch {branch}")
-        try:
-            run_git_command(["pull", "origin", branch], plugin_path, plugin_name)
-            return True
-        except subprocess.CalledProcessError:
-            log(f"Failed to pull branch {branch} for plugin {plugin_name}")
-            return False
-
-
-def is_valid_git_repo(plugin_path):
-    """Check if the plugin path contains a valid git repository."""
+    Returns
+    -------
+    bool: True if the directory is a valid git repository, False otherwise.
+    """
     if not os.path.exists(pjoin(plugin_path, ".git")):
         log(f"Directory {plugin_path} is not a valid git repository, skipping update.")
         return False
     return True
 
 
-def has_modified_files(plugin_path, plugin_name):
-    """Check if the git repo has modified files that would prevent update."""
+def has_modified_files(plugin_path: str, plugin_name: str) -> bool:
+    """Check if the git repo has modified files that would prevent update.
+
+    Parameters
+    ----------
+    plugin_path: str
+        Path to the plugin directory.
+    plugin_name: str
+        Name of the plugin, used in error logs
+
+    Returns
+    -------
+    bool: True if there are modified files, False otherwise.
+    """
     try:
         modified_files, _ = run_git_command(
             ["status", "--porcelain"], plugin_path, plugin_name
         )
-    except subprocess.CalledProcessError:
+    except RuntimeError:
         modified_files = []
 
     modified_lines = [line for line in modified_files if "M" in line[:2]]
 
-    if modified_lines:
+    return len(modified_lines) > 0
+
+
+def get_current_sha(plugin_path: str) -> str | None:
+    """Get the current branch and SHA of the git repository.
+
+    Parameters
+    ----------
+    plugin_path: str
+        Path to the plugin directory.
+
+    Returns
+    -------
+    str or None: Current commit SHA if available, None otherwise.
+    """
+    try:
+        _, _ = run_git_command(["rev-parse", "--abbrev-ref", "HEAD"], plugin_path, "")
+        sha, _ = run_git_command(["rev-parse", "HEAD"], plugin_path, "")
+        return sha[0]
+    except RuntimeError:
+        return None
+
+
+def get_current_tag(plugin_path: str) -> str | None:
+    """Get the current tag of the git repository.
+
+    Parameters
+    ----------
+    plugin_path: str
+        Path to the plugin directory.
+
+    Returns
+    -------
+    str or None: Current tag if available, None otherwise.
+    """
+    try:
+        tag, _ = run_git_command(
+            ["describe", "--exact-match", "--tags"], plugin_path, ""
+        )
+        return tag[0]
+    except RuntimeError:
+        return None
+
+
+def update_or_clone_plugin_by_tag(
+    url: str, version_tag: str, plugin_name: str, plugin_path: str
+) -> bool:
+    """Clone a new plugin repository.
+
+    Parameters
+    ----------
+    url: str
+        Git repository URL.
+    version_tag: str
+        Version tag to checkout.
+    plugin_name: str
+        Name of the plugin, used in error logs
+    plugin_path: str
+        Path to the plugin directory.
+
+    Returns
+    -------
+    bool: True if the operation was successful, False otherwise.
+    """
+
+    # if tag doesn't start with 'v', we add it
+    if not version_tag.startswith("v"):
+        version_tag = "v" + version_tag
+
+    # if the dir exists and we already are on the correct tag, we can skip cloning
+    if not os.path.exists(plugin_path):
+        clone_cmd = [
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            version_tag,
+            url,
+            plugin_path,
+        ]
+        try:
+            run_git_command(clone_cmd, ".", plugin_name)
+        except RuntimeError:
+            return False
+
+    current_tag = get_current_tag(plugin_path)
+    if current_tag == version_tag:
+        return True
+
+    # let's be extra safe and verify that it's a valid tagged release
+    stdout, _ = run_git_command(["tag", "-l"], plugin_path, plugin_name)
+    if version_tag not in stdout:
+        log(f"Version tag {version_tag} not found in plugin {plugin_name}.")
+        return False
+
+    # checkout the specific tag after cloning
+    log(f"Checking out version tag {version_tag} for plugin {plugin_name}")
+    try:
+        # since it's a shallow clone, we need to fetch the specific tag
+        run_git_command(["fetch", "origin", version_tag], plugin_path, plugin_name)
+        run_git_command(["checkout", version_tag], plugin_path, plugin_name)
+    except RuntimeError:
+        return False
+
+    return True
+
+
+def update_or_clone_plugin_by_branch(
+    url: str, branch: str, sha: str, plugin_name: str, plugin_path: str
+) -> bool:
+    """Clone a new plugin repository.
+
+    Parameters
+    ----------
+    url: str
+        Git repository URL.
+    branch: str
+        Branch to checkout.
+    sha: str
+        Commit SHA to checkout.
+    plugin_name: str
+        Name of the plugin, used in error logs
+    plugin_path: str
+        Path to the plugin directory.
+
+    Returns
+    -------
+    bool: True if the operation was successful, False otherwise.
+    """
+
+    # if the dir exists and we already are on the correct branch and SHA, we can skip cloning
+    if not os.path.exists(plugin_path):
+        clone_cmd = [
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            branch,
+            url,
+            plugin_path,
+        ]
+        try:
+            run_git_command(clone_cmd, ".", plugin_name)
+        except RuntimeError:
+            return False
+
+    current_sha = get_current_sha(plugin_path)
+    if current_sha == sha:
+        return True
+
+    # checkout the specific SHA after cloning
+    log(f"Checking out SHA {sha} for plugin {plugin_name}")
+    try:
+        # since it's a shallow clone, we need to fetch the specific SHA
+        run_git_command(["fetch", "origin", sha], plugin_path, plugin_name)
+        run_git_command(["checkout", sha], plugin_path, plugin_name)
+    except RuntimeError:
+        return False
+
+    return True
+
+
+def update_or_clone_plugin(
+    plugin_name: str, plugin_info: dict, plugin_path: str
+) -> bool:
+    """Clone a new plugin repository.
+
+    Parameters
+    ----------
+    plugin_name: str
+        Name of the plugin, used in error logs
+    plugin_info: dict
+        Plugin information dictionary containing 'url', 'branch', 'sha', and/or 'version'.
+    plugin_path: str
+        Path to the plugin directory.
+
+    Returns
+    -------
+    bool: True if the operation was successful, False otherwise.
+    """
+    branch = plugin_info.get("branch", "main")
+    sha = plugin_info.get("sha")
+    version_tag = (
+        plugin_info.get("version").lower() if plugin_info.get("version") else None
+    )
+    url = plugin_info.get("url")
+
+    if url is None:
+        return True
+
+    if os.path.exists(plugin_path) and has_modified_files(plugin_path, plugin_name):
         log(f"Plugin {plugin_name} has modified files, skipping update.")
         return True
-    return False
+
+    if version_tag:
+        log(f"Updating {plugin_name} to version {version_tag}")
+        return update_or_clone_plugin_by_tag(url, version_tag, plugin_name, plugin_path)
+    elif branch and sha:
+        log(f"Updating {plugin_name} to branch {branch} at SHA {sha}")
+        return update_or_clone_plugin_by_branch(
+            url, branch, sha, plugin_name, plugin_path
+        )
+    else:
+        return True
 
 
-def copy_supervisor_configs(activated_plugins=[]):
+def initialize_external_services() -> list:
+    """
+    Initialize external services by cloning or updating their repositories.
+
+    Returns
+    -------
+    external_services: list
+        List of tuples containing (plugin_name, enabled) for each external service.
+    """
+    _, cfg = load_env()
+    plugins_path = cfg["services.paths"][-1]
+    os.makedirs(plugins_path, exist_ok=True)
+
+    plugins = cfg.get("services.external", {})
+    external_services = []
+
+    for plugin_name, plugin_info in plugins.items():
+        plugin_path = pjoin(plugins_path, plugin_name)
+        if os.path.exists(plugin_path) and not is_git_repo(plugin_path):
+            continue
+        elif update_or_clone_plugin(plugin_name, plugin_info, plugin_path):
+            external_services.append((plugin_name, True))
+        else:
+            external_services.append((plugin_name, False))
+
+    return external_services
+
+
+def copy_supervisor_configs(external_services=[]):
+    """
+    Copy supervisor configurations from all services to the main supervisor.conf file.
+
+    Parameters
+    ----------
+    external_services: list
+        List of external services, each as a tuple (service_name, enabled).
+
+    Returns
+    -------
+    None
+    """
     _, cfg = load_env()
 
     services = {}
@@ -400,20 +502,11 @@ def copy_supervisor_configs(activated_plugins=[]):
             ]
             services.update({s: pjoin(path, s) for s in path_services})
 
-    all_plugins_path = cfg.get("services.plugins_path", "./plugins")
-    for p in activated_plugins:
-        services.update({p: pjoin(all_plugins_path, p)})
-
-    # TODO (in a future PR): loop over all services, check if they are a git submodule or not
-    # if they are a submodule make sure they are initialized and updated
-    # this should be discussed, it does not seem necessary as soon as we have the
-    # config based plugin system working
-
     duplicates = [k for k, v in Counter(services.keys()).items() if v > 1]
     if duplicates:
         raise RuntimeError(f"Duplicate service definitions found for {duplicates}")
 
-    log(f"Discovered {len(services)} services")
+    log(f"Discovered {len(services)} services ({len(external_services)} external)")
 
     disabled = cfg["services.disabled"] or []
     enabled = cfg["services.enabled"] or []
@@ -429,7 +522,18 @@ def copy_supervisor_configs(activated_plugins=[]):
     if enabled == "*":
         enabled = []
 
+    disabled = set(disabled).union([s for s, e in external_services if not e])
+
     services_to_run = set(services.keys()).difference(disabled).union(enabled)
+
+    incompatible = [
+        service
+        for service in services_to_run
+        if not validate_service_compatibility(services[service])
+    ]
+
+    services_to_run = services_to_run.difference(incompatible)
+
     log(f"Enabling {len(services_to_run)} services")
 
     supervisor_configs = []
@@ -440,12 +544,15 @@ def copy_supervisor_configs(activated_plugins=[]):
         if os.path.exists(supervisor_conf):
             with open(supervisor_conf) as f:
                 supervisor_configs.append(f.read())
+        else:
+            conf = generate_supervisor_config(service, path)
+            supervisor_configs.append(conf)
 
     with open("baselayer/conf/supervisor/supervisor.conf", "a") as f:
         f.write("\n\n".join(supervisor_configs))
 
 
 if __name__ == "__main__":
-    activated_plugins = download_plugin_services()
     print()
-    copy_supervisor_configs(activated_plugins)
+    external_services = initialize_external_services()
+    copy_supervisor_configs(external_services)
