@@ -35,23 +35,23 @@ export const Notifications = () => {
 
     note: {
       color: "white",
-      fontWeight: "bold",
-      paddingTop: "0.8em",
-      paddingBottom: "0.8em",
-      paddingLeft: "1em",
-      marginBottom: 5,
+      fontWeight: 600,
+      padding: "1.3em",
+      marginBottom: "0.5em",
       width: "100%",
+      borderRadius: "8px",
+      WebkitBoxShadow: "0 4px 5px rgba(0, 0, 0, 0.2)",
+      MozBoxShadow: "0 4px 5px rgba(0, 0, 0, 0.2)",
+      boxShadow: "0 4px 5px rgba(0, 0, 0, 0.2)",
+      fontSize: "0.95rem",
       display: "inline-block",
-      WebkitBoxShadow: "0 0 5px black",
-      MozBoxShadow: "0 0 5px black",
-      boxShadow: "0 0 5px black",
     },
   };
 
   const noteColor = {
-    error: "Crimson",
-    warning: "Orange",
-    info: "MediumAquaMarine",
+    error: "rgba(244,67,54,0.95)",
+    warning: "rgba(255,152,0,0.95)",
+    info: "rgba(11,181,119,0.95)",
   };
 
   const dispatch = useDispatch();
