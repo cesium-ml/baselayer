@@ -1844,7 +1844,9 @@ class AccessVerificationMixin:
         try:
             return "System admin" in self.permissions
         except AttributeError:
-            raise AttributeError("This object is not a User or Token instance with permissions attribute")
+            raise AttributeError(
+                "This object is not a User or Token instance with permissions attribute"
+            )
 
     @property
     def accessible_group_ids(self):
@@ -1852,7 +1854,9 @@ class AccessVerificationMixin:
         try:
             return {group.id for group in self.groups}
         except AttributeError:
-            raise AttributeError("This object is not a User or Token instance with groups attribute")
+            raise AttributeError(
+                "This object is not a User or Token instance with groups attribute"
+            )
 
     def assert_group_accessible(self, group_id):
         """Raise an error if the user or token does not have access to the given group.
@@ -1866,7 +1870,9 @@ class AccessVerificationMixin:
             If the user or token does not have access to the group.
         """
         if not self.is_admin and int(group_id) not in self.accessible_group_ids:
-            raise AccessError(f"Group {group_id} is not accessible by the current user.")
+            raise AccessError(
+                f"Group {group_id} is not accessible by the current user."
+            )
 
 
 class User(Base, AccessVerificationMixin):
