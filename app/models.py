@@ -1838,13 +1838,21 @@ RoleACL = join_model("role_acls", Role, ACL)
 RoleACL.__doc__ = "Join table class mapping Roles to ACLs."
 
 
-def is_admin(self):
-    return "System admin" in self.permissions
-
 class AccessVerificationMixin:
     @property
     def is_admin(self):
-        return "System admin" in self.permissions
+        try:
+            return "System admin" in self.permissions
+        except AttributeError:
+            raise AttributeError("This object is not a User or Token instance with permissions attribute")
+
+    @property
+    def accessible_group_ids(self):
+        """Return a set of group IDs that the user or token has access to."""
+        try:
+            return {group.id for group in self.groups}
+        except AttributeError:
+            raise AttributeError("This object is not a User or Token instance with groups attribute")
 
     def assert_group_accessible(self, group_id):
         """Raise an error if the user or token does not have access to the given group.
@@ -1857,9 +1865,9 @@ class AccessVerificationMixin:
         AccessError
             If the user or token does not have access to the group.
         """
-        accessible_group_ids = {group.id for group in self.groups}
-        if not self.is_admin and int(group_id) not in accessible_group_ids:
+        if not self.is_admin and int(group_id) not in self.accessible_group_ids:
             raise AccessError(f"Group {group_id} is not accessible by the current user.")
+
 
 class User(Base, AccessVerificationMixin):
     """An application user."""
