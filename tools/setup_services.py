@@ -134,13 +134,15 @@ def validate_service_compatibility(service_path: str) -> bool:
         log("External service `pyproject.toml` does not contain 'tool' section")
         return False
 
+    validated = True
     # tool section specifies which software can a external service work with
     for name, value in plugin_config["tool"].items():
         if not isinstance(value, dict):
             log(
                 f"Invalid tool section for {name}: expected a dictionary, got {type(value)}"
             )
-            return False
+            validated = False
+            continue
 
         try:
             mod = import_module(name)
@@ -155,6 +157,7 @@ def validate_service_compatibility(service_path: str) -> bool:
             log(
                 f"External service {service_name} does not specify a version requirement in tool.{name}.version"
             )
+            validated = False
             continue
 
         try:
@@ -163,20 +166,23 @@ def validate_service_compatibility(service_path: str) -> bool:
                 log(
                     f"External service {service_name} requires {name} with version {version_requirement}, but installed version is not a string ({installed_version})."
                 )
-                return False
-        except ImportError:
+                validated = False
+                continue
+        except (ImportError, AttributeError):
             log(
                 f"External service {service_name} requires {name} with version {version_requirement}, but unable to determine installed version."
             )
-            return False
+            validated = False
+            continue
 
         if not validate_version(installed_version, version_requirement):
             log(
                 f"External service {service_name} requires {name} with version {version_requirement}, but installed version is {installed_version}. Skipping"
             )
-            return False
+            validated = False
+            continue
 
-    return True
+    return validated
 
 
 def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
@@ -457,6 +463,10 @@ def update_or_clone_plugin(
         return update_or_clone_plugin_by_branch(
             url, branch, sha, plugin_name, plugin_path
         )
+    elif os.path.isdir(plugin_path):
+        return True
+    # TODO: if it exists but it's an uninitialized git submodule
+    # warn the user that they need to do it
     else:
         return False
 
