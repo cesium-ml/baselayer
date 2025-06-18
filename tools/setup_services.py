@@ -119,6 +119,17 @@ def validate_service_compatibility(service_path: str) -> bool:
     if plugin_config.get("project", {}).get("name"):
         service_name = plugin_config["project"]["name"]
 
+    # if there is no supervisor.conf provided, we can only generate one
+    # if we can make an assumption about the entry point (being named main.py)
+    # otherwise we skip the service
+    if not os.path.isfile(
+        pjoin(service_path, "supervisor.conf")
+    ) and not os.path.isfile(pjoin(service_path, "main.py")):
+        log(
+            f"External service {service_name} does not contain a supervisor.conf or main.py, skipping"
+        )
+        return False
+
     if "tool" not in plugin_config:
         log("External service `pyproject.toml` does not contain 'tool' section")
         return False
@@ -441,15 +452,13 @@ def update_or_clone_plugin(
         return True
 
     if version_tag:
-        log(f"Updating {plugin_name} to version {version_tag}")
         return update_or_clone_plugin_by_tag(url, version_tag, plugin_name, plugin_path)
     elif branch and sha:
-        log(f"Updating {plugin_name} to branch {branch} at SHA {sha}")
         return update_or_clone_plugin_by_branch(
             url, branch, sha, plugin_name, plugin_path
         )
     else:
-        return True
+        return False
 
 
 def initialize_external_services() -> list:
@@ -461,7 +470,7 @@ def initialize_external_services() -> list:
     external_services: list
         List of tuples containing (plugin_name, enabled) for each external service.
     """
-    _, cfg = load_env()
+    _, cfg = load_env(False)
     plugins_path = cfg["services.paths"][-1]
     os.makedirs(plugins_path, exist_ok=True)
 
@@ -493,7 +502,7 @@ def copy_supervisor_configs(external_services=[]):
     -------
     None
     """
-    _, cfg = load_env()
+    _, cfg = load_env(False)
 
     services = {}
     for path in cfg["services.paths"]:
