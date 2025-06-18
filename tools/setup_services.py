@@ -4,10 +4,11 @@ from collections import Counter
 from importlib import import_module
 from os.path import join as pjoin
 
-from baselayer.app.env import load_env
-from baselayer.log import make_log
 from packaging import version
 from packaging.specifiers import SpecifierSet
+
+from baselayer.app.env import load_env
+from baselayer.log import make_log
 
 # let's try to use tomllib for Python 3.11+, and otherwise fall back to tomli
 # (the standalone tomli package, or the one from setuptools)
@@ -54,12 +55,12 @@ redirect_stderr=true
 
 def read_plugin_config(plugin_path: str) -> dict:
     """
-    Reads the plugin configuration from pyproject.toml.
+    Reads the external service configuration from pyproject.toml.
 
     Parameters
     ------
     plugin_path: str
-        Path to the plugin directory containing pyproject.toml.
+        Path to the external service directory containing pyproject.toml.
 
     Returns
     -------
@@ -119,10 +120,10 @@ def validate_service_compatibility(service_path: str) -> bool:
         service_name = plugin_config["project"]["name"]
 
     if "tool" not in plugin_config:
-        log("Plugin `pyproject.toml` does not contain 'tool' section")
+        log("External service `pyproject.toml` does not contain 'tool' section")
         return False
 
-    # tool section specifies which software can a plugin work with
+    # tool section specifies which software can a external service work with
     for name, value in plugin_config["tool"].items():
         if not isinstance(value, dict):
             log(
@@ -133,13 +134,15 @@ def validate_service_compatibility(service_path: str) -> bool:
         try:
             mod = import_module(name)
         except ImportError:
-            log(f"Plugin {service_name} requires {name}, but it is not installed.")
+            log(
+                f"External service {service_name} requires {name}, but it is not installed."
+            )
             continue
 
         version_requirement = value.get("version", None)
         if not version_requirement:
             log(
-                f"Plugin {service_name} does not specify a version requirement in tool.{name}.version"
+                f"External service {service_name} does not specify a version requirement in tool.{name}.version"
             )
             continue
 
@@ -147,18 +150,18 @@ def validate_service_compatibility(service_path: str) -> bool:
             installed_version = mod.__version__
             if not isinstance(installed_version, str):
                 log(
-                    f"Plugin {service_name} requires {name} with version {version_requirement}, but installed version is not a string ({installed_version})."
+                    f"External service {service_name} requires {name} with version {version_requirement}, but installed version is not a string ({installed_version})."
                 )
                 return False
         except ImportError:
             log(
-                f"Plugin {service_name} requires {name} with version {version_requirement}, but unable to determine installed version."
+                f"External service {service_name} requires {name} with version {version_requirement}, but unable to determine installed version."
             )
             return False
 
         if not validate_version(installed_version, version_requirement):
             log(
-                f"Plugin {service_name} is incompatible: required {version_requirement}, found {installed_version}. Skipping."
+                f"External service {service_name} requires {name} with version {version_requirement}, but installed version is {installed_version}. Skipping"
             )
             return False
 
@@ -167,7 +170,7 @@ def validate_service_compatibility(service_path: str) -> bool:
 
 def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
     """
-    Run a git command in the specified plugin path.
+    Run a git command in the specified external service path.
 
     Parameters
     ----------
@@ -176,7 +179,7 @@ def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
     plugin_path: str
         Directory where the command runs
     plugin_name: str
-        Name of the plugin, used in error logs
+        Name of the external service, used in error logs
 
     Returns
     -------
@@ -197,18 +200,18 @@ def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
     except subprocess.CalledProcessError as e:
         msg = f"[ERROR] Git command failed: {' '.join(args)}"
         if plugin_name:
-            msg += f" (plugin: {plugin_name})"
+            msg += f" (external service: {plugin_name})"
         msg += f"\n{e.stderr}"
         raise RuntimeError(msg) from e
 
 
 def is_git_repo(plugin_path: str) -> bool:
-    """Check if the plugin path contains a valid git repository.
+    """Check if the external service path contains a valid git repository.
 
     Parameters
     ----------
     plugin_path: str
-        Path to the plugin directory.
+        Path to the external service directory.
 
     Returns
     -------
@@ -226,9 +229,9 @@ def has_modified_files(plugin_path: str, plugin_name: str) -> bool:
     Parameters
     ----------
     plugin_path: str
-        Path to the plugin directory.
+        Path to the external service directory.
     plugin_name: str
-        Name of the plugin, used in error logs
+        Name of the external service, used in error logs
 
     Returns
     -------
@@ -252,7 +255,7 @@ def get_current_sha(plugin_path: str) -> str | None:
     Parameters
     ----------
     plugin_path: str
-        Path to the plugin directory.
+        Path to the external service directory.
 
     Returns
     -------
@@ -272,7 +275,7 @@ def get_current_tag(plugin_path: str) -> str | None:
     Parameters
     ----------
     plugin_path: str
-        Path to the plugin directory.
+        Path to the external service directory.
 
     Returns
     -------
@@ -290,7 +293,7 @@ def get_current_tag(plugin_path: str) -> str | None:
 def update_or_clone_plugin_by_tag(
     url: str, version_tag: str, plugin_name: str, plugin_path: str
 ) -> bool:
-    """Clone a new plugin repository.
+    """Clone a new external service repository.
 
     Parameters
     ----------
@@ -299,9 +302,9 @@ def update_or_clone_plugin_by_tag(
     version_tag: str
         Version tag to checkout.
     plugin_name: str
-        Name of the plugin, used in error logs
+        Name of the external service, used in error logs
     plugin_path: str
-        Path to the plugin directory.
+        Path to the external service directory.
 
     Returns
     -------
@@ -335,11 +338,11 @@ def update_or_clone_plugin_by_tag(
     # let's be extra safe and verify that it's a valid tagged release
     stdout, _ = run_git_command(["tag", "-l"], plugin_path, plugin_name)
     if version_tag not in stdout:
-        log(f"Version tag {version_tag} not found in plugin {plugin_name}.")
+        log(f"Version tag {version_tag} not found in external service {plugin_name}.")
         return False
 
     # checkout the specific tag after cloning
-    log(f"Checking out version tag {version_tag} for plugin {plugin_name}")
+    log(f"Checking out version tag {version_tag} for external service {plugin_name}")
     try:
         # since it's a shallow clone, we need to fetch the specific tag
         run_git_command(["fetch", "origin", version_tag], plugin_path, plugin_name)
@@ -353,7 +356,7 @@ def update_or_clone_plugin_by_tag(
 def update_or_clone_plugin_by_branch(
     url: str, branch: str, sha: str, plugin_name: str, plugin_path: str
 ) -> bool:
-    """Clone a new plugin repository.
+    """Clone a new external service repository.
 
     Parameters
     ----------
@@ -364,9 +367,9 @@ def update_or_clone_plugin_by_branch(
     sha: str
         Commit SHA to checkout.
     plugin_name: str
-        Name of the plugin, used in error logs
+        Name of the external service, used in error logs
     plugin_path: str
-        Path to the plugin directory.
+        Path to the external service directory.
 
     Returns
     -------
@@ -394,7 +397,7 @@ def update_or_clone_plugin_by_branch(
         return True
 
     # checkout the specific SHA after cloning
-    log(f"Checking out SHA {sha} for plugin {plugin_name}")
+    log(f"Checking out SHA {sha} for external service {plugin_name}")
     try:
         # since it's a shallow clone, we need to fetch the specific SHA
         run_git_command(["fetch", "origin", sha], plugin_path, plugin_name)
@@ -408,16 +411,16 @@ def update_or_clone_plugin_by_branch(
 def update_or_clone_plugin(
     plugin_name: str, plugin_info: dict, plugin_path: str
 ) -> bool:
-    """Clone a new plugin repository.
+    """Clone a new external service repository.
 
     Parameters
     ----------
     plugin_name: str
-        Name of the plugin, used in error logs
+        Name of the external service, used in error logs
     plugin_info: dict
-        Plugin information dictionary containing 'url', 'branch', 'sha', and/or 'version'.
+        External service information dictionary containing 'url', 'branch', 'sha', and/or 'version'.
     plugin_path: str
-        Path to the plugin directory.
+        Path to the external service directory.
 
     Returns
     -------
@@ -434,7 +437,7 @@ def update_or_clone_plugin(
         return True
 
     if os.path.exists(plugin_path) and has_modified_files(plugin_path, plugin_name):
-        log(f"Plugin {plugin_name} has modified files, skipping update.")
+        log(f"External service {plugin_name} has modified files, skipping update.")
         return True
 
     if version_tag:
@@ -499,6 +502,11 @@ def copy_supervisor_configs(external_services=[]):
                 d for d in os.listdir(path) if os.path.isdir(pjoin(path, d))
             ]
             services.update({s: pjoin(path, s) for s in path_services})
+
+    # TODO (in a future PR): loop over all services, check if they are a git submodule or not
+    # if they are a submodule make sure they are initialized and updated
+    # this should be discussed, it does not seem necessary as soon as we have the
+    # config based external service system working
 
     duplicates = [k for k, v in Counter(services.keys()).items() if v > 1]
     if duplicates:
