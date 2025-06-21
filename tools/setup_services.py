@@ -37,7 +37,7 @@ def generate_supervisor_config(service_name: str, service_path: str) -> str:
     service_name: str
         Name of the service to generate the configuration for.
     service_path: str
-        Path to the service directory where the main.py file is located.
+        Path to the service directory.
 
     Returns
     -------
@@ -310,7 +310,7 @@ def get_current_tag(plugin_path: str) -> str | None:
 def update_or_clone_plugin_by_tag(
     url: str, version_tag: str, plugin_name: str, plugin_path: str
 ) -> bool:
-    """Clone a new external service repository.
+    """Clone a new external service repository using a version tag.
 
     Parameters
     ----------
@@ -373,7 +373,7 @@ def update_or_clone_plugin_by_tag(
 def update_or_clone_plugin_by_branch(
     url: str, branch: str, sha: str, plugin_name: str, plugin_path: str
 ) -> bool:
-    """Clone a new external service repository.
+    """Clone a new external service repository using a branch and SHA.
 
     Parameters
     ----------

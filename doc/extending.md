@@ -61,3 +61,28 @@ can run the templating manually:
 ```
 ./baselayer/tools/fill_conf_values.py --config="config.yaml" static/js/component.jsx.template
 ```
+
+## Adding extrernal services
+
+If you want to add external services to your application,
+you can do so by adding them to the `config.yaml` file under the
+`services.external` key. Each service should have a unique name and a set of parameters that define how to connect to it. For example:
+
+```
+services:
+  external:
+    my_service:
+        url: "https://github.com/my_service.git"
+        branch: main
+        sha: specific_commit_sha
+        params: {}
+    another_service:
+        url: "https://github.com/another_service.git"
+        version: v0.1.0
+        params: {}
+```
+
+Your script will then run when the application starts.
+
+This allows you to easily integrate external services into your
+application without hardcoding configuration values in your codebase.
