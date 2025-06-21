@@ -1,6 +1,8 @@
 import os
 
 import pytest
+from baselayer.app import models
+from baselayer.app.config import load_config
 from selenium import webdriver
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
@@ -14,9 +16,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 from seleniumrequests.request import RequestsSessionMixin
-
-from baselayer.app import models
-from baselayer.app.config import load_config
 
 cfg = load_config()
 

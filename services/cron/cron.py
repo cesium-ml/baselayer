@@ -5,11 +5,10 @@ import time
 from datetime import datetime
 
 import yaml
-from dateutil.parser import parse as parse_time
-
 from baselayer.app.env import load_env
 from baselayer.app.models import CronJobRun, DBSession, init_db
 from baselayer.log import make_log
+from dateutil.parser import parse as parse_time
 
 log = make_log("cron")
 

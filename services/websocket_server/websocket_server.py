@@ -3,10 +3,9 @@ import json
 
 import jwt
 import zmq
-from tornado import ioloop, web, websocket
-
 from baselayer.app.env import load_env
 from baselayer.log import make_log
+from tornado import ioloop, web, websocket
 
 env, cfg = load_env()
 secret = cfg["app.secret_key"]

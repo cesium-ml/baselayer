@@ -32,6 +32,7 @@ services:
       - ./services
     enabled:
     disabled:
+    external:
 ```
 
 For example, the `cron` microservice lives in
@@ -55,6 +56,26 @@ services:
     enabled:
       - cron
     disabled: '*'
+    external:
+```
+
+External microservices can also be added to the `config.yaml` file
+under the `services.external` key. Each service should have a unique
+name and a set of parameters that define how to connect to it. For example:
+
+```
+services:
+  paths:
+    - ./baselayer/services
+    - ./services
+  enabled:
+    - cron
+  disabled: '*'
+  external:
+    my_external_service:
+      url: https://github.com/my_external_service.git
+      version: v0.1.0
+      params: {}
 ```
 
 Sometimes, the supervisor configuration needs information from the

@@ -4,7 +4,6 @@ import time
 import requests
 import tornado.ioloop
 import tornado.log
-
 from baselayer.app.env import load_env, parser
 from baselayer.log import make_log
 

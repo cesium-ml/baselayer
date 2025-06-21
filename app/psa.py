@@ -12,6 +12,7 @@ import uuid
 import warnings
 from datetime import datetime, timedelta
 
+from baselayer.app.models import Base, DBSession, User
 from openid.association import Association as OpenIdAssociation
 from social_core.backends.google import GoogleOAuth2
 from social_core.exceptions import MissingBackend
@@ -25,8 +26,6 @@ from sqlalchemy.orm import backref, relationship
 from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import PickleType, Text
 from tornado.template import Loader, Template
-
-from baselayer.app.models import Base, DBSession, User
 
 from .env import load_env
 

@@ -92,10 +92,21 @@ services:
     enabled:
 
     # A list of service names, or '*'
+    # You can use disabled to disable specific services, or '*' to disable them all
     disabled:
       - dask
 
-    # You can use disabled to disable specific services, or '*' to disable them all
+    # Here you can add services that are not part of baselayer, but
+    # come from another github repository. You need to specify URL,
+    # branch+sha or version (tag), and optional . For example:
+    # - my_service:
+    #     url: <url/to/git/repo>
+    #     branch: <branch_name>
+    #     sha: <sha_of_commit>
+    # - my_service:
+    #     url: <url/to/git/repo>
+    #     version: <tagged_version>
+    external: {}
 
 
 log:
@@ -156,3 +167,5 @@ security:
 #   - interval: 5
 #     script: tools/5_minute.py
 #     limit: ["01:00", "02:00"]
+
+plugins: {}

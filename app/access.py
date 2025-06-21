@@ -2,10 +2,9 @@ import functools
 
 import sqlalchemy as sa
 import tornado.web
-from sqlalchemy.orm import joinedload
-
 from baselayer.app.custom_exceptions import AccessError  # noqa: F401
 from baselayer.app.models import DBSession, Role, Token, User  # noqa: F401
+from sqlalchemy.orm import joinedload
 
 
 def auth_or_token(method):
