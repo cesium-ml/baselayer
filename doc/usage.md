@@ -59,9 +59,14 @@ services:
     external:
 ```
 
-External microservices can also be added to the `config.yaml` file
-under the `services.external` key. Each service should have a unique
-name and a set of parameters that define how to connect to it. For example:
+Sometimes, the supervisor configuration needs information from the
+configuration file, therefore `supervisor.conf` can instead be
+provided as `supervisor.conf.template`, which will be compiled before
+launching. See, e.g., `services/dask`.
+
+External services can also be used to pull a custom microservice from a Github repository.
+
+They can also be added to the `config.yaml` file under the `services.external` key. Each service should have a unique name and a set of parameters that define what specific repository you want to pull. For example:
 
 ```
 services:
@@ -78,10 +83,7 @@ services:
       params: {}
 ```
 
-Sometimes, the supervisor configuration needs information from the
-configuration file, therefore `supervisor.conf` can instead be
-provided as `supervisor.conf.template`, which will be compiled before
-launching. See, e.g., `services/dask`.
+To know more about external services, please refer to the [External Services documentation](extending.md#adding-external-services).
 
 ## Web Application
 

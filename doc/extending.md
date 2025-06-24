@@ -62,11 +62,14 @@ can run the templating manually:
 ./baselayer/tools/fill_conf_values.py --config="config.yaml" static/js/component.jsx.template
 ```
 
-## Adding extrernal services
+## Adding external services
+
+External services are microservices that you can pull from GitHub and run as part of your application. This is useful for integrating third-party services or custom scripts.
 
 If you want to add external services to your application,
-you can do so by adding them to the `config.yaml` file under the
-`services.external` key. Each service should have a unique name and a set of parameters that define how to connect to it. For example:
+you can do so by adding them to the `config.yaml` file under the `services.external` key. This allows baselayer to pull the external service from a GitHub repository.
+
+The configuration in the `config.yaml` file should look like this:
 
 ```
 services:
@@ -82,7 +85,6 @@ services:
         params: {}
 ```
 
-Your script will then run when the application starts.
+You must provide the `url` of the GitHub repository. To target a specific version of the service, you can optionally include both the `branch` and `sha`, or use the `version` field to refer to a particular release. Additional configuration options can be passed through the `params` dictionary, which the service may use during setup.
 
-This allows you to easily integrate external services into your
-application without hardcoding configuration values in your codebase.
+The external service will then be initialized and registered in supervisor, alongside other services, provided it is correctly configured and compatible with the application.

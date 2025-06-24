@@ -465,8 +465,6 @@ def update_or_clone_plugin(
         )
     elif os.path.isdir(plugin_path):
         return True
-    # TODO: if it exists but it's an uninitialized git submodule
-    # warn the user that they need to do it
     else:
         return False
 
