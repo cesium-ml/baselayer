@@ -36,9 +36,7 @@ jobs:
         with:
           python-version: "3.10"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,8 +49,8 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: |
-            ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('baselayer_template_app/package.json') }}
+            ~/.bun
+          key: ${{ runner.os }}-bun-${{ hashFiles('baselayer_template_app/package.json') }}
 
       - uses: actions/cache@v4
         with:
@@ -66,8 +64,6 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          cd baselayer
-
           sudo apt update -y
 
           ### firefox installation
@@ -75,7 +71,7 @@ jobs:
           sudo add-apt-repository ppa:mozillateam/ppa
           printf 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001' | sudo tee /etc/apt/preferences.d/mozilla-firefox
 
-          sudo apt install -y wget nodejs unzip firefox
+          sudo apt install -y wget unzip firefox
 
           # if nginx is already installed, remove it
           sudo apt remove -y nginx nginx-common nginx-core nginx-full
@@ -86,31 +82,35 @@ jobs:
           sudo apt update -y
           sudo apt install nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter -y
 
+          ### UV python package manager installation
+          curl -LsSf https://astral.sh/uv/install.sh | sh
 
-          pip install --upgrade pip
-          pip install wheel
+          cd baselayer_template_app
 
-          export NPM_PACKAGES="${HOME}/.npm-packages"
-          export PATH=${NPM_PACKAGES}/bin:$PATH
-          export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
+          uv venv --python 3.10 && source .venv/bin/activate
 
-          sudo npm -g install npm@latest
+          uv pip install --upgrade pip && uv pip install wheel
+
+          bun upgrade
 
           which python; python --version
-          echo npm $(npm --version)
-          echo node $(node --version)
+          echo uv $(uv --version)
+          echo bun $(bun --version)
           nginx -v
           firefox --version
 
       - name: Install Geckodriver / Selenium
         run: |
+          cd baselayer_template_app
+          source .venv/bin/activate
           geckodriver --version
-          pip install selenium==4.8.3
+          uv pip install selenium==4.8.3
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Write configuration & build DB
         run: |
           cd baselayer_template_app
+          source .venv/bin/activate
 
           cat << EOF > config.yaml
             database:
@@ -144,6 +144,7 @@ jobs:
       - name: Test template app
         run: |
           cd baselayer_template_app
+          source .venv/bin/activate
           make test_headless
 
       - name: Upload logs

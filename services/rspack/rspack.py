@@ -20,7 +20,7 @@ def run(cmd):
 
 if env.debug:
     log("Debug mode detected, launching rspack monitor")
-    p = run(["npx", "rspack", "--watch"])
+    p = run(["bun", "rspack", "--watch"])
     sys.exit(p.returncode)
 else:
     log("Production mode; not building JavaScript bundle")

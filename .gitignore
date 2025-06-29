@@ -13,6 +13,7 @@ __pycache__/
 node_modules/
 *.pyc
 doc/_build
+bun.lockb
 
 # These are built from templates
 conf/supervisor/supervisor.conf
