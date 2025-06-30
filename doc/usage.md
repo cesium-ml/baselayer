@@ -56,7 +56,6 @@ services:
     enabled:
       - cron
     disabled: '*'
-    external:
 ```
 
 Sometimes, the supervisor configuration needs information from the
@@ -64,9 +63,9 @@ configuration file, therefore `supervisor.conf` can instead be
 provided as `supervisor.conf.template`, which will be compiled before
 launching. See, e.g., `services/dask`.
 
-External services can also be used to pull a custom microservice from a Github repository.
+"External" micro-services can be used to extend the capabilities of any application relying on `baselayer`.
 
-They can also be added to the `config.yaml` file under the `services.external` key. Each service should have a unique name and a set of parameters that define what specific repository you want to pull. For example:
+These are added to `services.external` section of the configuration, and need to provide: service name, GitHub repo URL, branch+sha or tagged version of the repo where the external service is hosted, along with optional service-specific parameters. For example:
 
 ```
 services:
@@ -83,7 +82,7 @@ services:
       params: {}
 ```
 
-To know more about external services, please refer to the [External Services documentation](extending.md#adding-external-services).
+External services are imported in the last location mentioned in services.paths. To know more about external services, please refer to the [External Services documentation](extending.md#adding-external-services).
 
 ## Web Application
 
