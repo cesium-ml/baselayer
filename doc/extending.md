@@ -133,11 +133,12 @@ version = ">=1.2.0, <2.0.0"
 #### Default Configuration
 
 A `config.yaml.defaults` file can be provided, which is helpful if the service needs to be configured and expects parameters to be specified in `config.yaml`. It also serves as an example of how to integrate the service into an application:
+
 ```yaml
 services:
-    external: 
-        my_service:
-            version: v0.1.0
-            params:
-                endpoint: "https://api.example.com"
+  external:
+    my_service:
+      version: v0.1.0
+      params:
+        endpoint: "https://api.example.com"
 ```
