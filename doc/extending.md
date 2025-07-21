@@ -69,7 +69,7 @@ External services are microservices that you can pull from GitHub and run as par
 If you want to add external services to your application,
 you can do so by adding them to the `config.yaml` file under the `services.external` key. This allows baselayer to pull the external service from a GitHub repository.
 
-The configuration in the `config.yaml` file should look like this:
+The configuration in the `config.yaml` file would look like this:
 
 ```
 services:
