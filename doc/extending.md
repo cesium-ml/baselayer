@@ -64,7 +64,7 @@ can run the templating manually:
 
 ## Adding external services
 
-External services are microservices that you can pull from GitHub and run as part of your application. This is useful for integrating third-party services or custom scripts.
+External services are [microservices](usage.md#microservices) that you can pull from GitHub and run as part of your application. Their behavior is similar, they just live in remote repositories. This is useful for integrating third-party services or custom scripts.
 
 If you want to add external services to your application,
 you can do so by adding them to the `config.yaml` file under the `services.external` key. This allows baselayer to pull the external service from a GitHub repository.
