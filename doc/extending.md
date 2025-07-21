@@ -93,7 +93,7 @@ You must provide the `url` of the GitHub repository, as well as a version of the
 
 Additional configuration options can be passed through the `params` dictionary, which the service uses.
 
-The external service will then be initialized and registered in `supervisor` alongside other services, provided it is correctly configured and compatible with the application.
+The external service will then be started and managed by `supervisord` alongside other services.
 Compatibility can be enforced via version constraints declared in the service’s optional pyproject.toml. See [External Service Requirements](#external-service-requirements) for details.
 
 ### External Service Requirements
