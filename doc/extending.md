@@ -69,7 +69,7 @@ External services are [microservices](usage.md#microservices) that you can pull 
 If you want to add external services to your application,
 you can do so by adding them to the `config.yaml` file under the `services.external` key. This allows baselayer to pull the external service from a GitHub repository.
 
-The configuration in the `config.yaml` file should look like this:
+The configuration in the `config.yaml` file would look like this:
 
 ```
 services:
@@ -93,8 +93,7 @@ You must provide the `url` of the GitHub repository, as well as a version of the
 
 Additional configuration options can be passed through the `params` dictionary, which the service uses.
 
-The external service will then be initialized and registered in Supervisor alongside other services, provided it is correctly configured and compatible with the application.
-Compatibility can be enforced via version constraints declared in the service’s optional pyproject.toml. See [External Service Requirements](#external-service-requirements) for details.
+The external service will then be started and managed by `supervisord` alongside other services.
 
 ### External Service Requirements
 
@@ -103,32 +102,42 @@ To work correctly with the application, external services should follow these co
 #### Entry Point
 
 - The service should include a `main.py` file as its entry point.
-- If the entry point differs, a `supervisord.conf` must be provided in the repository, pointing to the correct file.
-- Otherwise, a default `supervisord.conf` will be auto-generated to point to `main.py`.
+- If the entry point differs, a `supervisord.conf` must be provided in the repository, pointing to the correct entry point.
 
 #### Project Metadata and Compatibility
 
-External services may include a pyproject.toml file to provide metadata and compatibility information. This is especially important when multiple applications (or versions) are built on top of Baselayer.
+External services may include a `pyproject.toml` file to provide metadata and compatibility information. This is especially important when multiple applications (or versions) are built on top of Baselayer.
 
 In this file:
 
-- The service must include its name, matching the name used in config.yaml.
+- The name of the service must be specified, matching the external service name in `config.yaml`.
 
-- It should define a [tool.`<application-name>`] section, where `<application-name>` is the name of the host application (e.g., myapp).
+- It should define a [tool.`<application-name>`] section, where `<application-name>` is the name of the application you are adding the external microservice to. This section may include a `version` field to declare which versions of the application the service is compatible with. If the version requirement is not met, the external service will not be registered.
 
-Inside that section, a version field can be specified to declare which versions of the host application the service is compatible with. For example:
+For example, an external service's `pyproject.toml` may look like:
 
 ```toml
-[tool.myapp]
+[project]
 name = "my_service"
+version = "0.1.0"
+description = "A micro-service to add to an application built on top of baselayer"
+authors = [
+  { name = "John Doe", email = "john.doe@example.com" }
+]
+
+[tool.myapp]
 version = ">=1.2.0, <2.0.0"
 ```
 
-This ensures that the external service is only registered and run when the host application matches one of the specified versions. This mechanism allows different host applications built on Baselayer to define their own versioning schemes and maintain compatibility boundaries for services.
-
-If the version of the host application does not satisfy the constraints, the service will not be started.
-
 #### Default Configuration
 
-- A `config.yaml.defaults` file can be provided to define default parameters for the service.
-- This file is useful for services that expect certain `params`, and also serves as an example of how to integrate the service into an application.
+A `config.yaml.defaults` file can be provided, which is helpful if the service needs to be configured and expects parameters to be specified in `config.yaml`. It also serves as an example of how to integrate the service into an application:
+
+```yaml
+services:
+  external:
+    my_service:
+      version: v0.1.0
+      params:
+        endpoint: "https://api.example.com"
+```
