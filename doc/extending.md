@@ -102,7 +102,7 @@ To work correctly with the application, external services should follow these co
 
 #### Entry Point
 
-- The service should include a `main.py` file as its entry point. In that case, providing a `supervisor.conf` can be omitted and will be auto-generated, referring to `main.py`.
+- The service should include a `main.py` file as its entry point.
 - If the entry point differs, a `supervisord.conf` must be provided in the repository, pointing to the correct entry point.
 
 #### Project Metadata and Compatibility
