@@ -112,7 +112,7 @@ In this file:
 
 - The name of the service must be specified, matching the external service name in `config.yaml`.
 
-- It should define a [tool.`<application-name>`] section, where `<application-name>` is the name of the application you are adding the external microservice to. This section may include a `version` field to declare which versions of the application the service is compatible with. If the version requirement is not met, the external service will not be registered.
+- It should define a [tool.compatibility] section including a `compatible-with` field. This field would specify which applications (and versions) the service is compatible with. If the version requirement is not met, the external service will not be registered.
 
 For example, an external service's `pyproject.toml` may look like:
 
@@ -125,8 +125,10 @@ authors = [
   { name = "John Doe", email = "john.doe@example.com" }
 ]
 
-[tool.myapp]
-version = ">=1.2.0, <2.0.0"
+[tool.compatibility]
+compatible-with = [
+  { name = "skyportal", version = ">=1.4.0" }
+]
 ```
 
 #### Default Configuration

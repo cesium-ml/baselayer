@@ -130,32 +130,48 @@ def validate_service_compatibility(service_path: str) -> bool:
         )
         return False
 
-    if "tool" not in plugin_config:
-        log("External service `pyproject.toml` does not contain 'tool' section")
+    compatibility_config = plugin_config.get("tool", {}).get("compatibility", {})
+    compatible_with = compatibility_config.get("compatible-with", [])
+
+    if not compatible_with:
+        log(
+            f"External service {service_name} has no compatibility requirements, assuming incompatible"
+        )
         return False
 
     validated = True
-    # tool section specifies which software can a external service work with
-    for name, value in plugin_config["tool"].items():
-        if not isinstance(value, dict):
+
+    # Check each compatibility requirement
+    for requirement in compatible_with:
+        if not isinstance(requirement, dict):
             log(
-                f"Invalid tool section for {name}: expected a dictionary, got {type(value)}"
+                f"Invalid compatibility requirement for {service_name}: expected a dictionary, got {type(requirement)}"
+            )
+            validated = False
+            continue
+
+        package_name = requirement.get("name")
+        version_requirement = requirement.get("version")
+
+        if not package_name:
+            log(
+                f"External service {service_name} has compatibility requirement without 'name' field"
+            )
+            validated = False
+            continue
+
+        if not version_requirement:
+            log(
+                f"External service {service_name} does not specify a version requirement for {package_name}"
             )
             validated = False
             continue
 
         try:
-            mod = import_module(name)
+            mod = import_module(package_name)
         except ImportError:
             log(
-                f"External service {service_name} requires {name}, but it is not installed."
-            )
-            continue
-
-        version_requirement = value.get("version", None)
-        if not version_requirement:
-            log(
-                f"External service {service_name} does not specify a version requirement in tool.{name}.version"
+                f"External service {service_name} requires {package_name}, but it is not installed."
             )
             validated = False
             continue
@@ -164,20 +180,20 @@ def validate_service_compatibility(service_path: str) -> bool:
             installed_version = mod.__version__
             if not isinstance(installed_version, str):
                 log(
-                    f"External service {service_name} requires {name} with version {version_requirement}, but installed version is not a string ({installed_version})."
+                    f"External service {service_name} requires {package_name} with version {version_requirement}, but installed version is not a string ({installed_version})."
                 )
                 validated = False
                 continue
         except (ImportError, AttributeError):
             log(
-                f"External service {service_name} requires {name} with version {version_requirement}, but unable to determine installed version."
+                f"External service {service_name} requires {package_name} with version {version_requirement}, but unable to determine installed version."
             )
             validated = False
             continue
 
         if not validate_version(installed_version, version_requirement):
             log(
-                f"External service {service_name} requires {name} with version {version_requirement}, but installed version is {installed_version}. Skipping"
+                f"External service {service_name} requires {package_name} with version {version_requirement}, but installed version is {installed_version}. Skipping"
             )
             validated = False
             continue
