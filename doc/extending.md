@@ -131,7 +131,8 @@ version = ">=1.2.0, <2.0.0"
 
 #### Default Configuration
 
-A `config.yaml.defaults` file can be provided, which is helpful if the service needs to be configured and expects parameters to be specified in `config.yaml`. It also serves as an example of how to integrate the service into an application:
+A `config.yaml.defaults` file can be provided to set service configuration defaults.
+These values can be overridden in the app's `config.yaml` under the `services.external.<name-of-this-service>.config` keys:
 
 ```yaml
 services:
