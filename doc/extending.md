@@ -109,6 +109,7 @@ To work correctly with the application, external services should follow these co
 External services may include a `pyproject.toml` file to provide metadata and compatibility information. This is especially important when multiple applications (or versions) are built on top of Baselayer.
 
 In this file:
+
 ```toml
 [project]
 name = "my_service"
