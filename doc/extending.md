@@ -109,13 +109,6 @@ To work correctly with the application, external services should follow these co
 External services may include a `pyproject.toml` file to provide metadata and compatibility information. This is especially important when multiple applications (or versions) are built on top of Baselayer.
 
 In this file:
-
-- The name of the service must be specified, matching the external service name in `config.yaml`.
-
-- It should define a [tool.compatibility] section including a `compatible-with` field. This field would specify which applications (and versions) the service is compatible with. If the version requirement is not met, the external service will not be registered.
-
-For example, an external service's `pyproject.toml` may look like:
-
 ```toml
 [project]
 name = "my_service"
@@ -130,6 +123,10 @@ compatible-with = [
   { name = "skyportal", version = ">=1.4.0" }
 ]
 ```
+
+- The name of the service must be specified, matching the external service name in `config.yaml`.
+
+- It should define a [tool.compatibility] section including a `compatible-with` field. This field would specify which applications (and versions) the service is compatible with. If the version requirement is not met, the external service will not be registered.
 
 #### Default Configuration
 
