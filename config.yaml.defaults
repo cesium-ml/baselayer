@@ -85,7 +85,6 @@ server:
 services:
     paths:
       - ./baselayer/services
-      - ./services
 
     # By default, all services other than dask are enabled.
     # Use this list to add services if 'disabled' is set to '*'
