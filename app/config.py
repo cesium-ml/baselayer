@@ -122,11 +122,13 @@ def load_config(config_files=[], load_services_configs=True):
     service_cfgs = []
     for services_path in cfg.get("services.paths", []):
         # loop over all the folders in services_path
-        for service_folder in Path(services_path).iterdir():
-            if service_folder.is_dir():
-                service_cfg = service_folder / "config.yaml.defaults"
-                if service_cfg.exists():
-                    service_cfgs.append(str(service_cfg.resolve()))
+        if Path(services_path).is_dir():
+            for service_folder in Path(services_path).iterdir():
+                print(f"Looking for service configs in: {service_folder}")
+                if service_folder.is_dir():
+                    service_cfg = service_folder / "config.yaml.defaults"
+                    if service_cfg.exists():
+                        service_cfgs.append(str(service_cfg.resolve()))
 
     all_configs = (
         [
