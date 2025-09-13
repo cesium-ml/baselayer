@@ -201,7 +201,7 @@ def validate_service_compatibility(service_path: str) -> bool:
     return validated
 
 
-def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
+def run_git_command(args: list, plugin_path: str) -> tuple:
     """
     Run a git command in the specified external service path.
 
@@ -211,8 +211,6 @@ def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
         Git command to run, e.g. ['checkout', 'main']
     plugin_path: str
         Directory where the command runs
-    plugin_name: str
-        Name of the external service, used in error logs
 
     Returns
     -------
@@ -231,10 +229,8 @@ def run_git_command(args: list, plugin_path: str, plugin_name: str) -> tuple:
         return result.stdout.splitlines(), result.stderr.splitlines()
 
     except subprocess.CalledProcessError as e:
-        msg = f"[ERROR] Git command failed: {' '.join(args)}"
-        if plugin_name:
-            msg += f" (external service: {plugin_name})"
-        msg += f"\n{e.stderr}"
+        cmd = ' '.join([f'cd {plugin_path}; git'] + args)
+        msg = f"[ERROR] Git command failed: {cmd}\n{e.stderr}"
         raise RuntimeError(msg) from e
 
 
@@ -256,15 +252,13 @@ def is_git_repo(plugin_path: str) -> bool:
     return True
 
 
-def has_modified_files(plugin_path: str, plugin_name: str) -> bool:
+def has_modified_files(plugin_path: str) -> bool:
     """Check if the git repo has modified files that would prevent update.
 
     Parameters
     ----------
     plugin_path: str
         Path to the external service directory.
-    plugin_name: str
-        Name of the external service, used in error logs
 
     Returns
     -------
@@ -272,7 +266,8 @@ def has_modified_files(plugin_path: str, plugin_name: str) -> bool:
     """
     try:
         modified_files, _ = run_git_command(
-            ["status", "--porcelain"], plugin_path, plugin_name
+            ["status", "--porcelain"],
+            plugin_path
         )
     except RuntimeError:
         modified_files = []
@@ -282,207 +277,114 @@ def has_modified_files(plugin_path: str, plugin_name: str) -> bool:
     return len(modified_lines) > 0
 
 
-def get_current_sha(plugin_path: str) -> str | None:
-    """Get the current branch and SHA of the git repository.
+def get_rev(plugin_path: str) -> str | None:
+    """Get the revision of the git repository HEAD.
 
     Parameters
     ----------
-    plugin_path: str
+    plugin_path : str
         Path to the external service directory.
 
     Returns
     -------
-    str or None: Current commit SHA if available, None otherwise.
+    str or None
+        Current revision if available, None otherwise.
     """
     try:
-        _, _ = run_git_command(["rev-parse", "--abbrev-ref", "HEAD"], plugin_path, "")
-        sha, _ = run_git_command(["rev-parse", "HEAD"], plugin_path, "")
+        sha, _ = run_git_command(["rev-parse", "HEAD"], plugin_path)
         return sha[0]
     except RuntimeError:
         return None
 
 
-def get_current_tag(plugin_path: str) -> str | None:
-    """Get the current tag of the git repository.
-
-    Parameters
-    ----------
-    plugin_path: str
-        Path to the external service directory.
-
-    Returns
-    -------
-    str or None: Current tag if available, None otherwise.
-    """
-    try:
-        tag, _ = run_git_command(
-            ["describe", "--exact-match", "--tags"], plugin_path, ""
-        )
-        return tag[0]
-    except RuntimeError:
-        return None
-
-
-def update_or_clone_plugin_by_tag(
-    url: str, version_tag: str, plugin_name: str, plugin_path: str
+def git_checkout_plugin(
+    url: str, rev: str, plugin_name: str, plugin_path: str
 ) -> bool:
-    """Clone a new external service repository using a version tag.
+    """Clone / update an external service repository to the given revision.
 
     Parameters
     ----------
-    url: str
+    url : str
         Git repository URL.
-    version_tag: str
-        Version tag to checkout.
-    plugin_name: str
-        Name of the external service, used in error logs
-    plugin_path: str
+    rev : str
+        Revision to check out.
+    plugin_name : str
+        Name of the external service, used in error logs.
+    plugin_path : str
         Path to the external service directory.
 
     Returns
     -------
-    bool: True if the operation was successful, False otherwise.
+    bool
+        Whether the operation was successful.
     """
 
-    # if tag doesn't start with 'v', we add it
-    if not version_tag.startswith("v"):
-        version_tag = "v" + version_tag
-
-    # if the dir exists and we already are on the correct tag, we can skip cloning
+    # If repository does not exist, clone it first
     if not os.path.exists(plugin_path):
-        clone_cmd = [
+        clone_args = [
             "clone",
             "--depth",
             "1",
-            "--branch",
-            version_tag,
             url,
-            plugin_path,
+            f"--revision={rev}",
+            plugin_path
         ]
         try:
-            run_git_command(clone_cmd, ".", plugin_name)
+            run_git_command(clone_args, ".")
         except RuntimeError:
             return False
 
-    current_tag = get_current_tag(plugin_path)
-    if current_tag == version_tag:
+    checkout_rev = get_rev(plugin_path)
+    if checkout_rev == rev:
+        # Note that for branches, like `main`, this will never pass.
+        # That is also correct, because we need to check the branch each time for updates.
         return True
 
-    # let's be extra safe and verify that it's a valid tagged release
-    stdout, _ = run_git_command(["tag", "-l"], plugin_path, plugin_name)
-    if version_tag not in stdout:
-        log(f"Version tag {version_tag} not found in external service {plugin_name}.")
-        return False
-
-    # checkout the specific tag after cloning
-    log(f"Checking out version tag {version_tag} for external service {plugin_name}")
-    try:
-        # since it's a shallow clone, we need to fetch the specific tag
-        run_git_command(["fetch", "origin", version_tag], plugin_path, plugin_name)
-        run_git_command(["checkout", version_tag], plugin_path, plugin_name)
-    except RuntimeError:
-        return False
-
-    return True
-
-
-def update_or_clone_plugin_by_branch(
-    url: str, branch: str, sha: str, plugin_name: str, plugin_path: str
-) -> bool:
-    """Clone a new external service repository using a branch and SHA.
-
-    Parameters
-    ----------
-    url: str
-        Git repository URL.
-    branch: str
-        Branch to checkout.
-    sha: str
-        Commit SHA to checkout.
-    plugin_name: str
-        Name of the external service, used in error logs
-    plugin_path: str
-        Path to the external service directory.
-
-    Returns
-    -------
-    bool: True if the operation was successful, False otherwise.
-    """
-
-    # if the dir exists and we already are on the correct branch and SHA, we can skip cloning
-    if not os.path.exists(plugin_path):
-        clone_cmd = [
-            "clone",
-            "--depth",
-            "1",
-            "--branch",
-            branch,
-            url,
-            plugin_path,
-        ]
-        try:
-            run_git_command(clone_cmd, ".", plugin_name)
-        except RuntimeError:
-            return False
-
-    current_sha = get_current_sha(plugin_path)
-    if current_sha == sha:
-        return True
-
-    # checkout the specific SHA after cloning
-    log(f"Checking out SHA {sha} for external service {plugin_name}")
+    # Update to the specified revision
+    log(f"Checking out external service {plugin_name}, revision {rev}")
     try:
         # since it's a shallow clone, we need to fetch the specific SHA
-        run_git_command(["fetch", "origin", sha], plugin_path, plugin_name)
-        run_git_command(["checkout", sha], plugin_path, plugin_name)
+        run_git_command(["fetch", "--depth=1", "origin", rev], plugin_path)
+        run_git_command(["checkout", "FETCH_HEAD"], plugin_path)
     except RuntimeError:
         return False
 
     return True
 
 
-def update_or_clone_plugin(
+def clone_or_update_plugin(
     plugin_name: str, plugin_info: dict, plugin_path: str
 ) -> bool:
-    """Clone a new external service repository.
+    """Clone a new external service repository, or update an existing
+    on to the given revision.
 
     Parameters
     ----------
-    plugin_name: str
+    plugin_name : str
         Name of the external service, used in error logs
-    plugin_info: dict
-        External service information dictionary containing 'url', 'branch', 'sha', and/or 'version'.
-    plugin_path: str
+    plugin_info : dict
+        External service configuration from `config.yaml` containing
+        'repo' and 'rev'.
+    plugin_path : str
         Path to the external service directory.
 
     Returns
     -------
-    bool: True if the operation was successful, False otherwise.
-    """
-    branch = plugin_info.get("branch", "main")
-    sha = plugin_info.get("sha")
-    version_tag = (
-        plugin_info.get("version").lower() if plugin_info.get("version") else None
-    )
-    url = plugin_info.get("url")
+    bool
+        True if the operation was successful, False otherwise.
 
-    if url is None:
+    """
+    repo = plugin_info.get("repo")
+    rev = plugin_info.get("rev", "main")
+
+    if repo is None:
         return True
 
-    if os.path.exists(plugin_path) and has_modified_files(plugin_path, plugin_name):
+    if os.path.exists(plugin_path) and has_modified_files(plugin_path):
         log(f"External service {plugin_name} has modified files, skipping update.")
         return True
 
-    if version_tag:
-        return update_or_clone_plugin_by_tag(url, version_tag, plugin_name, plugin_path)
-    elif branch and sha:
-        return update_or_clone_plugin_by_branch(
-            url, branch, sha, plugin_name, plugin_path
-        )
-    elif os.path.isdir(plugin_path):
-        return True
-    else:
-        return False
+    return git_checkout_plugin(repo, rev, plugin_name, plugin_path)
 
 
 def initialize_external_services() -> list:
@@ -503,12 +405,8 @@ def initialize_external_services() -> list:
 
     for plugin_name, plugin_info in plugins.items():
         plugin_path = pjoin(plugins_path, plugin_name)
-        if os.path.exists(plugin_path) and not is_git_repo(plugin_path):
-            continue
-        elif update_or_clone_plugin(plugin_name, plugin_info, plugin_path):
-            external_services.append((plugin_name, True))
-        else:
-            external_services.append((plugin_name, False))
+        status = clone_or_update_plugin(plugin_name, plugin_info, plugin_path)
+        external_services.append((plugin_name, status))
 
     return external_services
 

@@ -65,7 +65,7 @@ launching. See, e.g., `services/dask`.
 
 "External" micro-services can be used to extend the capabilities of any application relying on `baselayer`.
 
-These are added to `services.external` section of the configuration, and need to provide: service name, GitHub repo URL, branch+sha or tagged version of the repo where the external service is hosted, along with optional service-specific parameters. For example:
+These are added to `services.external` section of the configuration, and need to provide: service name, GitHub repo URL, revision (branch, sha, or tag), along with optional service-specific parameters. For example:
 
 ```
 services:
@@ -77,12 +77,13 @@ services:
   disabled: '*'
   external:
     my_external_service:
-      url: https://github.com/my_external_service.git
-      version: v0.1.0
+      repo: https://github.com/my_external_service.git
+      rev: v0.1.0
       params: {}
 ```
 
-External services are imported in the last location mentioned in services.paths. To know more about external services, please refer to the [External Services documentation](extending.md#adding-external-services).
+External services are imported in the last location mentioned in `services.paths`.
+To learn more about external services, please refer to the [External Services documentation](extending.md#adding-external-services).
 
 ## Web Application
 

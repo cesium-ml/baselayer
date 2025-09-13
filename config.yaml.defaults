@@ -96,17 +96,20 @@ services:
     disabled:
       - dask
 
-    # Here you can add services that are not part of baselayer, but
-    # come from another github repository. You need to specify reference,
-    # branch+sha or version (tag), and optional parameters required
-    # by the external service. For example:
+    # Here you can add services that are not part of baselayer, and
+    # are pulled from another github repository. You need to specify the
+    # repo and a revision (SHA, tag, or branch).
+    #
+    # You can also configure optional configuration parameters used by
+    # the service.
+    #
     # - my_service:
-    #     ref: <reference/to/git/repo>
-    #     branch: <branch_name>
-    #     sha: <sha_of_commit>
+    #     repo: https://...
+    #     rev: <SHA>
     # - my_service:
-    #     ref: <reference/to/git/repo>
-    #     version: <tagged_version>
+    #     repo: https://...
+    #     rev: <tagged_version>
+    #     params: {}
     external: {}
 
 

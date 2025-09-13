@@ -64,32 +64,26 @@ can run the templating manually:
 
 ## Adding external services
 
-External services are [microservices](usage.md#microservices) that you can pull from GitHub and run as part of your application. Their behavior is similar, they just live in remote repositories. This is useful for integrating third-party services or custom scripts.
+External services are [microservices](usage.md#microservices) that are cloned from a git repository and run as part of your application.
+Their behavior is identical to built-in microservices, they just live in remote repositories.
+This is useful for integrating third-party services or custom scripts.
 
-If you want to add external services to your application,
-you can do so by adding them to the `config.yaml` file under the `services.external` key. This allows baselayer to pull the external service from a GitHub repository.
-
-The configuration in the `config.yaml` file would look like this:
+Add external services in the `config.yaml` file under the `services.external` key:
 
 ```
 services:
   external:
     my_service:
-        url: "https://github.com/my_service.git"
-        branch: main
-        sha: specific_commit_sha
+        repo: "https://github.com/my_service.git"
+        rev: abc01234  # SHA revision specification
     another_service:
         url: "https://github.com/another_service.git"
-        version: v0.1.0
+        rev: v0.1.0  # tag revision specification
         params:
             endpoint: "https://api.example.com"
 ```
 
-You must provide the `url` of the GitHub repository, as well as a version of the service. To specify the version, you are required to either:
-
-- Provide both the `branch` and `sha`,
-  **or**
-- Use the `version` field to reference a specific release.
+You must provide the `repo` git URL, as well as a revision (SHA, tag, or branch).
 
 Additional configuration options can be passed through the `params` dictionary, which the service uses.
 
@@ -106,7 +100,8 @@ To work correctly with the application, external services should follow these co
 
 #### Project Metadata and Compatibility
 
-External services may include a `pyproject.toml` file to provide metadata and compatibility information. This is especially important when multiple applications (or versions) are built on top of Baselayer.
+External services may include a `pyproject.toml` file to provide metadata and compatibility information.
+It specifies plugin meta-data, and also compatibility with other packages—enforced by baselayer.
 
 In this file:
 
@@ -127,7 +122,7 @@ compatible-with = [
 
 - The name of the service must be specified, matching the external service name in `config.yaml`.
 
-- It should define a [tool.compatibility] section including a `compatible-with` field. This field would specify which applications (and versions) the service is compatible with. If the version requirement is not met, the external service will not be registered.
+- It may define a `[tool.compatibility]` section with a `compatible-with` field. This field specifies which package versions the service is compatible with. If the version requirement is not met, the external service will not be started.
 
 #### Default Configuration
 
@@ -138,7 +133,6 @@ These values can be overridden in the app's `config.yaml` under the `services.ex
 services:
   external:
     my_service:
-      version: v0.1.0
       params:
         endpoint: "https://api.example.com"
 ```
