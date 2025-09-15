@@ -1,10 +1,9 @@
+import importlib
+import importlib.metadata
 import subprocess
 import sys
 
 from packaging.requirements import Requirement
-import importlib
-import importlib.metadata
-
 from status import status
 
 if len(sys.argv) < 2:
@@ -43,21 +42,24 @@ def pip(req_files):
 class IncompatibleVersionError(Exception):
     pass
 
+
 try:
     with status("Verifying Python package dependencies"):
         for rspec in requirements:
-            req = Requirement(rspec.strip().split("#egg=")[-1].replace('==', '~='))
+            req = Requirement(rspec.strip().split("#egg=")[-1].replace("==", "~="))
             name = req.name
             version_specifier = req.specifier
             version_installed = importlib.metadata.version(name)
 
             if not version_specifier.contains(version_installed):
-                raise IncompatibleVersionError(f'Need {name} {version_specifier} but found {version_installed}')
+                raise IncompatibleVersionError(
+                    f"Need {name} {version_specifier} but found {version_installed}"
+                )
 
-except importlib.metadata.PackageNotFoundError: #
-    print(f'[!] Package `{name}` not found; refreshing dependencies')
+except importlib.metadata.PackageNotFoundError:  #
+    print(f"[!] Package `{name}` not found; refreshing dependencies")
 except IncompatibleVersionError as e:
-    print(f'[!] {e}')
+    print(f"[!] {e}")
 else:
     sys.exit(0)
 
