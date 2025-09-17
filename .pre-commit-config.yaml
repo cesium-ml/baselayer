@@ -1,38 +1,41 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
     hooks:
+      # Sanity checks
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-illegal-windows-names
+      - id: check-merge-conflict
+      # Checks based on file type
+      - id: check-ast
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
       - id: check-yaml
-      - id: end-of-file-fixer
+      # Detect mistakes
+      - id: debug-statements
+      - id: detect-private-key
+      - id: forbid-submodules
+      # Automatic fixes
+      - id: mixed-line-ending
+        args: [--fix=lf]
       - id: trailing-whitespace
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.0
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: f0fe93c067104b76ffb58852abe79673a8429bd1 # frozen: v0.11.8
     hooks:
-      - id: pyupgrade
-        args: [--py38-plus]
-  - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-        name: isort (python)
-        args: ["--profile", "black"]
-  - repo: https://github.com/python/black
-    rev: 23.12.0
-    hooks:
-      - id: black
-        pass_filenames: true
-        exclude: baselayer|node_modules|static
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
-    hooks:
-      - id: flake8
-        pass_filenames: true
-        exclude: baselayer|node_modules|static|__init__.py
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.1.0 # Use the sha or tag you want to point at
+      - id: ruff
+        args: ["--fix", "--show-fixes", "--exit-non-zero-on-fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: 787fb9f542b140ba0b2aced38e6a3e68021647a3 # v3.5.3
     hooks:
       - id: prettier
         pass_filenames: true
+
   - repo: https://github.com/pre-commit/mirrors-eslint
     rev: a60120d4f10a6367afaec0723c5bd6024a749d0e # v9.35.0
     hooks:
