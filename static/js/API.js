@@ -6,7 +6,7 @@
 //  dispatch(API.GET('/baselayer/profile', FETCH_USER_PROFILE));
 //
 
-import { showNotification } from "./components/Notifications";
+import { showNotification } from "./components/Notifications.jsx";
 
 const API_CALL = "baselayer/API_CALL";
 

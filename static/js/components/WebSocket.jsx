@@ -1,13 +1,15 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { createCookie, readCookie, eraseCookie } from "../cookies";
-import ReconnectingWebSocket from "../reconnecting-websocket";
-import messageHandler from "../MessageHandler";
+
+import { createCookie, readCookie, eraseCookie } from "../cookies.js";
+import ReconnectingWebSocket from "../reconnecting-websocket.js";
+import messageHandler from "../MessageHandler.js";
 import {
   showNotification,
   hideNotificationByTag,
   MS_PER_YEAR,
-} from "./Notifications";
+} from "./Notifications.jsx";
+
 
 function checkStatus(response) {
   if (response.status >= 200 && response.status < 300) {

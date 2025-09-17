@@ -3,7 +3,7 @@
 import {
   SHOW_NOTIFICATION,
   showNotification,
-} from "./components/Notifications";
+} from "./components/Notifications.jsx";
 
 class MessageHandler {
   /* You have to run `init` before the messageHandler can be used */
