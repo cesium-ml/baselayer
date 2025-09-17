@@ -76,7 +76,7 @@ if args.force:
     except RuntimeError:
         print(
             "Could not delete database: \n\n"
-            f'{textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  ")}\n'
+            f"{textwrap.indent(p.stderr.decode('utf-8').strip(), prefix='  ')}\n"
         )
         sys.exit(1)
 
@@ -146,9 +146,9 @@ except RuntimeError:
 
         The postgres client exited with the following error message:
 
-        {'-' * 78}
-        {p.stderr.decode('utf-8').strip()}
-        {'-' * 78}
+        {"-" * 78}
+        {p.stderr.decode("utf-8").strip()}
+        {"-" * 78}
 
         Please modify your `pg_hba.conf`, and use the following command to
         check your connection:

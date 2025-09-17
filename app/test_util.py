@@ -31,7 +31,7 @@ class MyCustomWebDriver(RequestsSessionMixin, webdriver.Firefox):
     def server_url(self):
         if not hasattr(self, "_server_url"):
             raise NotImplementedError(
-                "Please first set the web driver URL" " using `set_server_url`"
+                "Please first set the web driver URL using `set_server_url`"
             )
         return self._server_url
 

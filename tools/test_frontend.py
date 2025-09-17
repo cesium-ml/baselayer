@@ -56,19 +56,19 @@ def verify_server_availability(url, timeout=180):
             continue
         try:
             statuses, errcode = supervisor_status()
-            assert (
-                all_services_running()
-            ), "Webservice(s) failed to launch:\n" + "\n".join(statuses)
+            assert all_services_running(), (
+                "Webservice(s) failed to launch:\n" + "\n".join(statuses)
+            )
 
             response = requests.get(url)
-            assert (
-                response.status_code == 200
-            ), f"Expected status 200, got {response.status_code} for URL {url}. Retrying."
+            assert response.status_code == 200, (
+                f"Expected status 200, got {response.status_code} for URL {url}. Retrying."
+            )
 
             response = requests.get(url + "/static/build/main.bundle.js")
-            assert (
-                response.status_code == 200
-            ), "Javascript bundle not found, did packing fail?"
+            assert response.status_code == 200, (
+                "Javascript bundle not found, did packing fail?"
+            )
 
             return True  # all checks passed
         except Exception as e:
@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
         log(f"Launching pytest on {test_spec}...\n")
         p = subprocess.run(
-            f"python -m pytest -s -v {xml} {test_spec} " f"{RAND_ARGS}",
+            f"python -m pytest -s -v {xml} {test_spec} {RAND_ARGS}",
             shell=True,
         )
         if p.returncode != 0:

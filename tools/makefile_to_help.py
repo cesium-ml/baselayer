@@ -33,7 +33,7 @@ def describe_targets(lines):
 for source in sys.argv[1:]:
     if ":" in source:
         category, fname = source.split(":")
-        print(f'\n{category}\n{"-" * len(category)}')
+        print(f"\n{category}\n{'-' * len(category)}")
     else:
         fname = source
 

@@ -749,7 +749,7 @@ class FakeGoogleOAuth2(GoogleOAuth2):
         # Instead, we always connect to localhost:63000.
 
         env, cfg = load_env()
-        return f'http://localhost:{cfg["ports.fake_oauth"]}/fakeoauth2/token'
+        return f"http://localhost:{cfg['ports.fake_oauth']}/fakeoauth2/token"
 
     def user_data(self, access_token, *args, **kwargs):
         return {"id": "testuser@cesium-ml.org", "email": "testuser@cesium-ml.org"}

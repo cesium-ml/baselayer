@@ -398,6 +398,6 @@ class BaseHandler(PSABaseHandler):
         if default != NoValue:
             kwargs["default"] = default
         arg = super().get_query_argument(value, **kwargs)
-        if type(kwargs.get("default", None)) == bool:
+        if isinstance(kwargs.get("default", None), bool):
             arg = str(arg).lower() in ["true", "yes", "t", "1"]
         return arg

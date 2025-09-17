@@ -58,7 +58,7 @@ class WebSocket(websocket.WebSocketHandler):
 
         if WebSocket._zmq_stream is None:
             raise RuntimeError(
-                "Please install a stream before instantiating " "any websockets"
+                "Please install a stream before instantiating any websockets"
             )
 
         self.authenticated = False
