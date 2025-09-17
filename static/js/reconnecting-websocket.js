@@ -164,19 +164,19 @@ function ReconnectingWebSocket(url, protocols, options) {
   const eventTarget = document.createElement("div");
 
   // Wire up "on*" properties as event handlers
-  eventTarget.addEventListener("open", function (event) {
+  eventTarget.addEventListener("open", (event) => {
     that.onopen(event);
   });
-  eventTarget.addEventListener("close", function (event) {
+  eventTarget.addEventListener("close", (event) => {
     that.onclose(event);
   });
-  eventTarget.addEventListener("connecting", function (event) {
+  eventTarget.addEventListener("connecting", (event) => {
     that.onconnecting(event);
   });
-  eventTarget.addEventListener("message", function (event) {
+  eventTarget.addEventListener("message", (event) => {
     that.onmessage(event);
   });
-  eventTarget.addEventListener("error", function (event) {
+  eventTarget.addEventListener("error", (event) => {
     that.onerror(event);
   });
 
@@ -224,7 +224,7 @@ function ReconnectingWebSocket(url, protocols, options) {
     }
 
     const localWs = ws;
-    const timeout = setTimeout(function () {
+    const timeout = setTimeout(() => {
       if (that.debug || ReconnectingWebSocket.debugAll) {
         // eslint-disable-next-line no-console
         console.debug("ReconnectingWebSocket", "connection-timeout", that.url);
@@ -275,7 +275,7 @@ function ReconnectingWebSocket(url, protocols, options) {
           that.reconnectInterval *
           that.reconnectDecay ** that.reconnectAttempts;
         setTimeout(
-          function () {
+          () => {
             that.reconnectAttempts++;
             that.open(true);
           },
