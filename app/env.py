@@ -15,7 +15,7 @@ parser.add_argument("-C", "--config", action="append")
 parser.add_argument("--debug", action="store_true")
 
 
-def load_env():
+def load_env(load_services_configs=True):
     """Parse environment and load configuration.
 
     The configuration is loaded only once per session.  When invoked a
@@ -34,7 +34,9 @@ def load_env():
     """
     if not _cache:
         env, unknown = parser.parse_known_args()
-        cfg = load_config(config_files=env.config or [])
+        cfg = load_config(
+            config_files=env.config or [], load_services_configs=load_services_configs
+        )
 
         _cache.update({"file": env.config, "env": env, "cfg": cfg})
 
