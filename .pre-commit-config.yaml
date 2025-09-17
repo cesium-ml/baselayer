@@ -34,12 +34,11 @@ repos:
       - id: prettier
         pass_filenames: true
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: 4bfe10ad902d472399bcacf83cba41500542718a # v8.55.0
+    rev: a60120d4f10a6367afaec0723c5bd6024a749d0e # v9.35.0
     hooks:
       - id: eslint
         additional_dependencies:
           # Keep up to date with baselayer_template_app/package.json
-          - eslint@9.35.0
           - eslint-config-prettier@10.1.8
           - eslint-import-resolver-webpack@0.13.10
           - eslint-plugin-import@2.32.0
