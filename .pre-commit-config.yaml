@@ -39,6 +39,7 @@ repos:
       - id: eslint
         additional_dependencies:
           # Keep up to date with baselayer_template_app/package.json
+          - eslint@9.35.0
           - eslint-config-prettier@10.1.8
           - eslint-import-resolver-webpack@0.13.10
           - eslint-plugin-import@2.32.0
