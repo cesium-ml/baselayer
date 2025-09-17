@@ -16,7 +16,6 @@ export default defineConfig([
     "**/node_modules",
     "baselayer",
     "static/build",
-    "eslint.config.js",
     "rspack.config.js",
     "doc",
   ]),

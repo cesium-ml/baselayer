@@ -40,14 +40,6 @@ repos:
     rev: a60120d4f10a6367afaec0723c5bd6024a749d0e # v9.35.0
     hooks:
       - id: eslint
-        additional_dependencies:
-          # Keep up to date with baselayer_template_app/package.json
-          - eslint@9.35.0
-          - eslint-config-prettier@10.1.8
-          - eslint-import-resolver-webpack@0.13.10
-          - eslint-plugin-import@2.32.0
-          - eslint-plugin-prettier@5.5.4
-          - globals@16.4.0
         files: \.[j]sx?$
         exclude: "eslint.config.js"
         types: [file]
