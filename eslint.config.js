@@ -1,6 +1,5 @@
 // eslint.config.js
 const global = require("globals");
-const eslint = require("@eslint/js");
 
 const reactPlugin = require("eslint-plugin-react");
 const prettierPlugin = require("eslint-config-prettier");
