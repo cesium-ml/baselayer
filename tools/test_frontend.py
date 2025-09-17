@@ -59,19 +59,24 @@ def verify_server_availability(url, timeout=180):
             assert (
                 all_services_running()
             ), "Webservice(s) failed to launch:\n" + "\n".join(statuses)
+
             response = requests.get(url)
             assert response.status_code == 200, (
-                "Expected status 200, got" f" {response.status_code}" f" for URL {url}."
+                f"Expected status 200, got {response.status_code} for URL {url}. Retrying."
             )
+
             response = requests.get(url + "/static/build/main.bundle.js")
             assert response.status_code == 200, (
-                "Javascript bundle not found," " did rspack fail?"
+                "Javascript bundle not found, did packing fail?"
             )
-            return  # all checks passed
+
+            return True  # all checks passed
         except Exception as e:
             if i == timeout - 1:  # last iteration
                 raise ConnectionError(str(e)) from None
         time.sleep(1)
+
+    return False
 
 
 if __name__ == "__main__":
@@ -136,7 +141,9 @@ if __name__ == "__main__":
 
     exit_status = (0, "OK")
     try:
-        verify_server_availability(server_url)
+        timeout = 180
+        if not verify_server_availability(server_url, timeout=timeout):
+            raise RuntimeError(f"Server still unavailable after {timeout}s")
 
         log(f"Launching pytest on {test_spec}...\n")
         p = subprocess.run(
