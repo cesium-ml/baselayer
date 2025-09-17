@@ -12,7 +12,14 @@ import babelEslintParser from "@babel/eslint-parser";
 export default defineConfig([
   // run on all js and jsx files in the static directory and subdirectories
   { files: ["**/*.js", "**/*.jsx"] },
-  globalIgnores(["**/node_modules", "baselayer", "static/build", "eslint.config.js", "rspack.config.js", "doc"]),
+  globalIgnores([
+    "**/node_modules",
+    "baselayer",
+    "static/build",
+    "eslint.config.js",
+    "rspack.config.js",
+    "doc",
+  ]),
   {
     languageOptions: {
       parser: babelEslintParser,
@@ -37,7 +44,7 @@ export default defineConfig([
   {
     rules: {
       "@babel/new-cap": "off",
-      "camelcase": "off",
+      camelcase: "off",
       "default-param-last": "off", // otherwise complains for all reducers
       "jsx-a11y/click-events-have-key-events": "off",
       "jsx-a11y/label-has-associated-control": "off",
@@ -58,10 +65,10 @@ export default defineConfig([
   },
   {
     settings: {
-      'import/resolver': {
-          webpack: {
-            config: "rspack.config.js",
-          },
+      "import/resolver": {
+        webpack: {
+          config: "rspack.config.js",
+        },
       },
       react: {
         version: "detect",

@@ -24,7 +24,7 @@ export function hideNotificationByTag(tag) {
   };
 }
 
-export const Notifications = () => {
+export function Notifications() {
   const style = {
     position: "fixed",
     zIndex: 20000,
@@ -62,10 +62,12 @@ export const Notifications = () => {
       <div style={style}>
         {notifications.map((notification) => (
           <div
-            key={notification.id}
             data-testid={`notification-${notification.id}`}
-            style={{ ...style.note, background: noteColor[notification.type] }}
+            key={notification.id}
             onClick={() => dispatch(hideNotification(notification.id))}
+            role="button"
+            style={{ ...style.note, background: noteColor[notification.type] }}
+            tabIndex="0"
           >
             {notification.note}
           </div>
@@ -73,7 +75,7 @@ export const Notifications = () => {
       </div>
     )
   );
-};
+}
 
 let nextNotificationId = 0;
 export function showNotification(
