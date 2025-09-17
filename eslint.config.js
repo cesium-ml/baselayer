@@ -1,4 +1,4 @@
-import globals from "globals";
+import globals from "globals/index.js";
 
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
