@@ -1,10 +1,10 @@
-import globals from "globals/index.js";
+import globals from "globals";
 
 import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 import importPlugin from "eslint-plugin-import";
-import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
+import eslintConfigPrettier from "eslint-config-prettier/flat";
 import eslintConfigs from "@dr.pogodin/eslint-configs";
 
 import babelEslintParser from "@babel/eslint-parser";
@@ -16,6 +16,7 @@ export default defineConfig([
     "**/node_modules",
     "baselayer",
     "static/build",
+    "eslint.config.js",
     "rspack.config.js",
     "doc",
   ]),
@@ -74,5 +75,5 @@ export default defineConfig([
       },
     },
   },
-  eslintPluginPrettierRecommended,
+  eslintConfigPrettier,
 ]);
