@@ -1,6 +1,6 @@
-supervisor>=4.2.1
+supervisor>=4.3
 psycopg2-binary>=2.8.6
-pyyaml>=5.3.1
+pyyaml>=6.0.1
 tornado>=6.0.3
 pyzmq>=20.0.0
 pyjwt>=2.0.1
