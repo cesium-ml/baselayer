@@ -60,10 +60,6 @@ jobs:
             ~/.cache/pip
           key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
 
-      - uses: browser-actions/setup-geckodriver@latest
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install system dependencies
         run: |
           cd baselayer
@@ -102,10 +98,9 @@ jobs:
           nginx -v
           firefox --version
 
-      - name: Install Geckodriver / Selenium
+      - name: Install test dependencies
         run: |
-          geckodriver --version
-          pip install selenium==4.8.3
+          pip install -r requirements.test.txt
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Write configuration & build DB

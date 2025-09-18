@@ -1,0 +1,4 @@
+selenium>=4.35.0
+selenium-requests>=2.0.0
+pytest>=5.4.3
+webdriver-manager>=4.0.1
