@@ -6,7 +6,7 @@
 //  dispatch(API.GET('/baselayer/profile', FETCH_USER_PROFILE));
 //
 
-import { showNotification } from "./components/Notifications";
+import { showNotification } from "./components/Notifications.jsx";
 
 const API_CALL = "baselayer/API_CALL";
 
@@ -47,16 +47,15 @@ function API(endpoint, actionType, method = "GET", body = {}, otherArgs = {}) {
       if (json.status === "success") {
         dispatch({ type: `${actionType}_OK`, ...json });
         return json.data;
-      } else {
-        /* In case of an error, dispatch an action that contains
+      }
+      /* In case of an error, dispatch an action that contains
              every piece of information we have about the request, including
              JSON args, and the response that came back from the server.
 
              This information can be used in a reducer to set an error message.
           */
-        dispatch({ type: `${actionType}_FAIL`, parameters, response: json });
-        throw json.message;
-      }
+      dispatch({ type: `${actionType}_FAIL`, parameters, response: json });
+      throw json.message;
     } catch (error) {
       dispatch({ type: `${actionType}_FAIL`, parameters, error });
       return dispatch(showNotification(`API error: ${error}`, "error"));

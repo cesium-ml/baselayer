@@ -1,21 +1,28 @@
-// eslint.config.js
-const global = require("globals");
+import globals from "globals";
 
-const reactPlugin = require("eslint-plugin-react");
-const prettierPlugin = require("eslint-config-prettier");
-const importPlugin = require("eslint-plugin-import");
-const reactHookPlugin = require("eslint-plugin-react-hooks");
-const airbnbPlugin = require("eslint-config-airbnb");
+import js from "@eslint/js";
+import { defineConfig, globalIgnores } from "eslint/config";
 
-const { fixupPluginRules } = require("@eslint/compat");
+import importPlugin from "eslint-plugin-import";
+import eslintConfigPrettier from "eslint-config-prettier/flat";
+import eslintConfigs from "@dr.pogodin/eslint-configs";
 
-module.exports = [
-  eslint.configs.recommended,
+import babelEslintParser from "@babel/eslint-parser";
+
+export default defineConfig([
   // run on all js and jsx files in the static directory and subdirectories
   { files: ["**/*.js", "**/*.jsx"] },
+  globalIgnores([
+    "**/node_modules",
+    "baselayer",
+    "static/build",
+    "eslint.config.js",
+    "rspack.config.js",
+    "doc",
+  ]),
   {
     languageOptions: {
-      parser: require("@babel/eslint-parser"),
+      parser: babelEslintParser,
       parserOptions: {
         requireConfigFile: false,
         babelOptions: {
@@ -26,48 +33,41 @@ module.exports = [
         },
       },
       globals: {
-        ...global.browser,
+        ...globals.browser,
       },
     },
   },
-  {
-    plugins: {
-      import: importPlugin,
-      react: reactPlugin,
-      "react-hooks": fixupPluginRules(reactHookPlugin),
-      airbnb: airbnbPlugin,
-      prettier: prettierPlugin,
-    },
-  },
+  js.configs.recommended,
+  importPlugin.flatConfigs.recommended,
+  eslintConfigs.configs.javascript,
+  eslintConfigs.configs.react,
   {
     rules: {
-      ...reactHookPlugin.configs.recommended.rules,
-      ...prettierPlugin.rules,
+      "@babel/new-cap": "off",
       camelcase: "off",
+      "default-param-last": "off", // otherwise complains for all reducers
+      "jsx-a11y/click-events-have-key-events": "off",
+      "jsx-a11y/label-has-associated-control": "off",
+      "jsx-a11y/control-has-associated-label": "off",
+      "no-param-reassign": "off",
       "no-unused-vars": "off",
       "no-unsafe-optional-chaining": "off",
       "no-useless-escape": "off",
       "no-constant-binary-expression": "warn",
-      "jsx-a11y/click-events-have-key-events": 0,
-      "jsx-a11y/label-has-associated-control": 0,
-      "jsx-a11y/control-has-associated-label": 0,
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
-      "react/jsx-wrap-multilines": 0,
-      "react/jsx-one-expression-per-line": 0,
-      "react/jsx-props-no-spreading": 0,
-      "react/jsx-curly-newline": 0,
-      "no-param-reassign": 0,
+      "react/jsx-wrap-multilines": "off",
+      "react/jsx-one-expression-per-line": "off",
+      "react/jsx-props-no-spreading": "off",
+      "react/jsx-curly-newline": "off",
+      "sort-keys": "off",
     },
   },
   {
     settings: {
-      import: {
-        resolver: {
-          node: {},
-          rspack: {
-            config: "rspack.config.js",
-          },
+      "import/resolver": {
+        webpack: {
+          config: "rspack.config.js",
         },
       },
       react: {
@@ -75,4 +75,5 @@ module.exports = [
       },
     },
   },
-];
+  eslintConfigPrettier,
+]);

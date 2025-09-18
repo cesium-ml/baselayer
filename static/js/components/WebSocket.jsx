@@ -1,22 +1,22 @@
 import React from "react";
 import PropTypes from "prop-types";
-import { createCookie, readCookie, eraseCookie } from "../cookies";
-import ReconnectingWebSocket from "../reconnecting-websocket";
-import messageHandler from "../MessageHandler";
+
+import { createCookie, readCookie, eraseCookie } from "../cookies.js";
+import ReconnectingWebSocket from "../reconnecting-websocket.js";
+import messageHandler from "../MessageHandler.js";
 import {
   showNotification,
   hideNotificationByTag,
   MS_PER_YEAR,
-} from "./Notifications";
+} from "./Notifications.jsx";
 
 function checkStatus(response) {
   if (response.status >= 200 && response.status < 300) {
     return response;
-  } else {
-    const error = new Error(response.statusText);
-    error.response = response;
-    throw error;
   }
+  const error = new Error(response.statusText);
+  error.response = response;
+  throw error;
 }
 
 function parseJSON(response) {
@@ -138,10 +138,10 @@ class WebSocket extends React.Component {
   render() {
     const { connected, authenticated } = this.state;
     let statusColor;
-    if (!connected) {
-      statusColor = "red";
-    } else {
+    if (connected) {
       statusColor = authenticated ? "lightgreen" : "orange";
+    } else {
+      statusColor = "red";
     }
 
     const statusSize = 12;
@@ -165,7 +165,7 @@ class WebSocket extends React.Component {
       ${connected ? "connected" : "disconnected"} &
       ${authenticated ? "authenticated" : "unauthenticated"}.`;
     return (
-      <div id="websocketStatus" title={connected_desc} style={statusStyle} />
+      <div id="websocketStatus" style={statusStyle} title={connected_desc} />
     );
   }
 }

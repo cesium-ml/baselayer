@@ -1865,12 +1865,12 @@ class User(Base):
     contact_email = sa.Column(
         EmailType(),
         nullable=True,
-        doc="The phone number at which the user prefers to receive " "communications.",
+        doc="The phone number at which the user prefers to receive communications.",
     )
     contact_phone = sa.Column(
         PhoneNumberType(),
         nullable=True,
-        doc="The email at which the user prefers to receive " "communications.",
+        doc="The email at which the user prefers to receive communications.",
     )
     oauth_uid = sa.Column(sa.String, unique=True, doc="The user's OAuth UID.")
     preferences = sa.Column(

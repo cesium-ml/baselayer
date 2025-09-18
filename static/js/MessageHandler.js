@@ -3,30 +3,27 @@
 import {
   SHOW_NOTIFICATION,
   showNotification,
-} from "./components/Notifications";
+} from "./components/Notifications.jsx";
 
 class MessageHandler {
   /* You have to run `init` before the messageHandler can be used */
-
-  constructor() {
-    this._handlers = [];
-    this._dispatch = null;
-    this._getState = null;
-  }
+  #handlers = [];
+  #dispatch = null;
+  #getState = null;
 
   init(dispatch, getState) {
-    this._dispatch = dispatch;
-    this._getState = getState;
+    this.#dispatch = dispatch;
+    this.#getState = getState;
   }
 
   add(handler) {
-    this._handlers.push(handler);
+    this.#handlers.push(handler);
   }
 
   handle(actionType, payload) {
     // Execute all registered handlers on the incoming message
-    this._handlers.forEach((handler) => {
-      handler(actionType, payload, this._dispatch, this._getState);
+    this.#handlers.forEach((handler) => {
+      handler(actionType, payload, this.#dispatch, this.#getState);
     });
   }
 }
