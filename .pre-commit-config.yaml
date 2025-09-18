@@ -41,5 +41,4 @@ repos:
     hooks:
       - id: eslint
         files: \.[j]sx?$
-        exclude: "eslint.config.js"
         types: [file]

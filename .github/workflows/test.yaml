@@ -41,16 +41,16 @@ jobs:
           node-version: 20
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install test dependencies
         run: |
-          pip install -r requirements.test.txt
+          pip install -r baselayer/requirements.test.txt
           python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Install template app
         run: |
-          git clone https://github.com/cesium-ml/baselayer_template_app
+          git clone --depth=1 https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
       - uses: actions/cache@v4
