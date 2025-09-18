@@ -43,6 +43,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install test dependencies
+        run: |
+          pip install -r requirements.test.txt
+          python -c "import selenium; print(f'Selenium {selenium.__version__}')"
+
       - name: Install template app
         run: |
           git clone https://github.com/cesium-ml/baselayer_template_app
@@ -97,11 +102,6 @@ jobs:
           echo node $(node --version)
           nginx -v
           firefox --version
-
-      - name: Install test dependencies
-        run: |
-          pip install -r requirements.test.txt
-          python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Write configuration & build DB
         run: |
