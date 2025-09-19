@@ -152,10 +152,12 @@ add the following lines and restart PostgreSQL
 (<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">service</span> <span class="pre">postgresql</span> <span class="pre">restart</span></code> or <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">reload</span> <span class="pre">postgresql</span></code>):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># CONNECTION DATABASE USER ADDRESS METHOD</span>
 <span class="n">host</span> <span class="n">template_app</span> <span class="n">template_app</span> <span class="n">localhost</span> <span class="n">trust</span>
+<span class="n">host</span> <span class="n">template_app</span> <span class="n">template_app_test</span> <span class="n">localhost</span> <span class="n">trust</span>
 <span class="n">host</span> <span class="nb">all</span> <span class="n">postgres</span> <span class="n">localhost</span> <span class="n">trust</span>
 </pre></div>
 </div>
 <p>Substitute the correct database name and user, as defined in your <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.</p>
+<p>If you use IPv6, <code class="docutils literal notranslate"><span class="pre">localhost</span></code> becomes <code class="docutils literal notranslate"><span class="pre">::1/128</span></code>.</p>
 </li>
 </ul>
 </section>

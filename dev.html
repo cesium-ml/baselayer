@@ -83,20 +83,27 @@
              
   <section id="developer-notes">
 <h1>Developer notes<a class="headerlink" href="#developer-notes" title="Link to this heading"></a></h1>
+<p>These are notes for those developing on baselayer, and also for developing apps running on baselayer.</p>
 <section id="testing">
 <h2>Testing<a class="headerlink" href="#testing" title="Link to this heading"></a></h2>
-<p>To execute the test suite:</p>
-<ul class="simple">
-<li><p>Install ChromeDriver from <a class="reference external" href="https://sites.google.com/a/chromium.org/chromedriver/home">https://sites.google.com/a/chromium.org/chromedriver/home</a></p></li>
-<li><p>Install Chrome or Chromium</p></li>
-<li><p>To run all tests: <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test</span></code></p></li>
-<li><p>To run a single test: <code class="docutils literal notranslate"><span class="pre">./tools/test_frontend.py</span> <span class="pre">skportal/tests/frontend/&lt;test_file&gt;.py::test_&lt;specific_test&gt;</span></code></p></li>
+<p>Each project using baselayer will choose its own testing infrastructure.
+At the moment, we recommend [pytest-playwright])(https://playwright.dev/python/docs/test-runners).</p>
+<p>Baselayer is tested against the <a class="reference external" href="https://github.com/cesium-ml/baselayer_template_app">baselayer template app</a>.</p>
+<p>To execute the test suite, clonet that repo with submodules and do:</p>
+<ol class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">-r</span> <span class="pre">baselayer/requirements.txt</span> <span class="pre">-r</span> <span class="pre">baselayer/requirements.test.txt</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">playwright</span> <span class="pre">install</span> <span class="pre">firefox</span></code></p></li>
+<li><p>Run the web server: <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">run</span></code></p></li>
+<li><ul class="simple">
+<li><p>Run the test suite: <code class="docutils literal notranslate"><span class="pre">pytest</span></code></p></li>
+<li><p>Run a single test: <code class="docutils literal notranslate"><span class="pre">pytest</span> <span class="pre">template_app/tests/frontend/&lt;test_file&gt;.py::test_&lt;specific_test&gt;</span></code></p></li>
 </ul>
-<p>On Linux, the tests can be run in “headless” mode (no browser display):</p>
-<ul class="simple">
-<li><p>Install xfvb (<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">xfvb</span></code>)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">test_headless</span></code></p></li>
-</ul>
+</li>
+</ol>
+<p>To make the above steps a bit easier in CI, we have a tool
+<code class="docutils literal notranslate"><span class="pre">./tools/test_frontend.py</span> <span class="pre">&lt;test&gt;</span></code>. It runs the server, waits for it to become available, and then runs the specified test.</p>
+<p>Tests are run in headless mode by default. To run visibly, use <code class="docutils literal notranslate"><span class="pre">pytest</span> <span class="pre">--headed</span></code>.</p>
+<p>We run tests in Firefox by default. Edit <code class="docutils literal notranslate"><span class="pre">pytest.ini</span></code> if you want to try another.</p>
 </section>
 <section id="debugging">
 <h2>Debugging<a class="headerlink" href="#debugging" title="Link to this heading"></a></h2>
@@ -110,13 +117,13 @@
 <section id="database">
 <h2>Database<a class="headerlink" href="#database" title="Link to this heading"></a></h2>
 <p>All interactions with the database are performed by way of SQLAlchemy using the
-Pyscopg2 backend. Some standard but not necessarily obvious usage patterns we
-make use of include:</p>
+Pyscopg2 backend. Some standard—but not necessarily obvious—usage patterns we
+have include:</p>
 <ul class="simple">
 <li><p>Logic for connecting to the DB, refreshing tables, etc. is found in <code class="docutils literal notranslate"><span class="pre">baselayer/model_utils.py</span></code>:</p></li>
 </ul>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">baselayer.app.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_env</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">baselayer.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">DBSession</span><span class="p">,</span> <span class="n">init_db</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">baselayer.app.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">DBSession</span><span class="p">,</span> <span class="n">init_db</span>
 <span class="n">env</span><span class="p">,</span> <span class="n">cfg</span> <span class="o">=</span> <span class="n">load_env</span><span class="p">()</span>
 <span class="n">init_db</span><span class="p">(</span><span class="o">**</span><span class="n">cfg</span><span class="p">[</span><span class="s1">&#39;database&#39;</span><span class="p">])</span>
 </pre></div>
@@ -149,21 +156,28 @@ make use of include:</p>
 </section>
 <section id="new-sql-alchemy-2-0-style-select-statements">
 <h2>New SQL Alchemy 2.0 style select statements<a class="headerlink" href="#new-sql-alchemy-2-0-style-select-statements" title="Link to this heading"></a></h2>
-<p>To start a session without verification (i.e., when not committing to DB):</p>
+<p>To start a database session without write-permission verification:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">DBSession</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
   <span class="o">...</span>
 </pre></div>
 </div>
 <p>The context manager will make sure the connection is closed when exiting context.</p>
-<p>To use a verified session that checks all rows before committing them:</p>
+<p>To use a verified session, one that verifies write permissions by an authenticated user, use:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">VerifiedSession</span><span class="p">(</span><span class="n">user_or_token</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
   <span class="o">...</span>
   <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>This does the same checks that are performed when calling <code class="docutils literal notranslate"><span class="pre">self.verify_and_commit()</span></code>.
-Each handler class can also call <code class="docutils literal notranslate"><span class="pre">self.Session()</span></code> as a stand-in for <code class="docutils literal notranslate"><span class="pre">VerifiedSession(self.current_user)</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Session</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+<p>This does the same checks that are performed when calling <code class="docutils literal notranslate"><span class="pre">self.verify_and_commit()</span></code> inside of any handler.</p>
+<hr class="docutils" />
+<p><strong>TODO:</strong> Update write access enforcement documentation.</p>
+<p>We have fairly sophisticated access control, but this requires further documentation.
+For now, refer to the <a class="reference external" href="https://skyportal.io/docs/permissions.html">SkyPortal Access Controldocumentation</a>.
+Look at <code class="docutils literal notranslate"><span class="pre">CustomUserAccessControl</span></code> and all derivative classes of <a class="reference external" href="https://github.com/cesium-ml/baselayer/blob/main/app/models.py#L298"><code class="docutils literal notranslate"><span class="pre">UserAccessControl</span></code></a>.
+Also see examples of how it is used in <a class="reference external" href="https://github.com/skyportal/skyportal/tree/main/skyportal/models">SkyPortal models</a>.</p>
+<hr class="docutils" />
+<p>Each handler class can also call <code class="docutils literal notranslate"><span class="pre">self.Session()</span></code> as a stand-in for <code class="docutils literal notranslate"><span class="pre">VerifiedSession(self.current_user)</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
   <span class="o">...</span>
   <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 </pre></div>

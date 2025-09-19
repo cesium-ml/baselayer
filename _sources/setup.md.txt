@@ -59,10 +59,13 @@ See [below](#configuration) for more information on modifying the baselayer conf
   ```
   # CONNECTION DATABASE USER ADDRESS METHOD
   host template_app template_app localhost trust
+  host template_app template_app_test localhost trust
   host all postgres localhost trust
   ```
 
   Substitute the correct database name and user, as defined in your `config.yaml`.
+
+  If you use IPv6, `localhost` becomes `::1/128`.
 
 ## Building the baselayer database
 
