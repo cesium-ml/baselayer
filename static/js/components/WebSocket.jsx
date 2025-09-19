@@ -161,9 +161,7 @@ class WebSocket extends React.Component {
       width: statusSize,
     };
 
-    const connected_desc = `WebSocket is
-      ${connected ? "connected" : "disconnected"} &
-      ${authenticated ? "authenticated" : "unauthenticated"}.`;
+    const connected_desc = `WebSocket is ${connected ? "connected" : "disconnected"} & ${authenticated ? "authenticated" : "unauthenticated"}.`;
     return (
       <div id="websocketStatus" style={statusStyle} title={connected_desc} />
     );
