@@ -1,18 +1,28 @@
 # Developer notes
 
+These are notes for those developing on baselayer, and also for developing apps running on baselayer.
+
 ## Testing
 
-To execute the test suite:
+Each project using baselayer will choose its own testing infrastructure.
+At the moment, we recommend [pytest-playwright])(https://playwright.dev/python/docs/test-runners).
 
-- Install ChromeDriver from [https://sites.google.com/a/chromium.org/chromedriver/home](https://sites.google.com/a/chromium.org/chromedriver/home)
-- Install Chrome or Chromium
-- To run all tests: `make test`
-- To run a single test: `./tools/test_frontend.py skportal/tests/frontend/<test_file>.py::test_<specific_test>`
+Baselayer is tested against the [baselayer template app](https://github.com/cesium-ml/baselayer_template_app).
 
-On Linux, the tests can be run in "headless" mode (no browser display):
+To execute the test suite, clonet that repo with submodules and do:
 
-- Install xfvb (`sudo apt-get install xfvb`)
-- `make test_headless`
+1. `pip install -r baselayer/requirements.txt -r baselayer/requirements.test.txt`
+2. `playwright install firefox`
+3. Run the web server: `make run`
+4. - Run the test suite: `pytest`
+   - Run a single test: `pytest template_app/tests/frontend/<test_file>.py::test_<specific_test>`
+
+To make the above steps a bit easier in CI, we have a tool
+`./tools/test_frontend.py <test>`. It runs the server, waits for it to become available, and then runs the specified test.
+
+Tests are run in headless mode by default. To run visibly, use `pytest --headed`.
+
+We run tests in Firefox by default. Edit `pytest.ini` if you want to try another.
 
 ## Debugging
 
@@ -24,14 +34,14 @@ On Linux, the tests can be run in "headless" mode (no browser display):
 ## Database
 
 All interactions with the database are performed by way of SQLAlchemy using the
-Pyscopg2 backend. Some standard but not necessarily obvious usage patterns we
-make use of include:
+Pyscopg2 backend. Some standard—but not necessarily obvious—usage patterns we
+have include:
 
 - Logic for connecting to the DB, refreshing tables, etc. is found in `baselayer/model_utils.py`:
 
 ```
 from baselayer.app.env import load_env
-from baselayer.models import DBSession, init_db
+from baselayer.app.models import DBSession, init_db
 env, cfg = load_env()
 init_db(**cfg['database'])
 ```
@@ -56,7 +66,7 @@ DBSession().rollback()  # recover after a DB error
 
 ## New SQL Alchemy 2.0 style select statements
 
-To start a session without verification (i.e., when not committing to DB):
+To start a database session without write-permission verification:
 
 ```
 with DBSession() as session:
@@ -65,7 +75,7 @@ with DBSession() as session:
 
 The context manager will make sure the connection is closed when exiting context.
 
-To use a verified session that checks all rows before committing them:
+To use a verified session, one that verifies write permissions by an authenticated user, use:
 
 ```
 with VerifiedSession(user_or_token) as session:
@@ -73,11 +83,23 @@ with VerifiedSession(user_or_token) as session:
   session.commit()
 ```
 
-This does the same checks that are performed when calling `self.verify_and_commit()`.
+This does the same checks that are performed when calling `self.verify_and_commit()` inside of any handler.
+
+---
+
+**TODO:** Update write access enforcement documentation.
+
+We have fairly sophisticated access control, but this requires further documentation.
+For now, refer to the [SkyPortal Access Controldocumentation](https://skyportal.io/docs/permissions.html).
+Look at `CustomUserAccessControl` and all derivative classes of [`UserAccessControl`](https://github.com/cesium-ml/baselayer/blob/main/app/models.py#L298).
+Also see examples of how it is used in [SkyPortal models](https://github.com/skyportal/skyportal/tree/main/skyportal/models).
+
+---
+
 Each handler class can also call `self.Session()` as a stand-in for `VerifiedSession(self.current_user)`:
 
 ```
-with self.Session as session:
+with self.Session() as session:
   ...
   session.commit()
 ```
