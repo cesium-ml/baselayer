@@ -18,7 +18,7 @@ Clone that application, and then proceed with the following instructions.
   - Start the postgresql server:
     - to start automatically at login: `brew services start postgresql`
     - to start manually: `pg_ctl -D /usr/local/var/postgres start`
-- Using [MacPorts](https://www.macports.org): `port install nginx +realip postgresql13-server npm7`
+- Using [MacPorts](https://www.macports.org): `port install nginx +realip postgresql13-server`
   - Start the postgresql server: `port load postgresql13-server`
 
 #### Port Number Configuration with macOS
@@ -38,7 +38,7 @@ See [below](#configuration) for more information on modifying the baselayer conf
 ### On Linux
 
 - Using `apt-get`:
-  `sudo apt-get install supervisor postgresql libpq-dev npm nodejs-legacy`
+  `sudo apt-get install supervisor postgresql libpq-dev nodejs`
 
   If you want to use [brotli compression](https://en.wikipedia.org/wiki/Brotli) with NGINX (better compression rates for the frontend), you have to install NGINX and the brotli module from another source with:
 

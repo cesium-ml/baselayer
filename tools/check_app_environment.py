@@ -29,8 +29,8 @@ deps = {
         lambda v: v.split("\n")[-1].split()[2],
         "12.0",
     ),
-    "npm": (["npm", "-v"], lambda v: v, "8.3.2"),
-    "node": (["node", "-v"], lambda v: v[1:], "16.14.0"),
+    "pnpm": (["pnpm", "-v"], lambda v: v, "10.17.1"),
+    "node": (["node", "-v"], lambda v: v[1:], "22.0.0"),
     "python": (["python", "--version"], lambda v: v.split()[1], "3.8"),
 }
 
