@@ -52,15 +52,20 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "22.x"
-          cache: "pnpm"
-          # Why is this next line not working?
-          # cache-dependency-path: "baselayer_template_app/package.json"
 
-      - uses: actions/cache@v4
+      - name: Set up pip cache
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/pip
           key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
+
+      - name: Set up pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm-packages
+          key: ${{ runner.os }}-${{ hashFiles('**/package.json') }}
 
       - name: Install test dependencies
         run: |
@@ -94,6 +99,9 @@ jobs:
           sudo add-apt-repository ppa:ondrej/nginx -y
           sudo apt-get update -y
           sudo apt-get install nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter -y
+
+          export NPM_PACKAGES="${HOME}/.npm-packages"
+          export PATH=${NPM_PACKAGES}/bin:$PATH
 
       - name: Write configuration & build DB
         run: |
