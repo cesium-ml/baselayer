@@ -5,7 +5,7 @@ set -e
 CHECKER="node_modules/.bin/check-dependencies"
 
 if [[ ! -x ${CHECKER} ]]; then
-    pnpm install check-dependencies --legacy-peer-deps
+    pnpm install check-dependencies
 fi
 
 # We suppress output for the next command because, annoyingly, it reports
