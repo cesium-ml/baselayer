@@ -53,7 +53,8 @@ jobs:
         with:
           node-version: "22.x"
           cache: "pnpm"
-          cache-dependency-path: "baselayer_template_app/package.json"
+          # Why is this next line not working?
+          # cache-dependency-path: "baselayer_template_app/package.json"
 
       - uses: actions/cache@v4
         with:
