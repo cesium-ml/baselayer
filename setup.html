@@ -114,7 +114,7 @@ and running. A simple example of such an application is provides as a
 </li>
 </ul>
 </li>
-<li><p>Using <a class="reference external" href="https://www.macports.org">MacPorts</a>: <code class="docutils literal notranslate"><span class="pre">port</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">+realip</span> <span class="pre">postgresql13-server</span> <span class="pre">npm7</span></code></p>
+<li><p>Using <a class="reference external" href="https://www.macports.org">MacPorts</a>: <code class="docutils literal notranslate"><span class="pre">port</span> <span class="pre">install</span> <span class="pre">nginx</span> <span class="pre">+realip</span> <span class="pre">postgresql13-server</span></code></p>
 <ul>
 <li><p>Start the postgresql server: <code class="docutils literal notranslate"><span class="pre">port</span> <span class="pre">load</span> <span class="pre">postgresql13-server</span></code></p></li>
 </ul>
@@ -136,7 +136,7 @@ Port 5000 is not free for the latest macOS version, Monterey.</p>
 <h3>On Linux<a class="headerlink" href="#on-linux" title="Link to this heading"></a></h3>
 <ul>
 <li><p>Using <code class="docutils literal notranslate"><span class="pre">apt-get</span></code>:
-<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">npm</span> <span class="pre">nodejs-legacy</span></code></p>
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">supervisor</span> <span class="pre">postgresql</span> <span class="pre">libpq-dev</span> <span class="pre">nodejs</span></code></p>
 <p>If you want to use <a class="reference external" href="https://en.wikipedia.org/wiki/Brotli">brotli compression</a> with NGINX (better compression rates for the frontend), you have to install NGINX and the brotli module from another source with:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span> <span class="n">remove</span> <span class="o">-</span><span class="n">y</span> <span class="n">nginx</span> <span class="n">nginx</span><span class="o">-</span><span class="n">common</span> <span class="n">nginx</span><span class="o">-</span><span class="n">core</span>
 <span class="n">sudo</span> <span class="n">add</span><span class="o">-</span><span class="n">apt</span><span class="o">-</span><span class="n">repository</span> <span class="n">ppa</span><span class="p">:</span><span class="n">ondrej</span><span class="o">/</span><span class="n">nginx</span><span class="o">-</span><span class="n">mainline</span> <span class="o">-</span><span class="n">y</span>
