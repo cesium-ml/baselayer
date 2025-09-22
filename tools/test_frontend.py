@@ -115,7 +115,9 @@ if __name__ == "__main__":
     if args.test_spec is not None:
         test_spec = args.test_spec
     else:
-        test_spec = basedir / app_name / "tests"
+        test_spec = basedir / "tests"
+        if not test_spec.exists():
+            test_spec = basedir / app_name / "tests"
 
     if args.xml:
         test_outdir = basedir / "test-results"
