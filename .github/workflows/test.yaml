@@ -31,6 +31,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    env:
+      PY_COLORS: "1"
+
     steps:
       - uses: actions/setup-python@v6
         with:
@@ -58,14 +61,15 @@ jobs:
         with:
           path: |
             ~/.cache/pip
-          key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
 
       - name: Set up pnpm cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.npm-packages
-          key: ${{ runner.os }}-${{ hashFiles('**/package.json') }}
+          # Hash is not currently correctly calculated; why not?
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/package.json') }}
 
       - name: Install test dependencies
         run: |
