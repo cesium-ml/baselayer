@@ -32,32 +32,28 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Install test dependencies
-        run: |
-          pip install -r baselayer/requirements.test.txt
-          python -c "import selenium; print(f'Selenium {selenium.__version__}')"
 
       - name: Install template app
         run: |
           git clone --depth=1 https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
-      - uses: actions/cache@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
         with:
-          path: |
-            ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('baselayer_template_app/package.json') }}
+          version: "latest"
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22.x"
+          cache: "pnpm"
+          cache-dependency-path: "baselayer_template_app/package.json"
 
       - uses: actions/cache@v4
         with:
@@ -65,43 +61,38 @@ jobs:
             ~/.cache/pip
           key: ${{ runner.os }}-${{ hashFiles('**/requirements*.txt') }}
 
+      - name: Install test dependencies
+        run: |
+          pip install -r baselayer_template_app/baselayer/requirements.test.txt
+
+      - name: Export Playwright version
+        run: |
+          PV=$(playwright --version | awk '{print $2}')
+          echo "PLAYWRIGHT_VERSION=$PV" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install Playwright Firefox
+        run: |
+          playwright install firefox
+
       - name: Install system dependencies
         run: |
-          cd baselayer
-
-          sudo apt update -y
-
-          ### firefox installation
-          sudo snap remove firefox
-          sudo add-apt-repository ppa:mozillateam/ppa
-          printf 'Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001' | sudo tee /etc/apt/preferences.d/mozilla-firefox
-
-          sudo apt install -y wget nodejs unzip firefox
+          sudo apt-get update
+          sudo apt-get install -y wget nodejs unzip nginx
 
           # if nginx is already installed, remove it
-          sudo apt remove -y nginx nginx-common nginx-core nginx-full
-          sudo apt purge -y nginx nginx-common nginx-core nginx-full
+          sudo apt-get remove -y nginx nginx-common nginx-core nginx-full
+          sudo apt-get purge -y nginx nginx-common nginx-core nginx-full
 
           # add the PPA repository with brotli support for nginx
           sudo add-apt-repository ppa:ondrej/nginx -y
-          sudo apt update -y
-          sudo apt install nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter -y
-
-
-          pip install --upgrade pip
-          pip install wheel
-
-          export NPM_PACKAGES="${HOME}/.npm-packages"
-          export PATH=${NPM_PACKAGES}/bin:$PATH
-          export NODE_PATH="$NPM_PACKAGES/lib/node_modules:$NODE_PATH"
-
-          sudo npm -g install npm@latest
-
-          which python; python --version
-          echo npm $(npm --version)
-          echo node $(node --version)
-          nginx -v
-          firefox --version
+          sudo apt-get update -y
+          sudo apt-get install nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter -y
 
       - name: Write configuration & build DB
         run: |
@@ -139,7 +130,7 @@ jobs:
       - name: Test template app
         run: |
           cd baselayer_template_app
-          make test_headless
+          make test
 
       - name: Upload logs
         uses: actions/upload-artifact@v4

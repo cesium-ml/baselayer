@@ -134,10 +134,6 @@ stop: ## Stop all running services.
 status:
 	@PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
 
-test_headless: ## Run tests headlessly
-test_headless: system_setup
-	@PYTHONPATH='.' baselayer/tools/test_frontend.py --headless --xml
-
 test: ## Run tests.
 test: system_setup
 	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml
