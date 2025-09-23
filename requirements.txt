@@ -15,4 +15,5 @@ jinja2>=2.11.2
 python-dateutil>=2.8.1
 phonenumbers>=8.12.15
 python-slugify>=4.0.1
-numpy>=2.0.0
+numpy>=1.21.4
+tomli; python_version < '3.11'

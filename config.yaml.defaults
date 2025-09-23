@@ -92,10 +92,25 @@ services:
     enabled:
 
     # A list of service names, or '*'
+    # You can use disabled to disable specific services, or '*' to disable them all
     disabled:
       - dask
 
-    # You can use disabled to disable specific services, or '*' to disable them all
+    # Here you can add services that are not part of baselayer, and
+    # are pulled from another github repository. You need to specify the
+    # repo and a revision (SHA, tag, or branch).
+    #
+    # You can also configure optional configuration parameters used by
+    # the service.
+    #
+    # - my_service:
+    #     repo: https://...
+    #     rev: <SHA>
+    # - my_service:
+    #     repo: https://...
+    #     rev: <tagged_version>
+    #     params: {}
+    external: {}
 
 
 log:

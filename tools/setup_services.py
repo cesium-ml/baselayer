@@ -1,15 +1,418 @@
 import os
+import subprocess
 from collections import Counter
+from importlib import import_module
 from os.path import join as pjoin
+
+from packaging import version
+from packaging.specifiers import SpecifierSet
 
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
+# let's try to use tomllib for Python 3.11+, and otherwise fall back to tomli
+# (the standalone tomli package, or the one from setuptools)
+try:
+    import tomllib as tl
+except (ImportError, ModuleNotFoundError):
+    try:
+        import tomli as tl
+    except ImportError:
+        try:
+            import setuptools._vendor.tomli as tl
+        except ImportError:
+            raise ImportError(
+                "Could not find tomli or tomllib for reading pyproject.toml files"
+            )
+
 log = make_log("baselayer")
 
 
-def copy_supervisor_configs():
-    env, cfg = load_env()
+def generate_supervisor_config(service_name: str, service_path: str) -> str:
+    """
+    Generates a supervisor configuration for a given service.
+
+    Parameters
+    ------
+    service_name: str
+        Name of the service to generate the configuration for.
+    service_path: str
+        Path to the service directory.
+
+    Returns
+    -------
+    str: The generated supervisor configuration template.
+    """
+    supervisor_conf_template = f"""
+[program:{service_name}]
+command=/usr/bin/env python {pjoin(service_path, "main.py")} %(ENV_FLAGS)s
+environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
+stdout_logfile=log/{service_name}_service.log
+redirect_stderr=true
+"""
+    return supervisor_conf_template
+
+
+def read_plugin_config(plugin_path: str) -> dict:
+    """
+    Reads the external service configuration from pyproject.toml.
+
+    Parameters
+    ------
+    plugin_path: str
+        Path to the external service directory containing pyproject.toml.
+
+    Returns
+    -------
+    dict: Parsed configuration dictionary.
+    """
+    config_path = pjoin(plugin_path, "pyproject.toml")
+    try:
+        with open(config_path, "rb") as f:
+            return tl.load(f)
+    except FileNotFoundError:
+        return None
+
+
+def validate_version(version_string: str, requirement_string: str) -> bool:
+    """
+    Validate a version against a version requirement.
+
+    Parameters
+    ----------
+    version_string: str
+        The version to validate (e.g., "1.2.3").
+    requirement_string: str
+        The version requirement (e.g., ">=1.0,<2.0").
+
+    Returns
+    -------
+    bool: True if the version satisfies the requirement, False otherwise.
+    """
+    try:
+        v = version.parse(version_string)
+        spec = SpecifierSet(requirement_string)
+        return v in spec
+    except Exception as e:
+        log(f"Error validating version: {e}")
+        return False
+
+
+def validate_service_compatibility(service_path: str) -> bool:
+    """
+    Validate if a service is compatible with the current environment based on its optional pyproject.toml.
+
+    Parameters
+    ----------
+    service_path: str
+        Path to the service directory containing pyproject.toml.
+
+    Returns
+    -------
+    bool: True if the service is compatible or has no pyproject.toml, False otherwise.
+    """
+    service_name = os.path.basename(service_path)
+    plugin_config = read_plugin_config(service_path)
+    if plugin_config is None:
+        return True
+
+    if plugin_config.get("project", {}).get("name"):
+        service_name = plugin_config["project"]["name"]
+
+    # if there is no supervisor.conf provided, we can only generate one
+    # if we can make an assumption about the entry point (being named main.py)
+    # otherwise we skip the service
+    if not os.path.isfile(
+        pjoin(service_path, "supervisor.conf")
+    ) and not os.path.isfile(pjoin(service_path, "main.py")):
+        log(
+            f"External service {service_name} does not contain a supervisor.conf or main.py, skipping"
+        )
+        return False
+
+    compatibility_config = plugin_config.get("tool", {}).get("compatibility", {})
+    compatible_with = compatibility_config.get("compatible-with", [])
+
+    if not compatible_with:
+        log(
+            f"External service {service_name} has no compatibility requirements, assuming incompatible"
+        )
+        return False
+
+    validated = True
+
+    # Check each compatibility requirement
+    for requirement in compatible_with:
+        if not isinstance(requirement, dict):
+            log(
+                f"Invalid compatibility requirement for {service_name}: expected a dictionary, got {type(requirement)}"
+            )
+            validated = False
+            continue
+
+        package_name = requirement.get("name")
+        version_requirement = requirement.get("version")
+
+        if not package_name:
+            log(
+                f"External service {service_name} has compatibility requirement without 'name' field"
+            )
+            validated = False
+            continue
+
+        if not version_requirement:
+            log(
+                f"External service {service_name} does not specify a version requirement for {package_name}"
+            )
+            validated = False
+            continue
+
+        try:
+            mod = import_module(package_name)
+        except ImportError:
+            log(
+                f"External service {service_name} requires {package_name}, but it is not installed."
+            )
+            validated = False
+            continue
+
+        try:
+            installed_version = mod.__version__
+            if not isinstance(installed_version, str):
+                log(
+                    f"External service {service_name} requires {package_name} with version {version_requirement}, but installed version is not a string ({installed_version})."
+                )
+                validated = False
+                continue
+        except (ImportError, AttributeError):
+            log(
+                f"External service {service_name} requires {package_name} with version {version_requirement}, but unable to determine installed version."
+            )
+            validated = False
+            continue
+
+        if not validate_version(installed_version, version_requirement):
+            log(
+                f"External service {service_name} requires {package_name} with version {version_requirement}, but installed version is {installed_version}. Skipping"
+            )
+            validated = False
+            continue
+
+    return validated
+
+
+def run_git_command(args: list, plugin_path: str) -> tuple:
+    """
+    Run a git command in the specified external service path.
+
+    Parameters
+    ----------
+    args: list
+        Git command to run, e.g. ['checkout', 'main']
+    plugin_path: str
+        Directory where the command runs
+
+    Returns
+    -------
+    tuple: (stdout_lines, stderr_lines)
+        stdout_lines: List of output lines from stdout
+        stderr_lines: List of output lines from stderr
+    """
+    try:
+        result = subprocess.run(
+            ["git"] + args,
+            cwd=plugin_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.splitlines(), result.stderr.splitlines()
+
+    except subprocess.CalledProcessError as e:
+        cmd = " ".join([f"cd {plugin_path}; git"] + args)
+        msg = f"[ERROR] Git command failed: {cmd}\n{e.stderr}"
+        raise RuntimeError(msg) from e
+
+
+def is_git_repo(plugin_path: str) -> bool:
+    """Check if the external service path contains a valid git repository.
+
+    Parameters
+    ----------
+    plugin_path: str
+        Path to the external service directory.
+
+    Returns
+    -------
+    bool: True if the directory is a valid git repository, False otherwise.
+    """
+    if not os.path.exists(pjoin(plugin_path, ".git")):
+        log(f"Directory {plugin_path} is not a valid git repository, skipping update.")
+        return False
+    return True
+
+
+def has_modified_files(plugin_path: str) -> bool:
+    """Check if the git repo has modified files that would prevent update.
+
+    Parameters
+    ----------
+    plugin_path: str
+        Path to the external service directory.
+
+    Returns
+    -------
+    bool: True if there are modified files, False otherwise.
+    """
+    try:
+        modified_files, _ = run_git_command(["status", "--porcelain"], plugin_path)
+    except RuntimeError:
+        modified_files = []
+
+    modified_lines = [line for line in modified_files if "M" in line[:2]]
+
+    return len(modified_lines) > 0
+
+
+def get_rev(plugin_path: str) -> str | None:
+    """Get the revision of the git repository HEAD.
+
+    Parameters
+    ----------
+    plugin_path : str
+        Path to the external service directory.
+
+    Returns
+    -------
+    str or None
+        Current revision if available, None otherwise.
+    """
+    try:
+        sha, _ = run_git_command(["rev-parse", "HEAD"], plugin_path)
+        return sha[0]
+    except RuntimeError:
+        return None
+
+
+def git_checkout_plugin(url: str, rev: str, plugin_name: str, plugin_path: str) -> bool:
+    """Clone / update an external service repository to the given revision.
+
+    Parameters
+    ----------
+    url : str
+        Git repository URL.
+    rev : str
+        Revision to check out.
+    plugin_name : str
+        Name of the external service, used in error logs.
+    plugin_path : str
+        Path to the external service directory.
+
+    Returns
+    -------
+    bool
+        Whether the operation was successful.
+    """
+
+    # If repository does not exist, clone it first
+    if not os.path.exists(plugin_path):
+        clone_args = ["clone", "--depth", "1", url, f"--revision={rev}", plugin_path]
+        try:
+            run_git_command(clone_args, ".")
+        except RuntimeError:
+            return False
+
+    checkout_rev = get_rev(plugin_path)
+    if checkout_rev == rev:
+        # Note that for branches, like `main`, this will never pass.
+        # That is also correct, because we need to check the branch each time for updates.
+        return True
+
+    # Update to the specified revision
+    log(f"Checking out external service {plugin_name}, revision {rev}")
+    try:
+        # since it's a shallow clone, we need to fetch the specific SHA
+        run_git_command(["fetch", "--depth=1", "origin", rev], plugin_path)
+        run_git_command(["checkout", "FETCH_HEAD"], plugin_path)
+    except RuntimeError:
+        return False
+
+    return True
+
+
+def clone_or_update_plugin(
+    plugin_name: str, plugin_info: dict, plugin_path: str
+) -> bool:
+    """Clone a new external service repository, or update an existing
+    on to the given revision.
+
+    Parameters
+    ----------
+    plugin_name : str
+        Name of the external service, used in error logs
+    plugin_info : dict
+        External service configuration from `config.yaml` containing
+        'repo' and 'rev'.
+    plugin_path : str
+        Path to the external service directory.
+
+    Returns
+    -------
+    bool
+        True if the operation was successful, False otherwise.
+
+    """
+    repo = plugin_info.get("repo")
+    rev = plugin_info.get("rev", "main")
+
+    if repo is None:
+        return True
+
+    if os.path.exists(plugin_path) and has_modified_files(plugin_path):
+        log(f"External service {plugin_name} has modified files, skipping update.")
+        return True
+
+    return git_checkout_plugin(repo, rev, plugin_name, plugin_path)
+
+
+def initialize_external_services() -> list:
+    """
+    Initialize external services by cloning or updating their repositories.
+
+    Returns
+    -------
+    external_services: list
+        List of tuples containing (plugin_name, enabled) for each external service.
+    """
+    _, cfg = load_env(False)
+    plugins_path = cfg["services.paths"][-1]
+    os.makedirs(plugins_path, exist_ok=True)
+
+    plugins = cfg.get("services.external", {})
+    external_services = []
+
+    for plugin_name, plugin_info in plugins.items():
+        plugin_path = pjoin(plugins_path, plugin_name)
+        status = clone_or_update_plugin(plugin_name, plugin_info, plugin_path)
+        external_services.append((plugin_name, status))
+
+    return external_services
+
+
+def copy_supervisor_configs(external_services=[]):
+    """
+    Copy supervisor configurations from all services to the main supervisor.conf file.
+
+    Parameters
+    ----------
+    external_services: list
+        List of external services, each as a tuple (service_name, enabled).
+
+    Returns
+    -------
+    None
+    """
+    _, cfg = load_env(False)
 
     services = {}
     for path in cfg["services.paths"]:
@@ -19,11 +422,16 @@ def copy_supervisor_configs():
             ]
             services.update({s: pjoin(path, s) for s in path_services})
 
+    # TODO (in a future PR): loop over all services, check if they are a git submodule or not
+    # if they are a submodule make sure they are initialized and updated
+    # this should be discussed, it does not seem necessary as soon as we have the
+    # config based external service system working
+
     duplicates = [k for k, v in Counter(services.keys()).items() if v > 1]
     if duplicates:
         raise RuntimeError(f"Duplicate service definitions found for {duplicates}")
 
-    log(f"Discovered {len(services)} services")
+    log(f"Discovered {len(services)} services ({len(external_services)} external)")
 
     disabled = cfg["services.disabled"] or []
     enabled = cfg["services.enabled"] or []
@@ -39,7 +447,18 @@ def copy_supervisor_configs():
     if enabled == "*":
         enabled = []
 
+    disabled = set(disabled).union([s for s, e in external_services if not e])
+
     services_to_run = set(services.keys()).difference(disabled).union(enabled)
+
+    incompatible = [
+        service
+        for service in services_to_run
+        if not validate_service_compatibility(services[service])
+    ]
+
+    services_to_run = services_to_run.difference(incompatible)
+
     log(f"Enabling {len(services_to_run)} services")
 
     supervisor_configs = []
@@ -50,10 +469,15 @@ def copy_supervisor_configs():
         if os.path.exists(supervisor_conf):
             with open(supervisor_conf) as f:
                 supervisor_configs.append(f.read())
+        else:
+            conf = generate_supervisor_config(service, path)
+            supervisor_configs.append(conf)
 
     with open("baselayer/conf/supervisor/supervisor.conf", "a") as f:
         f.write("\n\n".join(supervisor_configs))
 
 
 if __name__ == "__main__":
-    copy_supervisor_configs()
+    print()
+    external_services = initialize_external_services()
+    copy_supervisor_configs(external_services)

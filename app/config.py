@@ -40,14 +40,15 @@ class Config(dict):
 
     """
 
-    def __init__(self, config_files=None):
+    def __init__(self, config_files=None, verbose=True):
         dict.__init__(self)
         if config_files is not None:
             cwd = os.getcwd()
             config_names = [relative_to(c, cwd) for c in config_files]
-            print(f"  Config files: {config_names[0]}")
-            for f in config_names[1:]:
-                print(f"                {f}")
+            if verbose:
+                print(f"  Config files: {config_names[0]}")
+                for f in config_names[1:]:
+                    print(f"                {f}")
             self["config_files"] = config_files
             for f in config_files:
                 self.update_from(f)
@@ -92,7 +93,7 @@ class Config(dict):
         print("=" * 78)
 
 
-def load_config(config_files=[]):
+def load_config(config_files=[], load_services_configs=True):
     basedir = Path(os.path.dirname(__file__)) / ".."
     missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
     if missing:
@@ -112,6 +113,33 @@ def load_config(config_files=[]):
     all_configs = [cfg for cfg in all_configs if os.path.exists(os.path.normpath(cfg))]
     all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
 
-    cfg = Config(all_configs)
+    cfg = Config(all_configs, verbose=False)
+
+    if not load_services_configs:
+        return cfg
+
+    # Load service default config files, if any
+    service_cfgs = []
+    for services_path in cfg.get("services.paths", []):
+        if not Path(services_path).is_dir():
+            continue
+
+        for service_folder in Path(services_path).glob("*/"):
+            service_cfg = service_folder / "config.yaml.defaults"
+            if service_cfg.exists():
+                service_cfgs.append(str(service_cfg.resolve()))
+
+    all_configs = (
+        [
+            Path(basedir / "config.yaml.defaults"),
+            Path(basedir / "../config.yaml.defaults"),
+        ]
+        + service_cfgs
+        + config_files
+    )
+    all_configs = [cfg for cfg in all_configs if os.path.exists(os.path.normpath(cfg))]
+    all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
+
+    cfg = Config(all_configs, verbose=True)
 
     return cfg
