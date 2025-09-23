@@ -1,8 +1,9 @@
+import importlib
+import importlib.metadata
 import subprocess
 import sys
 
-import pkg_resources
-from pkg_resources import DistributionNotFound, Requirement, VersionConflict
+from packaging.requirements import Requirement
 from status import status
 
 if len(sys.argv) < 2:
@@ -38,12 +39,28 @@ def pip(req_files):
         sys.exit(retcode)
 
 
+class IncompatibleVersionError(Exception):
+    pass
+
+
 try:
     with status("Verifying Python package dependencies"):
-        pkg_resources.working_set.resolve(
-            [Requirement.parse(r.split("#egg=")[-1]) for r in requirements]
-        )
+        for rspec in requirements:
+            req = Requirement(rspec.strip().split("#egg=")[-1].replace("==", "~="))
+            name = req.name
+            version_specifier = req.specifier
+            version_installed = importlib.metadata.version(name)
 
-except (DistributionNotFound, VersionConflict) as e:
-    print(e.report())
-    pip(all_req_files)
+            if not version_specifier.contains(version_installed):
+                raise IncompatibleVersionError(
+                    f"Need {name} {version_specifier} but found {version_installed}"
+                )
+
+except importlib.metadata.PackageNotFoundError:  #
+    print(f"[!] Package `{name}` not found; refreshing dependencies")
+except IncompatibleVersionError as e:
+    print(f"[!] {e}")
+else:
+    sys.exit(0)
+
+pip(all_req_files)

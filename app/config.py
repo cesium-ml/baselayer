@@ -97,7 +97,7 @@ def load_config(config_files=[], load_services_configs=True):
     basedir = Path(os.path.dirname(__file__)) / ".."
     missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
     if missing:
-        log(f'Missing config files: {", ".join(missing)}; continuing.')
+        log(f"Missing config files: {', '.join(missing)}; continuing.")
     if "config.yaml" in missing:
         log(
             "Warning: You are running on the default configuration. To configure your system, "

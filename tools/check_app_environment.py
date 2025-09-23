@@ -29,8 +29,8 @@ deps = {
         lambda v: v.split("\n")[-1].split()[2],
         "12.0",
     ),
-    "npm": (["npm", "-v"], lambda v: v, "8.3.2"),
-    "node": (["node", "-v"], lambda v: v[1:], "16.14.0"),
+    "pnpm": (["pnpm", "-v"], lambda v: v, "10.17.1"),
+    "node": (["node", "-v"], lambda v: v[1:], "22.0.0"),
     "python": (["python", "--version"], lambda v: v.split()[1], "3.8"),
 }
 
@@ -54,7 +54,7 @@ for dep, (cmd, get_version, min_version) in deps.items():
     except ValueError:
         print(
             f"\n[!] Sorry, but our script could not parse the output of "
-            f'`{" ".join(cmd)}`; please file a bug, or see '
+            f"`{' '.join(cmd)}`; please file a bug, or see "
             f"`check_app_environment.py`\n"
         )
         raise
@@ -69,7 +69,7 @@ if fail:
     print()
     for pkg, exc in fail:
         cmd, get_version, min_version = deps[pkg]
-        print(f'    - {pkg}: `{" ".join(cmd)}`')
+        print(f"    - {pkg}: `{' '.join(cmd)}`")
         print("     ", exc)
     print()
     print(

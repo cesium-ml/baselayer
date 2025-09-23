@@ -16,8 +16,7 @@ class SocketAuthTokenHandler(BaseHandler):
         user = self.current_user
         if user is None:
             raise RuntimeError(
-                "No current user while authenticating socket. "
-                "This should NEVER happen."
+                "No current user while authenticating socket. This should NEVER happen."
             )
 
         secret = self.cfg["app.secret_key"]

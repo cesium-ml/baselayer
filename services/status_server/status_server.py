@@ -19,6 +19,7 @@ class MainHandler(tornado.web.RequestHandler):
 class MainAPIHandler(tornado.web.RequestHandler):
     def get(self, args):
         self.set_header("Content-Type", "application/json")
+        self.set_header("Cache-Control", "no-store, no-cache")
         self.set_status(503)
         self.write(
             {

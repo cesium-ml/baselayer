@@ -14,7 +14,7 @@ log = make_log("migration_manager")
 
 
 conf_files = env.config
-conf_flags = ["-x", f'config={":".join(conf_files)}'] if conf_files else []
+conf_flags = ["-x", f"config={':'.join(conf_files)}"] if conf_files else []
 
 
 class timeout_cache:
@@ -32,8 +32,8 @@ class timeout_cache:
         tic = self.lastrun
         toc = time.time()
         if (toc - tic) > self.timeout or self.cache is None:
-            self.lastrun = toc
             self.cache = self.func(*args, **kwargs)
+            self.lastrun = time.time()
 
         return self.cache
 
@@ -70,7 +70,7 @@ def migrate():
     path_env["PYTHONPATH"] = "."
 
     cmd = ["alembic"] + conf_flags + ["upgrade", "head"]
-    log(f'Attempting migration: {" ".join(cmd)}')
+    log(f"Attempting migration: {' '.join(cmd)}")
     p = subprocess.Popen(cmd, stderr=subprocess.PIPE, env=path_env)
 
     output, error = p.communicate()

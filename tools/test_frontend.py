@@ -56,22 +56,27 @@ def verify_server_availability(url, timeout=180):
             continue
         try:
             statuses, errcode = supervisor_status()
-            assert (
-                all_services_running()
-            ), "Webservice(s) failed to launch:\n" + "\n".join(statuses)
+            assert all_services_running(), (
+                "Webservice(s) failed to launch:\n" + "\n".join(statuses)
+            )
+
             response = requests.get(url)
             assert response.status_code == 200, (
-                "Expected status 200, got" f" {response.status_code}" f" for URL {url}."
+                f"Expected status 200, got {response.status_code} for URL {url}. Retrying."
             )
+
             response = requests.get(url + "/static/build/main.bundle.js")
             assert response.status_code == 200, (
-                "Javascript bundle not found," " did rspack fail?"
+                "Javascript bundle not found, did packing fail?"
             )
-            return  # all checks passed
+
+            return True  # all checks passed
         except Exception as e:
             if i == timeout - 1:  # last iteration
                 raise ConnectionError(str(e)) from None
         time.sleep(1)
+
+    return False
 
 
 if __name__ == "__main__":
@@ -91,9 +96,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Save JUnit xml output to `test-results/junit.xml`",
     )
-    parser.add_argument(
-        "--headless", action="store_true", help="Run browser headlessly"
-    )
     args = parser.parse_args()
 
     # Initialize the test database connection
@@ -110,7 +112,9 @@ if __name__ == "__main__":
     if args.test_spec is not None:
         test_spec = args.test_spec
     else:
-        test_spec = basedir / app_name / "tests"
+        test_spec = basedir / "tests"
+        if not test_spec.exists():
+            test_spec = basedir / app_name / "tests"
 
     if args.xml:
         test_outdir = basedir / "test-results"
@@ -119,9 +123,6 @@ if __name__ == "__main__":
         xml = f"--junitxml={test_outdir}/junit.xml"
     else:
         xml = ""
-
-    if args.headless:
-        os.environ["BASELAYER_TEST_HEADLESS"] = "1"
 
     log("Clearing test database...")
     clear_tables()
@@ -136,11 +137,13 @@ if __name__ == "__main__":
 
     exit_status = (0, "OK")
     try:
-        verify_server_availability(server_url)
+        timeout = 180
+        if not verify_server_availability(server_url, timeout=timeout):
+            raise RuntimeError(f"Server still unavailable after {timeout}s")
 
         log(f"Launching pytest on {test_spec}...\n")
         p = subprocess.run(
-            f"python -m pytest -s -v {xml} {test_spec} " f"{RAND_ARGS}",
+            f"python -m pytest -s -v {xml} {test_spec} {RAND_ARGS}",
             shell=True,
         )
         if p.returncode != 0:
