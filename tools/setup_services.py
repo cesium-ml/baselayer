@@ -45,7 +45,7 @@ def generate_supervisor_config(service_name: str, service_path: str) -> str:
     """
     supervisor_conf_template = f"""
 [program:{service_name}]
-command=/usr/bin/env python {pjoin(service_path, 'main.py')} %(ENV_FLAGS)s
+command=/usr/bin/env python {pjoin(service_path, "main.py")} %(ENV_FLAGS)s
 environment=PYTHONPATH=".",PYTHONUNBUFFERED="1"
 stdout_logfile=log/{service_name}_service.log
 redirect_stderr=true
@@ -229,7 +229,7 @@ def run_git_command(args: list, plugin_path: str) -> tuple:
         return result.stdout.splitlines(), result.stderr.splitlines()
 
     except subprocess.CalledProcessError as e:
-        cmd = ' '.join([f'cd {plugin_path}; git'] + args)
+        cmd = " ".join([f"cd {plugin_path}; git"] + args)
         msg = f"[ERROR] Git command failed: {cmd}\n{e.stderr}"
         raise RuntimeError(msg) from e
 
@@ -265,10 +265,7 @@ def has_modified_files(plugin_path: str) -> bool:
     bool: True if there are modified files, False otherwise.
     """
     try:
-        modified_files, _ = run_git_command(
-            ["status", "--porcelain"],
-            plugin_path
-        )
+        modified_files, _ = run_git_command(["status", "--porcelain"], plugin_path)
     except RuntimeError:
         modified_files = []
 
@@ -297,9 +294,7 @@ def get_rev(plugin_path: str) -> str | None:
         return None
 
 
-def git_checkout_plugin(
-    url: str, rev: str, plugin_name: str, plugin_path: str
-) -> bool:
+def git_checkout_plugin(url: str, rev: str, plugin_name: str, plugin_path: str) -> bool:
     """Clone / update an external service repository to the given revision.
 
     Parameters
@@ -321,14 +316,7 @@ def git_checkout_plugin(
 
     # If repository does not exist, clone it first
     if not os.path.exists(plugin_path):
-        clone_args = [
-            "clone",
-            "--depth",
-            "1",
-            url,
-            f"--revision={rev}",
-            plugin_path
-        ]
+        clone_args = ["clone", "--depth", "1", url, f"--revision={rev}", plugin_path]
         try:
             run_git_command(clone_args, ".")
         except RuntimeError:
