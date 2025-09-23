@@ -112,6 +112,7 @@ app, a cron-job handler, the websocket server, etc.</p>
       <span class="o">-</span> <span class="o">./</span><span class="n">services</span>
     <span class="n">enabled</span><span class="p">:</span>
     <span class="n">disabled</span><span class="p">:</span>
+    <span class="n">external</span><span class="p">:</span>
 </pre></div>
 </div>
 <p>For example, the <code class="docutils literal notranslate"><span class="pre">cron</span></code> microservice lives in
@@ -137,6 +138,24 @@ all services. E.g., to only load the <code class="docutils literal notranslate">
 configuration file, therefore <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> can instead be
 provided as <code class="docutils literal notranslate"><span class="pre">supervisor.conf.template</span></code>, which will be compiled before
 launching. See, e.g., <code class="docutils literal notranslate"><span class="pre">services/dask</span></code>.</p>
+<p>“External” micro-services can be used to extend the capabilities of any application relying on <code class="docutils literal notranslate"><span class="pre">baselayer</span></code>.</p>
+<p>These are added to <code class="docutils literal notranslate"><span class="pre">services.external</span></code> section of the configuration, and need to provide: service name, GitHub repo URL, revision (branch, sha, or tag), along with optional service-specific parameters. For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">services</span><span class="p">:</span>
+  <span class="n">paths</span><span class="p">:</span>
+    <span class="o">-</span> <span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">services</span>
+    <span class="o">-</span> <span class="o">./</span><span class="n">services</span>
+  <span class="n">enabled</span><span class="p">:</span>
+    <span class="o">-</span> <span class="n">cron</span>
+  <span class="n">disabled</span><span class="p">:</span> <span class="s1">&#39;*&#39;</span>
+  <span class="n">external</span><span class="p">:</span>
+    <span class="n">my_external_service</span><span class="p">:</span>
+      <span class="n">repo</span><span class="p">:</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">my_external_service</span><span class="o">.</span><span class="n">git</span>
+      <span class="n">rev</span><span class="p">:</span> <span class="n">v0</span><span class="mf">.1.0</span>
+      <span class="n">params</span><span class="p">:</span> <span class="p">{}</span>
+</pre></div>
+</div>
+<p>External services are imported in the last location mentioned in <code class="docutils literal notranslate"><span class="pre">services.paths</span></code>.
+To learn more about external services, please refer to the <a class="reference external" href="extending.md#adding-external-services">External Services documentation</a>.</p>
 </section>
 <section id="web-application">
 <h2>Web Application<a class="headerlink" href="#web-application" title="Link to this heading"></a></h2>

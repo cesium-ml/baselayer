@@ -49,6 +49,15 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Extending baselayer</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#modifying-the-tornado-application">Modifying the Tornado application</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#templating">Templating</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#adding-external-services">Adding external services</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#external-service-requirements">External Service Requirements</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#entry-point">Entry Point</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#project-metadata-and-compatibility">Project Metadata and Compatibility</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#default-configuration">Default Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -130,6 +139,75 @@ can run the templating manually:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">tools</span><span class="o">/</span><span class="n">fill_conf_values</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">config</span><span class="o">=</span><span class="s2">&quot;config.yaml&quot;</span> <span class="n">static</span><span class="o">/</span><span class="n">js</span><span class="o">/</span><span class="n">component</span><span class="o">.</span><span class="n">jsx</span><span class="o">.</span><span class="n">template</span>
 </pre></div>
 </div>
+</section>
+<section id="adding-external-services">
+<h2>Adding external services<a class="headerlink" href="#adding-external-services" title="Link to this heading"></a></h2>
+<p>External services are <a class="reference external" href="usage.md#microservices">microservices</a> that are cloned from a git repository and run as part of your application.
+Their behavior is identical to built-in microservices, they just live in remote repositories.
+This is useful for integrating third-party services or custom scripts.</p>
+<p>Add external services in the <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> file under the <code class="docutils literal notranslate"><span class="pre">services.external</span></code> key:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">services</span><span class="p">:</span>
+  <span class="n">external</span><span class="p">:</span>
+    <span class="n">my_service</span><span class="p">:</span>
+        <span class="n">repo</span><span class="p">:</span> <span class="s2">&quot;https://github.com/my_service.git&quot;</span>
+        <span class="n">rev</span><span class="p">:</span> <span class="n">abc01234</span>  <span class="c1"># SHA revision specification</span>
+    <span class="n">another_service</span><span class="p">:</span>
+        <span class="n">url</span><span class="p">:</span> <span class="s2">&quot;https://github.com/another_service.git&quot;</span>
+        <span class="n">rev</span><span class="p">:</span> <span class="n">v0</span><span class="mf">.1.0</span>  <span class="c1"># tag revision specification</span>
+        <span class="n">params</span><span class="p">:</span>
+            <span class="n">endpoint</span><span class="p">:</span> <span class="s2">&quot;https://api.example.com&quot;</span>
+</pre></div>
+</div>
+<p>You must provide the <code class="docutils literal notranslate"><span class="pre">repo</span></code> git URL, as well as a revision (SHA, tag, or branch).</p>
+<p>Additional configuration options can be passed through the <code class="docutils literal notranslate"><span class="pre">params</span></code> dictionary, which the service uses.</p>
+<p>The external service will then be started and managed by <code class="docutils literal notranslate"><span class="pre">supervisord</span></code> alongside other services.</p>
+<section id="external-service-requirements">
+<h3>External Service Requirements<a class="headerlink" href="#external-service-requirements" title="Link to this heading"></a></h3>
+<p>To work correctly with the application, external services should follow these conventions:</p>
+<section id="entry-point">
+<h4>Entry Point<a class="headerlink" href="#entry-point" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p>The service should include a <code class="docutils literal notranslate"><span class="pre">main.py</span></code> file as its entry point.</p></li>
+<li><p>If the entry point differs, a <code class="docutils literal notranslate"><span class="pre">supervisord.conf</span></code> must be provided in the repository, pointing to the correct entry point.</p></li>
+</ul>
+</section>
+<section id="project-metadata-and-compatibility">
+<h4>Project Metadata and Compatibility<a class="headerlink" href="#project-metadata-and-compatibility" title="Link to this heading"></a></h4>
+<p>External services may include a <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> file to provide metadata and compatibility information.
+It specifies plugin meta-data, and also compatibility with other packages—enforced by baselayer.</p>
+<p>In this file:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project]</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_service&quot;</span>
+<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
+<span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;A micro-service to add to an application built on top of baselayer&quot;</span>
+<span class="n">authors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;John Doe&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;john.doe@example.com&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+
+<span class="k">[tool.compatibility]</span>
+<span class="n">compatible-with</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;skyportal&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;&gt;=1.4.0&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>The name of the service must be specified, matching the external service name in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.</p></li>
+<li><p>It may define a <code class="docutils literal notranslate"><span class="pre">[tool.compatibility]</span></code> section with a <code class="docutils literal notranslate"><span class="pre">compatible-with</span></code> field. This field specifies which package versions the service is compatible with. If the version requirement is not met, the external service will not be started.</p></li>
+</ul>
+</section>
+<section id="default-configuration">
+<h4>Default Configuration<a class="headerlink" href="#default-configuration" title="Link to this heading"></a></h4>
+<p>A <code class="docutils literal notranslate"><span class="pre">config.yaml.defaults</span></code> file can be provided to set service configuration defaults.
+These values can be overridden in the app’s <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> under the <code class="docutils literal notranslate"><span class="pre">services.external.&lt;name-of-this-service&gt;.config</span></code> keys:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">services</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">external</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">my_service</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://api.example.com&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 </section>
 
