@@ -10,11 +10,17 @@ def get_js_installer():
         data = {}
 
     packageManager = data.get("packageManager", "npm@")
+    packageManagerVersion = None
     managers = ("pnpm", "yarn", "bun", "npm")
 
+    if packageManager.count("@") == 1:
+        parts = packageManager.split("@")
+        packageManager = parts[0]
+        packageManagerVersion = parts[1] if len(parts) > 1 else None
+
     for manager in managers:
-        if manager in packageManager:
-            return manager
+        if packageManager.startswith(manager):
+            return manager, packageManagerVersion
 
 
 if __name__ == "__main__":
