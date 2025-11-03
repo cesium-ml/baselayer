@@ -6,6 +6,7 @@ import textwrap
 
 from packaging.version import Version
 from status import status
+from get_js_installer import get_js_installer
 
 
 def output(cmd):
@@ -14,6 +15,8 @@ def output(cmd):
     success = p.returncode == 0
     return success, out
 
+
+js_installer = get_js_installer()
 
 deps = {
     "nginx": (
@@ -29,7 +32,7 @@ deps = {
         lambda v: v.split("\n")[-1].split()[2],
         "12.0",
     ),
-    "pnpm": (["pnpm", "-v"], lambda v: v, "10.17.1"),
+    js_installer: ([js_installer, "-v"], lambda v: v, "0.0.0"),
     "node": (["node", "-v"], lambda v: v[1:], "22.0.0"),
     "python": (["python", "--version"], lambda v: v.split()[1], "3.8"),
 }
