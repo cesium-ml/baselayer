@@ -24,4 +24,5 @@ def get_js_installer():
 
 
 if __name__ == "__main__":
-    print(get_js_installer())
+    installer, version = get_js_installer()
+    print(installer)
