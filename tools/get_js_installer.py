@@ -16,7 +16,7 @@ def get_js_installer():
     if packageManager.count("@") == 1:
         parts = packageManager.split("@")
         packageManager = parts[0]
-        packageManagerVersion = parts[1] if len(parts) > 1 else None
+        packageManagerVersion = parts[1].strip() if len(parts.strip()) > 1 else None
 
     for manager in managers:
         if packageManager.startswith(manager):
