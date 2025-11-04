@@ -16,7 +16,7 @@ def output(cmd):
     return success, out
 
 
-js_installer = get_js_installer()
+js_installer, js_installer_version = get_js_installer()
 
 deps = {
     "nginx": (
@@ -32,8 +32,12 @@ deps = {
         lambda v: v.split("\n")[-1].split()[2],
         "12.0",
     ),
-    js_installer: ([js_installer, "-v"], lambda v: v, "0.0.0"),
-    "node": (["node", "-v"], lambda v: v[1:], "22.0.0"),
+    js_installer: (
+        [js_installer, "--version"],
+        lambda v: v.strip(),
+        js_installer_version if js_installer_version is not None else "0.0.0",
+    ),
+    "node": (["node", "-v"], lambda v: v[1:], "20.0.0"),
     "python": (["python", "--version"], lambda v: v.split()[1], "3.8"),
 }
 
