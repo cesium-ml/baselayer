@@ -1,5 +1,0 @@
-sphinx
-recommonmark
-numpydoc
-sphinx-rtd-theme
-notedown

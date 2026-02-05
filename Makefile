@@ -41,19 +41,19 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@echo "$$ uv sync"
-	@uv sync
-	@baselayer/tools/check_app_environment.py
-	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
+	@echo "$$ uv sync --inexact"
+	@uv sync --inexact  # don't remove additional dependencies installed by the user
+	@$(PYTHON) ./baselayer/tools/check_app_environment.py
+	@baselayer/tools/check_js_deps.sh
 
 db_init: ## Initialize database and models.
 db_init: dependencies
 	@echo -e "\nInitializing database:"
-	@PYTHONPATH=. baselayer/tools/db_init.py $(FLAGS)
+	@$(PYTHON) ./baselayer/tools/db_init.py $(FLAGS)
 
 db_clear: ## Delete all data from the database.
 db_clear: dependencies
-	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
+	@$(PYTHON) ./baselayer/tools/silent_monitor.py ./baselayer/tools/db_init.py -f $(FLAGS)
 
 $(bundle): rspack.config.js package.json
 	@$(rspack)
@@ -73,11 +73,11 @@ fill_conf_values:
 system_setup: | paths dependencies fill_conf_values service_setup
 
 service_setup:
-	@PYTHONPATH=. python ./baselayer/tools/setup_services.py $(FLAGS)
+	@$(PYTHON) ./baselayer/tools/setup_services.py $(FLAGS)
 
 log: ## Monitor log files for all services.
 log: paths
-	@PYTHONPATH=. PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
+	@PYTHONPATH=. PYTHONUNBUFFERED=1 uv run python ./baselayer/tools/watch_logs.py
 
 run: ## Start the web application.
 run: FLAGS:=$(FLAGS) --debug
@@ -132,19 +132,19 @@ stop: ## Stop all running services.
 	$(SUPERVISORCTL) stop all
 
 status:
-	@PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
+	@$(PYTHON) ./baselayer/tools/supervisor_status.py
 
 test: ## Run tests.
 test: system_setup
-	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml
+	@$(PYTHON) ./baselayer/tools/test_frontend.py --xml
 
 test_report: ## Print report on failed tests
 test_report:
-	@PYTHONPATH='.' baselayer/tools/junitxml_report.py test-results/junit.xml
+	@$(PYTHON) ./baselayer/tools/junitxml_report.py test-results/junit.xml
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
-	./baselayer/tools/check_js_updates.sh
+	uv run ./baselayer/tools/check_js_updates.sh
 
 # Lint targets
 lint-install: ## Install ESLint and a git pre-commit hook.
@@ -178,8 +178,7 @@ lint-githook:
 
 # Documentation targets, run from the `baselayer` directory
 baselayer_doc_reqs:
-	uv sync --group test
-	pip install -q -r requirements.docs.txt
+	uv sync --group docs --inexact
 
 baselayer_html: | baselayer_doc_reqs
-	export SPHINXOPTS=-W; make -C doc html
+	export SPHINXOPTS=-W; uv run make -C doc html

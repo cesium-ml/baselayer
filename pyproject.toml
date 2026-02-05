@@ -37,3 +37,10 @@ test = [
     "pytest>=8.0.0",
     "pytest-playwright>=0.7.1",
 ]
+docs = [
+    "notedown>=1.5.1",
+    "numpydoc>=1.10.0; python_version >= '3.12'",  # Can remove these tags once Sphinx supports all baselayer supported Python versions
+    "recommonmark>=0.7.1",
+    "sphinx>=9.1.0; python_version >= '3.12'",
+    "sphinx-rtd-theme>=3.1.0",
+]
