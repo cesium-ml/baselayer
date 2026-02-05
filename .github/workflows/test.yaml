@@ -43,6 +43,10 @@ jobs:
           git clone --depth=1 https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
+      - name: "List files"
+        run: |
+          ls -1
+
       - name: "Set up Python"
         uses: actions/setup-python@v6
         with:
