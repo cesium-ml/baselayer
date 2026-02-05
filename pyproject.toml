@@ -7,6 +7,7 @@ dependencies = [
     "distributed>=2023.1.1",
     "jinja2>=2.11.2",
     "numpy>=1.21.4",
+    "packaging>=23.0",
     "phonenumbers>=8.12.15",
     "psycopg2-binary>=2.8.6",
     "pyjwt>=2.0.1",
@@ -20,7 +21,7 @@ dependencies = [
     "sqlalchemy>=2.0.38,<3",
     "sqlalchemy-utils>=0.36.8",
     "supervisor>=4.3",
-    "tomli ; python_full_version < '3.11'",
+    "tomli >= 2.1.0; python_full_version < '3.11'",
     "tornado>=6.0.3",
 ]
 
