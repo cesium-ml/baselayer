@@ -7,7 +7,7 @@ ESLINT=npx eslint
 # through setting FLAGS environment variable
 FLAGS:=$(if $(FLAGS),$(FLAGS),--config=config.yaml)
 
-PYTHON=PYTHONPATH=. python
+PYTHON=uv run python
 ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
 
 # Flags are propagated to supervisord via the FLAGS environment variable
@@ -41,9 +41,9 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@PYTHONPATH=. pip install packaging
+	@echo "$$ uv sync"
+	@uv sync
 	@baselayer/tools/check_app_environment.py
-	@PYTHONPATH=. python baselayer/tools/pip_install_requirements.py baselayer/requirements.txt requirements.txt
 	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
 db_init: ## Initialize database and models.
@@ -178,6 +178,7 @@ lint-githook:
 
 # Documentation targets, run from the `baselayer` directory
 baselayer_doc_reqs:
+	uv sync --group test
 	pip install -q -r requirements.docs.txt
 
 baselayer_html: | baselayer_doc_reqs
