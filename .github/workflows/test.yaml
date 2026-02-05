@@ -35,10 +35,6 @@ jobs:
       PY_COLORS: "1"
 
     steps:
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -46,6 +42,14 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "baselayer_template_app/pyproject.toml"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -56,12 +60,12 @@ jobs:
         with:
           node-version: "22.x"
 
-      - name: Set up pip cache
+      - name: Set up uv cache
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+            ~/.cache/uv
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/uv.lock') }}
 
       - name: Set up pnpm cache
         uses: actions/cache@v4
@@ -73,7 +77,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          pip install -r baselayer_template_app/baselayer/requirements.test.txt
+          uv sync --locked --group test
 
       - name: Export Playwright version
         run: |
