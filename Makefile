@@ -43,17 +43,17 @@ help:
 dependencies: README.md
 	@echo "$$ uv sync --inexact"
 	@uv sync --inexact  # don't remove additional dependencies installed by the user
-	@uv run ./baselayer/tools/check_app_environment.py
-	@uv run ./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
+	@$(PYTHON) ./baselayer/tools/check_app_environment.py
+	@$(PYTHON) ./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
 db_init: ## Initialize database and models.
 db_init: dependencies
 	@echo -e "\nInitializing database:"
-	@PYTHONPATH=. uv run ./baselayer/tools/db_init.py $(FLAGS)
+	@$(PYTHON) ./baselayer/tools/db_init.py $(FLAGS)
 
 db_clear: ## Delete all data from the database.
 db_clear: dependencies
-	@PYTHONPATH=. uv run ./baselayer/tools/silent_monitor.py ./baselayer/tools/db_init.py -f $(FLAGS)
+	@$(PYTHON) ./baselayer/tools/silent_monitor.py ./baselayer/tools/db_init.py -f $(FLAGS)
 
 $(bundle): rspack.config.js package.json
 	@$(rspack)
@@ -68,16 +68,16 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find -L . -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find -L . -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run python ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 system_setup: | paths dependencies fill_conf_values service_setup
 
 service_setup:
-	@PYTHONPATH=. uv run ./baselayer/tools/setup_services.py $(FLAGS)
+	@$(PYTHON) ./baselayer/tools/setup_services.py $(FLAGS)
 
 log: ## Monitor log files for all services.
 log: paths
-	@PYTHONPATH=. PYTHONUNBUFFERED=1 uv run ./baselayer/tools/watch_logs.py
+	@PYTHONPATH=. PYTHONUNBUFFERED=1 uv run python ./baselayer/tools/watch_logs.py
 
 run: ## Start the web application.
 run: FLAGS:=$(FLAGS) --debug
@@ -132,15 +132,15 @@ stop: ## Stop all running services.
 	$(SUPERVISORCTL) stop all
 
 status:
-	@PYTHONPATH='.' uv run ./baselayer/tools/supervisor_status.py
+	@$(PYTHON) ./baselayer/tools/supervisor_status.py
 
 test: ## Run tests.
 test: system_setup
-	@PYTHONPATH='.' uv run ./baselayer/tools/test_frontend.py --xml
+	@$(PYTHON) ./baselayer/tools/test_frontend.py --xml
 
 test_report: ## Print report on failed tests
 test_report:
-	@PYTHONPATH='.' uv run ./baselayer/tools/junitxml_report.py test-results/junit.xml
+	@$(PYTHON) ./baselayer/tools/junitxml_report.py test-results/junit.xml
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
