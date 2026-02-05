@@ -43,14 +43,10 @@ jobs:
           git clone --depth=1 https://github.com/cesium-ml/baselayer_template_app
           cp -rf baselayer baselayer_template_app/
 
-      - name: "List files"
-        run: |
-          ls -1
-
       - name: "Set up Python"
         uses: actions/setup-python@v6
         with:
-          python-version-file: "baselayer_template_app/pyproject.toml"
+          python-version-file: "./baselayer_template_app/pyproject.toml"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
