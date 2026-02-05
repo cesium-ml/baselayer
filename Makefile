@@ -44,7 +44,7 @@ dependencies: README.md
 	@echo "$$ uv sync --inexact"
 	@uv sync --inexact  # don't remove additional dependencies installed by the user
 	@$(PYTHON) ./baselayer/tools/check_app_environment.py
-	@$(PYTHON) ./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
+	@$(PYTHON) baselayer/tools/check_js_deps.sh
 
 db_init: ## Initialize database and models.
 db_init: dependencies
