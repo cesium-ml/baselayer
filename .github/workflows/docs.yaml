@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --python ${{ env.PYTHON_VERSION }} --group docs
+          uv sync --group docs
 
       - name: Build docs
         run: |
