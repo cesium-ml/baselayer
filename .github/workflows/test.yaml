@@ -66,6 +66,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
+          cd baselayer_template_app
           uv sync --locked --only-group test
 
       - name: Export Playwright version
