@@ -1,4 +1,4 @@
-SHELL = /bin/bash
+SHELL=/bin/bash
 ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
@@ -7,7 +7,7 @@ ESLINT=npx eslint
 # through setting FLAGS environment variable
 FLAGS:=$(if $(FLAGS),$(FLAGS),--config=config.yaml)
 
-PYTHON=uv run python
+PYTHON:=PYTHONPATH=. uv run python
 ENV_SUMMARY=$(PYTHON) baselayer/tools/env_summary.py $(FLAGS)
 
 # Flags are propagated to supervisord via the FLAGS environment variable
@@ -68,7 +68,7 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find -L . -name '[^.]*.template' | grep -v "node_modules" | PYTHONPATH=. xargs ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find -L . -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run python ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 system_setup: | paths dependencies fill_conf_values service_setup
 
