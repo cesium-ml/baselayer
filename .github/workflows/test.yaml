@@ -6,10 +6,6 @@ on:
       - main
   pull_request:
 
-defaults:
-  run:
-    working-directory: ..
-
 jobs:
   test:
     name: Test Baselayer
@@ -37,19 +33,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          path: "baselayer"
 
       - name: Install template app
         run: |
           git clone --depth=1 https://github.com/cesium-ml/baselayer_template_app
-          cp -rf baselayer baselayer_template_app/
+          rm -rf baselayer_template_app/baselayer
+          mv baselayer baselayer_template_app/
 
       - name: "Set up Python"
         uses: actions/setup-python@v6
         with:
-          python-version-file: "./baselayer_template_app/pyproject.toml"
+          python-version-file: "baselayer_template_app/pyproject.toml"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "baselayer_template_app/uv.lock"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -59,29 +61,17 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "22.x"
-
-      - name: Set up uv cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/uv.lock') }}
-
-      - name: Set up pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm-packages
-          # Hash is not currently correctly calculated; why not?
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/package.json') }}
+          cache: "pnpm"
+          cache-dependency-path: "baselayer_template_app/pnpm-lock.yaml"
 
       - name: Install test dependencies
         run: |
-          uv sync --locked --group test
+          uv sync --locked --only-group test
 
       - name: Export Playwright version
         run: |
-          PV=$(playwright --version | awk '{print $2}')
+          cd baselayer_template_app
+          PV=$(uv run playwright --version | awk '{print $2}')
           echo "PLAYWRIGHT_VERSION=$PV" >> "$GITHUB_ENV"
 
       - uses: actions/cache@v4
@@ -92,45 +82,44 @@ jobs:
 
       - name: Install Playwright Firefox
         run: |
-          playwright install firefox
+          cd baselayer_template_app
+          uv run playwright install firefox
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget nodejs unzip nginx
-
-          # if nginx is already installed, remove it
+          # Remove existing nginx to ensure clean install from PPA
           sudo apt-get remove -y nginx nginx-common nginx-core nginx-full
           sudo apt-get purge -y nginx nginx-common nginx-core nginx-full
 
           # add the PPA repository with brotli support for nginx
           sudo add-apt-repository ppa:ondrej/nginx -y
-          sudo apt-get update -y
-          sudo apt-get install nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter -y
 
-          export NPM_PACKAGES="${HOME}/.npm-packages"
-          export PATH=${NPM_PACKAGES}/bin:$PATH
+          sudo apt-get update -y
+          sudo apt-get install -y wget unzip nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter
+
+          echo "NPM_PACKAGES=${HOME}/.npm-packages" >> "$GITHUB_ENV"
+          echo "${HOME}/.npm-packages/bin" >> "$GITHUB_PATH"
 
       - name: Write configuration & build DB
         run: |
           cd baselayer_template_app
 
           cat << EOF > config.yaml
-            database:
-              database: template_app
-              user: baselayer
-              host: localhost
-              port: 5432
-              password: anything
+          database:
+            database: template_app
+            user: baselayer
+            host: localhost
+            port: 5432
+            password: anything
           EOF
 
           cat << EOF > test_config.yaml
-            database:
-              database: template_app_test
-              user: baselayer
-              host: localhost
-              port: 5432
-              password: anything
+          database:
+            database: template_app_test
+            user: baselayer
+            host: localhost
+            port: 5432
+            password: anything
           EOF
 
           echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
