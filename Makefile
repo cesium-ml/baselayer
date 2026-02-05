@@ -49,11 +49,11 @@ dependencies: README.md
 db_init: ## Initialize database and models.
 db_init: dependencies
 	@echo -e "\nInitializing database:"
-	@PYTHONPATH=. baselayer/tools/db_init.py $(FLAGS)
+	@PYTHONPATH=. uv run ./baselayer/tools/db_init.py $(FLAGS)
 
 db_clear: ## Delete all data from the database.
 db_clear: dependencies
-	@PYTHONPATH=. baselayer/tools/silent_monitor.py baselayer/tools/db_init.py -f $(FLAGS)
+	@PYTHONPATH=. uv run ./baselayer/tools/silent_monitor.py ./baselayer/tools/db_init.py -f $(FLAGS)
 
 $(bundle): rspack.config.js package.json
 	@$(rspack)
@@ -77,7 +77,7 @@ service_setup:
 
 log: ## Monitor log files for all services.
 log: paths
-	@PYTHONPATH=. PYTHONUNBUFFERED=1 baselayer/tools/watch_logs.py
+	@PYTHONPATH=. PYTHONUNBUFFERED=1 uv run ./baselayer/tools/watch_logs.py
 
 run: ## Start the web application.
 run: FLAGS:=$(FLAGS) --debug
@@ -140,7 +140,7 @@ test: system_setup
 
 test_report: ## Print report on failed tests
 test_report:
-	@PYTHONPATH='.' baselayer/tools/junitxml_report.py test-results/junit.xml
+	@PYTHONPATH='.' uv run ./baselayer/tools/junitxml_report.py test-results/junit.xml
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
