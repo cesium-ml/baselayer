@@ -41,10 +41,10 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@echo "$$ uv sync"
-	@uv sync
-	@baselayer/tools/check_app_environment.py
-	@./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
+	@echo "$$ uv sync --inexact"
+	@uv sync --inexact  # don't remove additional dependencies installed by the user
+	@uv run ./baselayer/tools/check_app_environment.py
+	@uv run ./baselayer/tools/silent_monitor.py baselayer/tools/check_js_deps.sh
 
 db_init: ## Initialize database and models.
 db_init: dependencies
@@ -68,12 +68,12 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find -L . -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run python ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	@find -L . -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 system_setup: | paths dependencies fill_conf_values service_setup
 
 service_setup:
-	@PYTHONPATH=. python ./baselayer/tools/setup_services.py $(FLAGS)
+	@PYTHONPATH=. uv run ./baselayer/tools/setup_services.py $(FLAGS)
 
 log: ## Monitor log files for all services.
 log: paths
@@ -132,11 +132,11 @@ stop: ## Stop all running services.
 	$(SUPERVISORCTL) stop all
 
 status:
-	@PYTHONPATH='.' ./baselayer/tools/supervisor_status.py
+	@PYTHONPATH='.' uv run ./baselayer/tools/supervisor_status.py
 
 test: ## Run tests.
 test: system_setup
-	@PYTHONPATH='.' ./baselayer/tools/test_frontend.py --xml
+	@PYTHONPATH='.' uv run ./baselayer/tools/test_frontend.py --xml
 
 test_report: ## Print report on failed tests
 test_report:
@@ -144,7 +144,7 @@ test_report:
 
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
-	./baselayer/tools/check_js_updates.sh
+	uv run ./baselayer/tools/check_js_updates.sh
 
 # Lint targets
 lint-install: ## Install ESLint and a git pre-commit hook.
@@ -178,8 +178,7 @@ lint-githook:
 
 # Documentation targets, run from the `baselayer` directory
 baselayer_doc_reqs:
-	uv sync --group test
-	pip install -q -r requirements.docs.txt
+	uv sync --group docs --inexact
 
 baselayer_html: | baselayer_doc_reqs
-	export SPHINXOPTS=-W; make -C doc html
+	export SPHINXOPTS=-W; uv run make -C doc html
