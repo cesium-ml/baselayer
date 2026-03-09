@@ -2,7 +2,7 @@
 
 set -e
 
-export NPM_CHECK_INSTALLER=$(python baselayer/tools/get_js_installer.py)
+export NPM_CHECK_INSTALLER=$(PYTHONPATH=. uv run python baselayer/tools/get_js_installer.py)
 CHECKER="npx npm-check"
 
 if ( ! $CHECKER --version > /dev/null 2>&1 ); then

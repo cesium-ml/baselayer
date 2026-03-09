@@ -2,7 +2,7 @@
 
 set -e
 
-INSTALLER=$(python baselayer/tools/get_js_installer.py)
+INSTALLER=$(PYTHONPATH=. uv run python baselayer/tools/get_js_installer.py)
 CHECKER="node_modules/.bin/check-dependencies"
 
 if [[ ! -x ${CHECKER} ]]; then
