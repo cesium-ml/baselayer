@@ -319,8 +319,18 @@ def git_checkout_plugin(url: str, rev: str, plugin_name: str, plugin_path: str) 
         clone_args = ["clone", "--depth", "1", url, f"--revision={rev}", plugin_path]
         try:
             run_git_command(clone_args, ".")
+            return True
         except RuntimeError:
-            return False
+            log(
+                f"Failed to clone external service {plugin_name} with --revision, trying without it for better compatibility with older git versions."
+            )
+            clone_args = ["clone", "--depth", "1", url, plugin_path]
+            try:
+                run_git_command(clone_args, ".")
+                return True
+            except RuntimeError as e:
+                log(f"Failed to clone external service {plugin_name}: {e}")
+                return False
 
     checkout_rev = get_rev(plugin_path)
     if checkout_rev == rev:
@@ -334,7 +344,8 @@ def git_checkout_plugin(url: str, rev: str, plugin_name: str, plugin_path: str) 
         # since it's a shallow clone, we need to fetch the specific SHA
         run_git_command(["fetch", "--depth=1", "origin", rev], plugin_path)
         run_git_command(["checkout", "FETCH_HEAD"], plugin_path)
-    except RuntimeError:
+    except RuntimeError as e:
+        log(f"Failed to checkout external service {plugin_name}: {e}")
         return False
 
     return True
