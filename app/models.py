@@ -39,6 +39,100 @@ session_context_id = contextvars.ContextVar("request_id", default=None)
 DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
+def _normalize_numpy_value(value):
+    """Recursively convert NumPy values to native Python types.
+
+    Returns
+    -------
+    tuple
+        A tuple of (normalized_value, changed) where changed indicates whether
+        any conversion occurred.
+    """
+    if not isinstance(value, (np.generic, np.ndarray, list, tuple, dict)):
+        return value, False
+
+    if isinstance(value, np.generic):
+        return value.item(), True
+
+    if isinstance(value, np.ndarray):
+        items = value.tolist()
+        changed = True
+        for idx, item in enumerate(items):
+            normalized_item, item_changed = _normalize_numpy_value(item)
+            if item_changed:
+                items[idx] = normalized_item
+            changed = changed or item_changed
+        return items, changed
+
+    if isinstance(value, list):
+        changed = False
+        normalized = value
+        for idx, item in enumerate(value):
+            normalized_item, item_changed = _normalize_numpy_value(item)
+            if item_changed:
+                if not changed:
+                    normalized = list(value)
+                normalized[idx] = normalized_item
+                changed = True
+        return normalized, changed
+
+    if isinstance(value, tuple):
+        changed = False
+        normalized = list(value)
+        for idx, item in enumerate(value):
+            normalized_item, item_changed = _normalize_numpy_value(item)
+            if item_changed:
+                normalized[idx] = normalized_item
+                changed = True
+        if changed:
+            return tuple(normalized), True
+        return value, False
+
+    if isinstance(value, dict):
+        changed = False
+        normalized = value
+        for key, val in value.items():
+            normalized_key, key_changed = _normalize_numpy_value(key)
+            normalized_val, val_changed = _normalize_numpy_value(val)
+            if key_changed or val_changed:
+                if not changed:
+                    normalized = dict(value)
+                if key_changed and key in normalized:
+                    del normalized[key]
+                normalized[normalized_key] = normalized_val
+                changed = True
+        return normalized, changed
+
+    return value, False
+
+
+@sa.event.listens_for(sa.orm.Session, "before_flush")
+def _normalize_numpy_before_flush(session, flush_context, instances):
+    """Normalize NumPy types on pending ORM writes with minimal per-flush work."""
+    for obj in session.new:
+        state = sa.inspect(obj)
+        for attr in state.mapper.column_attrs:
+            current = getattr(obj, attr.key)
+            normalized, changed = _normalize_numpy_value(current)
+            if changed:
+                setattr(obj, attr.key, normalized)
+
+    for obj in session.dirty:
+        state = sa.inspect(obj)
+        if state.deleted:
+            continue
+
+        for attr in state.mapper.column_attrs:
+            attr_state = state.attrs[attr.key]
+            if not attr_state.history.has_changes():
+                continue
+
+            current = attr_state.value
+            normalized, changed = _normalize_numpy_value(current)
+            if changed:
+                setattr(obj, attr.key, normalized)
+
+
 class _VerifiedSession(sa.orm.session.Session):
     """
     Create an instance of Session when you
