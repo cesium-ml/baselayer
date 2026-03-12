@@ -106,31 +106,24 @@ def _normalize_numpy_value(value):
     return value, False
 
 
-@sa.event.listens_for(sa.orm.Session, "before_flush")
-def _normalize_numpy_before_flush(session, flush_context, instances):
-    """Normalize NumPy types on pending ORM writes with minimal per-flush work."""
-    for obj in session.new:
-        state = sa.inspect(obj)
-        for attr in state.mapper.column_attrs:
-            current = getattr(obj, attr.key)
-            normalized, changed = _normalize_numpy_value(current)
-            if changed:
-                setattr(obj, attr.key, normalized)
+def _normalize_numpy_on_mapped_instance(target, only_changed=False):
+    """Normalize NumPy values on mapped column attributes for one ORM instance."""
+    state = sa.inspect(target)
+    if state.deleted:
+        return
 
-    for obj in session.dirty:
-        state = sa.inspect(obj)
-        if state.deleted:
-            continue
-
-        for attr in state.mapper.column_attrs:
+    for attr in state.mapper.column_attrs:
+        if only_changed:
             attr_state = state.attrs[attr.key]
             if not attr_state.history.has_changes():
                 continue
-
             current = attr_state.value
-            normalized, changed = _normalize_numpy_value(current)
-            if changed:
-                setattr(obj, attr.key, normalized)
+        else:
+            current = getattr(target, attr.key)
+
+        normalized, changed = _normalize_numpy_value(current)
+        if changed:
+            setattr(target, attr.key, normalized)
 
 
 class _VerifiedSession(sa.orm.session.Session):
@@ -1768,6 +1761,18 @@ class BaseMixin:
 
 
 Base = declarative_base(cls=BaseMixin)
+
+
+@sa.event.listens_for(Base, "before_insert", propagate=True)
+def _normalize_numpy_before_insert(mapper, connection, target):
+    """Normalize values right before INSERT for all mapped models."""
+    _normalize_numpy_on_mapped_instance(target, only_changed=False)
+
+
+@sa.event.listens_for(Base, "before_update", propagate=True)
+def _normalize_numpy_before_update(mapper, connection, target):
+    """Normalize only changed values right before UPDATE for all mapped models."""
+    _normalize_numpy_on_mapped_instance(target, only_changed=True)
 
 
 class JoinModel:
