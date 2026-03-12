@@ -267,7 +267,6 @@ def init_db(
     conn = sa.create_engine(
         url,
         client_encoding="utf8",
-        executemany_mode="values_plus_batch",
         insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
         echo=log_database,
         echo_pool=log_database_pool,
