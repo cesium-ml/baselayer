@@ -256,7 +256,7 @@ def init_db(
            Default 3600.
 
     """
-    url = "postgresql://{}:{}@{}:{}/{}"
+    url = "postgresql+psycopg://{}:{}@{}:{}/{}"
     url = url.format(user, password or "", host or "", port or "", database)
 
     default_engine_args = {
