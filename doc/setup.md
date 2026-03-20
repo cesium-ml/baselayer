@@ -83,7 +83,7 @@ See [below](#configuration) for more information on modifying the baselayer conf
 
 ### Username generation
 
-When `server.auth.username_is_full_email` is set to `True` (the default), the user's full email address is used as their username.
+When `server.auth.username_is_email` is set to `True` (the default), the user's email address is used as their username.
 
 When set to `False`, the username is derived from the `username` field provided by the OAuth provider. For Google OAuth2, this is typically the local part of the email address (everything before `@`, e.g., `john.doe` from `john.doe@example.com`).
 

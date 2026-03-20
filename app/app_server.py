@@ -30,7 +30,7 @@ settings = {
     "SOCIAL_AUTH_LOGIN_ERROR_URL": "/login-error/",
     "SOCIAL_AUTH_USER_FIELDS": ["username"],
     "SOCIAL_AUTH_USERNAME_IS_FULL_EMAIL": cfg.get(
-        "server.auth.username_is_full_email", True
+        "server.auth.username_is_email", True
     ),
     "SOCIAL_AUTH_SESSION_EXPIRATION": True,
     "SOCIAL_AUTH_GOOGLE_OAUTH2_KEY": cfg["server.auth.google_oauth2_key"],
