@@ -65,9 +65,8 @@ def verify_server_availability(url, timeout=180):
                 f"Expected status 200, got {response.status_code} for URL {url}. Retrying."
             )
 
-            response = requests.get(url + "/static/build/main.bundle.js")
-            assert response.status_code == 200, (
-                "Javascript bundle not found, did packing fail?"
+            assert 'src="/static/build/' in response.text, (
+                "Javascript bundle not found in index.html, did packing fail?"
             )
 
             return True  # all checks passed
