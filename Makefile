@@ -24,7 +24,6 @@ B=\033[1m
 # Normal
 N=\033[0m
 
-bundle = static/build/main.bundle.js
 rspack = npx rspack
 
 # NOTE: These targets are meant to be *included* in the parent app
@@ -35,7 +34,7 @@ rspack = npx rspack
 .PHONY: stop status test_headless test test_report check-js-updates lint-install
 .PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
 .PHONY: system_setup service_setup
-.PHONY: $(bundle) bundle bundle-watch
+.PHONY: bundle bundle-watch
 
 help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
@@ -55,10 +54,8 @@ db_clear: ## Delete all data from the database.
 db_clear: dependencies
 	@$(PYTHON) ./baselayer/tools/silent_monitor.py ./baselayer/tools/db_init.py -f $(FLAGS)
 
-$(bundle): rspack.config.js package.json
+bundle:
 	@$(rspack)
-
-bundle: $(bundle)
 
 bundle-watch:
 	$(rspack) -w
@@ -126,7 +123,7 @@ attach: ## Attach to terminal of running webserver; useful to, e.g., use pdb.
 	@echo "$(SUPERVISORCTL) fg app:app_NN"
 
 clean:
-	rm -f $(bundle)
+	rm -rf static/build
 
 stop: ## Stop all running services.
 	$(SUPERVISORCTL) stop all
