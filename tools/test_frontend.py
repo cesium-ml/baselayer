@@ -65,8 +65,9 @@ def verify_server_availability(url, timeout=180):
                 f"Expected status 200, got {response.status_code} for URL {url}. Retrying."
             )
 
-            assert 'src="/static/build/' in response.text, (
-                "Javascript bundle not found in index.html, did packing fail?"
+            bundle_dir = pathlib.Path("static/build")
+            assert bundle_dir.exists() and any(bundle_dir.glob("main*.bundle.js")), (
+                "Javascript bundle not found in static/build/, did packing fail?"
             )
 
             return True  # all checks passed
@@ -131,7 +132,6 @@ if __name__ == "__main__":
     )
 
     server_url = f"http://localhost:{cfg['ports.app']}"
-    print()
     log(f"Waiting for server to appear at {server_url}...")
 
     exit_status = (0, "OK")
