@@ -81,6 +81,12 @@ See [below](#configuration) for more information on modifying the baselayer conf
 - If you want other users to be able to log in:
   - Provide Google auth credentials, obtained as described in `config.yaml`.
 
+### Username generation
+
+When `server.auth.username_is_email` is set to `True` (the default), the user's email address is used as their username.
+
+When set to `False`, the username is derived from the `username` field provided by the OAuth provider. For Google OAuth2, this is typically the local part of the email address (everything before `@`, e.g., `john.doe` from `john.doe@example.com`). If that username is already taken, a random suffix is appended until a unique username is found. This logic is handled by the [social_core](https://github.com/python-social-auth/social-core/blob/e4a1d35ce2d201bc3cc1fdea0a3764b35eb105c4/social_core/pipeline/user.py#L34) library.
+
 ## Launch
 
 Launch the app with `make run`.
