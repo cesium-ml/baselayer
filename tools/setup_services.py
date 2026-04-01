@@ -397,7 +397,7 @@ def initialize_external_services() -> list:
     plugins_path = cfg["services.paths"][-1]
     os.makedirs(plugins_path, exist_ok=True)
 
-    plugins = cfg.get("services.external", {})
+    plugins = cfg.get("services.external") or {}
     external_services = []
 
     for plugin_name, plugin_info in plugins.items():
