@@ -313,7 +313,6 @@ def git_checkout_plugin(url: str, rev: str, plugin_name: str, plugin_path: str) 
     bool
         Whether the operation was successful.
     """
-
     # If repository does not exist, clone it first
     if not os.path.exists(plugin_path):
         clone_args = ["clone", "--depth", "1", url, f"--revision={rev}", plugin_path]
@@ -327,7 +326,6 @@ def git_checkout_plugin(url: str, rev: str, plugin_name: str, plugin_path: str) 
             clone_args = ["clone", "--depth", "1", url, plugin_path]
             try:
                 run_git_command(clone_args, ".")
-                return True
             except RuntimeError as e:
                 log(f"Failed to clone external service {plugin_name}: {e}")
                 return False
