@@ -54,7 +54,10 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#building-the-baselayer-database">Building the baselayer database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#username-generation">Username generation</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#launch">Launch</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#deployment-options">Deployment options</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#debug-mode">Debug mode</a></li>
@@ -184,6 +187,11 @@ permissions have been properly configured).</p></li>
 </ul>
 </li>
 </ul>
+<section id="username-generation">
+<h3>Username generation<a class="headerlink" href="#username-generation" title="Link to this heading"></a></h3>
+<p>When <code class="docutils literal notranslate"><span class="pre">server.auth.username_is_email</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code> (the default), the user’s email address is used as their username.</p>
+<p>When set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, the username is derived from the <code class="docutils literal notranslate"><span class="pre">username</span></code> field provided by the OAuth provider. For Google OAuth2, this is typically the local part of the email address (everything before <code class="docutils literal notranslate"><span class="pre">&#64;</span></code>, e.g., <code class="docutils literal notranslate"><span class="pre">john.doe</span></code> from <code class="docutils literal notranslate"><span class="pre">john.doe&#64;example.com</span></code>). If that username is already taken, a random suffix is appended until a unique username is found. This logic is handled by the <a class="reference external" href="https://github.com/python-social-auth/social-core/blob/e4a1d35ce2d201bc3cc1fdea0a3764b35eb105c4/social_core/pipeline/user.py#L34">social_core</a> library.</p>
+</section>
 </section>
 <section id="launch">
 <h2>Launch<a class="headerlink" href="#launch" title="Link to this heading"></a></h2>
