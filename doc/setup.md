@@ -40,13 +40,10 @@ See [below](#configuration) for more information on modifying the baselayer conf
 - Using `apt-get`:
   `sudo apt-get install supervisor postgresql libpq-dev nodejs`
 
-  If you want to use [brotli compression](https://en.wikipedia.org/wiki/Brotli) with NGINX (better compression rates for the frontend), you have to install NGINX and the brotli module from another source with:
+  To install NGINX with [brotli compression](https://en.wikipedia.org/wiki/Brotli) support (better compression rates for the frontend), use the brotli modules from Ubuntu's `universe` component (available in 24.04 and later):
 
   ```
-  sudo apt remove -y nginx nginx-common nginx-core
-  sudo add-apt-repository ppa:ondrej/nginx-mainline -y
-  sudo apt update -y
-  sudo apt install -y nginx libnginx-mod-brotli
+  sudo apt-get install -y nginx libnginx-mod-http-brotli-static libnginx-mod-http-brotli-filter
   ```
 
   Otherwise, you can install NGINX normally with `sudo apt-get install nginx`.
