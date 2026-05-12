@@ -3,6 +3,7 @@ import traceback
 import uuid
 import warnings
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime
 from hashlib import md5
 
@@ -13,6 +14,11 @@ from slugify import slugify
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.asyncio import (
+    AsyncSession as SAAsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import (
     declarative_base,
@@ -185,6 +191,99 @@ def bulk_verify(mode, collection, accessor):
             handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
 
 
+# --- Async DB layer (parallel to the sync layer above) --------------------
+# Configured by init_db(). Sync engine/session remain authoritative for the
+# rest of the codebase; async path is opt-in per handler.
+async_engine = None
+# Verified factory (RLS check on commit), parallel to VerifiedSession.
+async_session_factory = None
+# Plain factory (no RLS check), parallel to DBSession.
+async_plain_session_factory = None
+
+
+class _AsyncVerifiedSession(SAAsyncSession):
+    """Async counterpart of `_VerifiedSession`. Runs RLS verification on
+    flush/commit using `async_bulk_verify`.
+
+    The `user_or_token` attribute is attached by `AsyncVerifiedSession()`
+    after instantiation; the session is otherwise a plain SQLAlchemy
+    `AsyncSession`.
+    """
+
+    user_or_token = None
+
+    async def verify(self):
+        new_rows = list(self.new)
+        updated_rows = [row for row in self.dirty if self.is_modified(row)]
+        deleted_rows = list(self.deleted)
+        read_rows = [
+            row
+            for row in set(self.identity_map.values())
+            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
+        ]
+
+        for mode, collection in zip(
+            ["read", "update", "delete"],
+            [read_rows, updated_rows, deleted_rows],
+        ):
+            await async_bulk_verify(self, mode, collection, self.user_or_token)
+
+        await self.flush()
+        await async_bulk_verify(self, "create", new_rows, self.user_or_token)
+
+    async def commit(self):
+        await self.verify()
+        await super().commit()
+
+
+@asynccontextmanager
+async def AsyncVerifiedSession(user_or_token):
+    """Async equivalent of `VerifiedSession()`. Yields an
+    `_AsyncVerifiedSession` bound to the configured async engine.
+    """
+    if async_session_factory is None:
+        raise RuntimeError(
+            "Async DB session not initialized. init_db() must run first."
+        )
+    session = async_session_factory()
+    session.user_or_token = user_or_token
+    try:
+        yield session
+    finally:
+        await session.close()
+
+
+async def async_bulk_verify(session, mode, collection, accessor):
+    """Async counterpart of `bulk_verify`. Runs the RLS leak check inside
+    the supplied async session rather than the global sync `DBSession`.
+    """
+    grouped_collection = defaultdict(list)
+    for row in collection:
+        grouped_collection[type(row)].append(row)
+
+    for record_cls, collection in grouped_collection.items():
+        collection_ids = {record.id for record in collection}
+
+        # `cls.select(...)` returns a 2.0-style Select; `.subquery()` is
+        # statement-level (no I/O) and so works under either dialect.
+        accessible_row_ids_sq = record_cls.select(
+            accessor, mode=mode, columns=[record_cls.id]
+        ).subquery()
+
+        result = await session.scalars(
+            sa.select(record_cls.id)
+            .outerjoin(
+                accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
+            )
+            .where(record_cls.id.in_(collection_ids))
+            .where(accessible_row_ids_sq.c.id.is_(None))
+        )
+        inaccessible_row_ids = set(result.all())
+
+        if inaccessible_row_ids:
+            handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
+
+
 # SQLA1.4 fix to return SQLA1.3-style aliased entity
 def safe_aliased(entity):
     return sa.orm.aliased(sa.inspect(entity).mapper)
@@ -217,10 +316,10 @@ def handle_inaccessible(mode, row_ids, row_type, accessor):
         raise AccessError(err_msg)
 
 
-# https://docs.sqlalchemy.org/en/13/dialects/postgresql.html#psycopg2-fast-execution-helpers
-# executemany_values_page_size arguments control how many parameter sets
-# should be represented in each execution of an INSERT
-# 50000 was chosen based on recommendations in the docs and on profiling tests
+# Controls how many parameter sets are sent per INSERT under SA 2.0's
+# `insertmanyvalues` machinery. 50000 was chosen based on recommendations
+# in the docs and profiling tests for psycopg2; psycopg3 honors the same
+# dialect-level option.
 EXECUTEMANY_PAGESIZE = 50000
 
 
@@ -256,8 +355,10 @@ def init_db(
            Default 3600.
 
     """
-    url = "postgresql://{}:{}@{}:{}/{}"
-    url = url.format(user, password or "", host or "", port or "", database)
+    # Unified on psycopg v3 for both sync and async paths.
+    url = "postgresql+psycopg://{}:{}@{}:{}/{}".format(
+        user, password or "", host or "", port or "", database
+    )
 
     default_engine_args = {
         "pool_size": 5,
@@ -266,8 +367,6 @@ def init_db(
     }
     conn = sa.create_engine(
         url,
-        client_encoding="utf8",
-        executemany_mode="values_plus_batch",
         insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
         echo=log_database,
         echo_pool=log_database_pool,
@@ -276,6 +375,25 @@ def init_db(
 
     DBSession.configure(bind=conn, autoflush=autoflush, future=True)
     Base.metadata.bind = conn
+
+    global async_engine, async_session_factory, async_plain_session_factory
+    async_engine = create_async_engine(
+        url,
+        echo=log_database,
+        echo_pool=log_database_pool,
+        **{**default_engine_args, **engine_args},
+    )
+    async_session_factory = async_sessionmaker(
+        bind=async_engine,
+        class_=_AsyncVerifiedSession,
+        autoflush=autoflush,
+        expire_on_commit=False,
+    )
+    async_plain_session_factory = async_sessionmaker(
+        bind=async_engine,
+        autoflush=autoflush,
+        expire_on_commit=False,
+    )
 
     return conn
 
