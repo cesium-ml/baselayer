@@ -421,10 +421,32 @@ class BaseHandler(PSABaseHandler):
             payload={"note": note, "type": notification_type},
         )
 
-    def get_query_argument(self, value, default=NoValue, **kwargs):
+    def get_query_argument(self, value, default=NoValue, type=None, **kwargs):
+        """Get a query-string argument with optional type coercion.
+
+        Parameters
+        ----------
+        value : str
+            Name of the query parameter.
+        default : any, optional
+            Value to return when the parameter is absent.
+        type : callable, optional
+            If provided (e.g. ``float`` / ``int``), the returned string is
+            passed through this callable. Required for parameters that go
+            into SQL comparisons against non-text columns — psycopg v3
+            binds Python strings as VARCHAR, so the database refuses to
+            compare e.g. ``double precision`` to ``character varying``.
+            If the value can't be coerced, ``default`` is returned.
+        """
         if default != NoValue:
             kwargs["default"] = default
         arg = super().get_query_argument(value, **kwargs)
-        if isinstance(kwargs.get("default", None), bool):
+        default_val = kwargs.get("default", None)
+        if isinstance(default_val, bool):
             arg = str(arg).lower() in ["true", "yes", "t", "1"]
+        elif type is not None and arg is not None and arg is not default_val:
+            try:
+                arg = type(arg)
+            except (TypeError, ValueError):
+                arg = default_val
         return arg
