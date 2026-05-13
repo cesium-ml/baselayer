@@ -36,7 +36,7 @@ class Encoder(json.JSONEncoder):
         elif type(o).__name__ == "ndarray":  # avoid numpy import
             return o.tolist()
 
-        elif hasattr(o, "item"):  # numpy scalar (int64, float64, bool_, etc.)
+        elif type(o).__module__ == "numpy" and hasattr(o, "item"):  # numpy scalar
             return o.item()
 
         elif type(o).__name__ == "DataFrame":  # avoid pandas import
