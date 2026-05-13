@@ -36,6 +36,9 @@ class Encoder(json.JSONEncoder):
         elif type(o).__name__ == "ndarray":  # avoid numpy import
             return o.tolist()
 
+        elif type(o).__module__ == "numpy" and hasattr(o, "item"):  # numpy scalar
+            return o.item()
+
         elif type(o).__name__ == "DataFrame":  # avoid pandas import
             o.columns = o.columns.droplevel("channel")  # flatten MultiIndex
             return o.to_dict(orient="index")
