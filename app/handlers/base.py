@@ -1,6 +1,6 @@
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from json.decoder import JSONDecodeError
 
 # The Python Social Auth base handler gives us:
@@ -22,7 +22,14 @@ from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
-from ..models import DBSession, User, VerifiedSession, bulk_verify, session_context_id
+from ..models import (
+    AsyncVerifiedSession,
+    DBSession,
+    User,
+    VerifiedSession,
+    bulk_verify,
+    session_context_id,
+)
 
 env, cfg = load_env()
 log = make_log("basehandler")
@@ -154,6 +161,26 @@ class BaseHandler(PSABaseHandler):
             # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
             session.add(self.current_user)
             session.bind = DBSession.session_factory.kw["bind"]
+            yield session
+
+    @asynccontextmanager
+    async def AsyncSession(self):
+        """Async counterpart of `Session()`. Yields an `_AsyncVerifiedSession`
+        bound to the async engine, with the handler's current user merged so
+        that commit-time RLS verification has the right accessor.
+
+        Usage:
+            async with self.AsyncSession() as session:
+                result = await session.scalars(MyModel.select(session.user_or_token))
+                ...
+                await session.commit()
+        """
+        async with AsyncVerifiedSession(self.current_user) as session:
+            # Attach the detached current_user (loaded by the auth lookup in
+            # a different session) without issuing SQL. Relationships that
+            # were already eager-loaded via `selectin` remain accessible.
+            merged_user = await session.merge(self.current_user, load=False)
+            session.user_or_token = merged_user
             yield session
 
     def verify_permissions(self):
