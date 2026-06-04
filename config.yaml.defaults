@@ -134,6 +134,8 @@ ports:
     app_http_proxy: 5001
     app_internal: 65000  # nginx forwards this port to ports:app
     dask: 63500
+    # ipc:// requires producers, the websocket server and message_proxy to share a host.
+    # For multi-host/k8s, use a routable address, e.g. tcp://message_proxy:64002.
     websocket_path_in: 'ipc://run/message_flow_in'
     websocket_path_out: 'ipc://run/message_flow_out'
     status: 64500
