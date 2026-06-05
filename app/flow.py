@@ -11,11 +11,15 @@ log = make_log("flow")
 class Flow:
     """Send messages through websocket to frontend"""
 
-    def __init__(self, socket_path=cfg["ports.websocket_path_in"]):
-        self._socket_path = socket_path
+    def __init__(
+        self,
+        host=cfg["hosts.message_bus"],
+        port=cfg["ports.message_bus_receive"],
+    ):
+        self._endpoint = f"tcp://{host}:{port}"
         self._ctx = zmq.Context.instance()
         self._bus = self._ctx.socket(zmq.PUSH)
-        self._bus.connect(self._socket_path)
+        self._bus.connect(self._endpoint)
 
     def push(self, user_id, action_type, payload={}):
         """Push action to specified user over websocket.
