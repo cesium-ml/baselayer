@@ -9,8 +9,15 @@ log = make_log("flow")
 
 
 class Flow:
-    """Send messages through websocket to frontend"""
+    """Send messages through websocket to frontend
 
+    Parameters
+    ----------
+    host : str
+        Host on which the message proxy is running.
+    port : str
+        Port on which the message bus is listening for messages.
+    """
     def __init__(
         self,
         host=cfg["hosts.message_bus"],

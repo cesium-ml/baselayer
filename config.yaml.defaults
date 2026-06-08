@@ -134,8 +134,8 @@ ports:
     app_http_proxy: 5001
     app_internal: 65000  # nginx forwards this port to ports:app
     dask: 63500
-    message_bus_receive: 64002  # message_proxy binds; the app/workers push here
-    message_bus_publish: 64003  # message_proxy binds; the websocket server reads here
+    message_bus_receive: 64002  # bus listens for incoming messages here; app/clients push to this port
+    message_bus_publish: 64003  # bus sends out messages here; websocket server reads from this port
     status: 64500
     migration_manager: 64501
 
