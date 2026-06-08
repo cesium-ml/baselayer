@@ -134,10 +134,16 @@ ports:
     app_http_proxy: 5001
     app_internal: 65000  # nginx forwards this port to ports:app
     dask: 63500
-    websocket_path_in: 'ipc://run/message_flow_in'
-    websocket_path_out: 'ipc://run/message_flow_out'
+    message_bus_receive: 64002  # bus listens for incoming messages here; app/clients push to this port
+    message_bus_publish: 64003  # bus sends out messages here; websocket server reads from this port
     status: 64500
     migration_manager: 64501
+
+hosts:
+    # Host running the message bus (message_proxy). The app, workers and the
+    # websocket server connect to it over TCP, so set this to a routable address
+    # (e.g. a k8s Service name) when running the bus on a separate host/pod.
+    message_bus: 127.0.0.1
 
 external_logging:
     papertrail:

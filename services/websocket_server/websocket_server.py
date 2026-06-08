@@ -168,7 +168,9 @@ class WebSocket(websocket.WebSocketHandler):
 
 if __name__ == "__main__":
     PORT = cfg["ports.websocket"]
-    LOCAL_OUTPUT = cfg["ports.websocket_path_out"]
+    LOCAL_OUTPUT = (
+        f"tcp://{cfg['hosts.message_bus']}:{cfg['ports.message_bus_publish']}"
+    )
 
     import zmq
     from zmq.eventloop import zmqstream
