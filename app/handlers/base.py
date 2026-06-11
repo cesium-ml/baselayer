@@ -44,6 +44,21 @@ class PSABaseHandler(RequestHandler):
         return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
+        user = self._signed_in_user()
+        if user is not None:
+            return user
+        # Anonymous read-only access (opt-in via app.anonymous_access): serve the
+        # configured "View only" account when nobody is signed in.
+        cfg = self.application.cfg
+        if not cfg.get("app.anonymous_access", False):
+            return None
+        username = cfg.get("app.anonymous_user") or "anonymous"
+        with DBSession() as session:
+            return session.scalars(
+                sqlalchemy.select(User).where(User.username == username)
+            ).first()
+
+    def _signed_in_user(self):
         if self.user_id() is None:
             return
         user_id = int(self.user_id())

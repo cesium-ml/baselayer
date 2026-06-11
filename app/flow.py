@@ -18,6 +18,7 @@ class Flow:
     port : str
         Port on which the message bus is listening for messages.
     """
+
     def __init__(
         self,
         host=cfg["hosts.message_bus"],
