@@ -11,7 +11,6 @@ from baselayer.app.models import (  # noqa: F401
     Role,
     Token,
     User,
-    async_plain_session_factory,
 )
 
 
