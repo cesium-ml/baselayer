@@ -9,8 +9,9 @@ env, cfg = load_env()
 
 log = make_log("message_proxy")
 
-IN = cfg["ports.websocket_path_in"]
-OUT = cfg["ports.websocket_path_out"]
+# Bind on all interfaces so producers/consumers on other hosts can connect
+IN = f"tcp://*:{cfg['ports.message_bus_receive']}"
+OUT = f"tcp://*:{cfg['ports.message_bus_publish']}"
 
 context = zmq.Context()
 

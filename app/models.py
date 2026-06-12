@@ -378,6 +378,7 @@ def init_db(
     global async_engine, async_session_factory, async_plain_session_factory
     async_engine = create_async_engine(
         url,
+        insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
         echo=log_database,
         echo_pool=log_database_pool,
         **{**default_engine_args, **engine_args},
