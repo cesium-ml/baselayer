@@ -41,7 +41,9 @@ def psa(redirect_uri=None):
             try:
                 self.backend = load_backend(self, self.strategy, backend, uri)
             except MissingBackend:
-                raise tornado.web.HTTPError(400, f"Unknown authentication backend: {backend}")
+                raise tornado.web.HTTPError(
+                    400, f"Unknown authentication backend: {backend}"
+                )
             return func(self, backend, *args, **kwargs)
 
         return wrapper
