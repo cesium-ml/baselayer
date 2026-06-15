@@ -1,7 +1,9 @@
 from functools import wraps
 
+import tornado.web
 from social_core.actions import do_auth, do_complete, do_disconnect
 from social_core.backends.utils import get_backend
+from social_core.exceptions import MissingBackend
 from social_core.utils import get_strategy, setting_name
 
 from baselayer.app.handlers.base import BaseHandler
@@ -36,7 +38,10 @@ def psa(redirect_uri=None):
             if uri and not uri.startswith("/"):
                 uri = self.reverse_url(uri, backend)
             self.strategy = load_strategy(self)
-            self.backend = load_backend(self, self.strategy, backend, uri)
+            try:
+                self.backend = load_backend(self, self.strategy, backend, uri)
+            except MissingBackend:
+                raise tornado.web.HTTPError(400, f"Unknown authentication backend: {backend}")
             return func(self, backend, *args, **kwargs)
 
         return wrapper
