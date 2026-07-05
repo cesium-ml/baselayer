@@ -22,7 +22,6 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import (
     declarative_base,
-    load_only,
     relationship,
     scoped_session,
     sessionmaker,
@@ -168,9 +167,7 @@ def bulk_verify(mode, collection, accessor):
 
         # vectorized query for the primary keys of the rows in the session
         # that are accessible
-        accessible_rows = record_cls.query_records_accessible_by(
-            accessor, mode=mode, columns=pk_cols
-        )
+        accessible_rows = record_cls.select(accessor, mode=mode, columns=pk_cols)
 
         rows = (
             DBSession()
@@ -302,7 +299,7 @@ def inaccessible_pks_stmt(collection, accessible_rows, pk_cols):
     ----------
     collection : list of `baselayer.app.models.Base`
         The records to check, all of the type whose PK columns are ``pk_cols``.
-    accessible_rows : sqlalchemy.Query or sqlalchemy select object
+    accessible_rows : sqlalchemy select object
         Query of the ``pk_cols`` of the rows the accessor may access.
     pk_cols : list of sqlalchemy.Column
         The primary key columns of the records.
@@ -559,30 +556,6 @@ class UserAccessControl:
                 f"got {user_or_token.__class__.__name__}."
             )
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
-        specified table that are accessible to a specified user or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        cls : `baselayer.app.models.DeclarativeMeta`
-            The mapped class of the target table.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            Query for the accessible rows.
-        """
-
-        raise NotImplementedError
-
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
@@ -674,32 +647,6 @@ class UserAccessControl:
 class Public(UserAccessControl):
     """A record accessible to anyone."""
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
-        specified table that are accessible to a specified user or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        cls : `baselayer.app.models.DeclarativeMeta`
-            The mapped class of the target table.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            Query for the accessible rows.
-        """
-        # return only selected columns if requested
-        if columns is not None:
-            return DBSession().query(*columns).select_from(cls)
-        return DBSession().query(cls)
-
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
@@ -737,7 +684,7 @@ class AccessibleIfUserMatches(UserAccessControl):
         ----------
         relationship_chain: str
             The chain of relationships to check the User or Token against in
-            `query_accessible_rows`. Should be specified as
+            `select_accessible_rows`. Should be specified as
 
             >>>> f'{relationship1_name}.{relationship2_name}...{relationshipN_name}'
 
@@ -761,54 +708,6 @@ class AccessibleIfUserMatches(UserAccessControl):
             >>>> AccessibleIfUserMatches('groups.users')
         """
         self.relationship_chain = relationship_chain
-
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
-        specified table that are accessible to a specified user or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        cls : `baselayer.app.models.DeclarativeMeta`
-            The mapped class of the target table.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            Query for the accessible rows.
-        """
-
-        # system admins automatically get full access
-        if user_or_token.is_admin:
-            return public.query_accessible_rows(cls, user_or_token, columns=columns)
-
-        # return only selected columns if requested
-        if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
-        else:
-            query = DBSession().query(cls)
-
-        # traverse the relationship chain via sequential JOINs
-        for relationship_name in self.relationship_names:
-            self.check_cls_for_attributes(cls, [relationship_name])
-            relationship = sa.inspect(cls).mapper.relationships[relationship_name]
-
-            # not a private attribute, just has an underscore to avoid name
-            # collision with python keyword
-            cls = relationship.entity.class_
-
-            query = query.join(relationship.class_attribute)
-
-        # filter for records with at least one matching user
-        user_id = self.user_id_from_user_or_token(user_or_token)
-        query = query.filter(cls.id == user_id)
-        return query
 
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
@@ -930,71 +829,6 @@ class AccessibleIfRelatedRowsAreAccessible(UserAccessControl):
             raise ValueError("Need at least 1 property to check.")
         self._properties_and_modes = value
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
-        specified table that are accessible to a specified user or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        cls : `baselayer.app.models.DeclarativeMeta`
-            The mapped class of the target table.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            Query for the accessible rows.
-        """
-
-        # return only selected columns if requested
-        if columns is None:
-            base = DBSession().query(cls)
-        else:
-            base = DBSession().query(*columns).select_from(cls)
-
-        # ensure the target class has all the relationships referred to
-        # in this instance
-        self.check_cls_for_attributes(cls, self.properties_and_modes)
-
-        # construct the list of accessible records by joining the target
-        # table against accessible related rows via their relationships
-        # to the target table
-        for prop in self.properties_and_modes:
-            # get the kind of access required on the relationship
-            mode = self.properties_and_modes[prop]
-            relationship = sa.inspect(cls).mapper.relationships[prop]
-
-            # get the rows of the target table that are accessible
-            join_target = relationship.entity.class_
-            logic = getattr(join_target, mode)
-
-            if isinstance(logic, Public):
-                continue
-
-            # join the target table to the related table on the relationship
-            base = base.join(relationship.class_attribute)
-
-            # create a subquery for the accessible rows of the related table
-            # and join that subquery to the related table on the PK/FK.
-            # from a performance perspective this should be about as performant
-            # as aliasing the related table. The subquery is automatically
-            # de-subbed by postgres and uses all available indices.
-
-            accessible_related_rows = logic.query_accessible_rows(
-                join_target, user_or_token, columns=[join_target.id]
-            ).subquery()
-
-            join_condition = accessible_related_rows.c.id == join_target.id
-            base = base.join(accessible_related_rows, join_condition)
-
-        return base
-
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
@@ -1115,86 +949,6 @@ class ComposedAccessControl(UserAccessControl):
             )
         self._logic = value
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
-        specified table that are accessible to a specified user or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        cls : `baselayer.app.models.DeclarativeMeta`
-            The mapped class of the target table.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            Query for the accessible rows.
-        """
-
-        # retrieve specified columns if requested
-        if columns is not None:
-            query = DBSession().query(*columns).select_from(cls)
-        else:
-            query = DBSession().query(cls)
-
-        # keep track of columns that will be null in the case of an unsuccessful
-        # match for OR logic.
-        accessible_id_cols = []
-        pk_keys = primary_key_keys(cls)
-
-        for access_control in self.access_controls:
-            # Just ignore public ACLs
-            if isinstance(access_control, Public):
-                continue
-
-            # use an alias to avoid name collisions.
-            target_alias = safe_aliased(cls)
-
-            # join against the first access control using a subquery. from a
-            # performance perspective this should be about as performant as
-            # aliasing the related table, but is much better for avoiding
-            # name collisions. The subquery is automatically de-subbed by
-            # postgres and uses all available indices.
-            accessible = access_control.query_accessible_rows(
-                target_alias,
-                user_or_token,
-                columns=[getattr(target_alias, key) for key in pk_keys],
-            ).subquery()
-
-            # join on the primary key (composite for join tables)
-            join_condition = sa.and_(
-                *(accessible.c[key] == getattr(cls, key) for key in pk_keys)
-            )
-            if self.logic == "and":
-                # for and logic, we want an INNER join
-                query = query.join(accessible, join_condition)
-            elif self.logic == "or":
-                # for OR logic we dont want to lose rows where there is no
-                # for one particular type of access control, so use outer join
-                # here
-                query = query.outerjoin(accessible, join_condition)
-            else:
-                raise ValueError(
-                    f'Invalid composition logic: {self.logic}, must be either "and" or "or".'
-                )
-            # a PK column is NOT NULL exactly when the row matched; use the first
-            accessible_id_cols.append(accessible.c[pk_keys[0]])
-
-        # in the case of or logic, require that only one of the conditions be
-        # met for each row
-        if self.logic == "or":
-            query = query.filter(
-                sa.or_(*[col.isnot(None) for col in accessible_id_cols])
-            )
-
-        return query
-
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
@@ -1274,39 +1028,6 @@ class ComposedAccessControl(UserAccessControl):
 class Restricted(UserAccessControl):
     """A record that can only be accessed by a System Admin."""
 
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
-        specified table that are accessible to a specified user or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        cls : `baselayer.app.models.DeclarativeMeta`
-            The mapped class of the target table.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            Query for the accessible rows.
-        """
-
-        # system admins have access to restricted records
-        if user_or_token.is_admin:
-            return public.query_accessible_rows(cls, user_or_token, columns=columns)
-
-        # otherwise, all records are inaccessible
-        if columns is not None:
-            return (
-                DBSession().query(*columns).select_from(cls).filter(sa.literal(False))
-            )
-        return DBSession().query(cls).filter(sa.literal(False))
-
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
         specified table that are accessible to a specified user or token.
@@ -1373,16 +1094,8 @@ class CustomUserAccessControl(UserAccessControl):
         (1) Only permit access to departments in which all employees are
         managers
 
-            Query (SQLA 1.4):
             >>>> CustomUserAccessControl(
-                DBSession().query(Department).join(Employee).group_by(
-                    Department.id
-                ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
-            )
-
-            Select (SQLA 2.0):
-            >>>> CustomUserAccessControl(
-                stmt = sa.select(Department).join(Employee).group_by(
+                sa.select(Department).join(Employee).group_by(
                     Department.id
                 ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
             )
@@ -1390,23 +1103,12 @@ class CustomUserAccessControl(UserAccessControl):
         (2) Permit access to all records for system admins, otherwise, only
         permit access to departments in which all employees are managers
 
-            Query (SQLA 1.4):
             >>>> def access_logic(cls, user_or_token):
              ...      if user_or_token.is_system_admin:
-             ...         return DBSession().query(cls)
-             ...      return DBSession().query(cls).join(Employee).group_by(
-             ...             cls.id
-             ...      ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
-            >>>> CustomUserAccessControl(access_logic)
-
-            Select (SQLA 2.0):
-             >>>> def access_logic(cls, user_or_token):
-             ...      if user_or_token.is_system_admin:
-             ...         return sa.selct(cls)
+             ...         return sa.select(cls)
              ...      return sa.select(cls).join(Employee).group_by(
              ...             cls.id
              ...      ).having(sa.func.bool_and(Employee.is_manager.is_(True)))
-
             >>>> CustomUserAccessControl(access_logic)
 
         """
@@ -1424,42 +1126,6 @@ class CustomUserAccessControl(UserAccessControl):
                 f"{type(query_or_query_generator).__name__}, "
                 f"expected `sqlalchemy.sql.selectable.Select` or func."
             )
-
-    def query_accessible_rows(self, cls, user_or_token, columns=None):
-        """Construct a Query object that, when executed, returns the rows of a
-        specified table that are accessible to a specified user or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        cls : `baselayer.app.models.DeclarativeMeta`
-            The mapped class of the target table.
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            Query for the accessible rows.
-        """
-
-        if self.query is not None:
-            query = self.query
-            # retrieve specified columns if requested
-            if columns is not None:
-                query = query.with_entities(*columns)
-        else:
-            query = self.query_generator(cls, user_or_token)
-            # here query is not of type sqlalchemy.Query, but sqlalchemy.Select
-            # so we use the appropriate method to retrieve the columns
-            if columns is not None:
-                query = query.options(load_only(*columns))
-
-        return query
 
     def select_accessible_rows(self, cls, user_or_token, columns=None):
         """Construct a Select object that, when executed, returns the rows of a
@@ -1525,7 +1191,7 @@ class BaseMixin:
         # tables), not an assumed `id` column.
         pk_keys = primary_key_keys(cls)
         accessibility_table = (
-            logic.query_accessible_rows(cls, user_or_token)
+            logic.select_accessible_rows(cls, user_or_token)
             .where(
                 sa.and_(*(getattr(cls, key) == getattr(self, key) for key in pk_keys))
             )
@@ -1622,51 +1288,13 @@ class BaseMixin:
         records : list of `baselayer.app.models.Base`
             The records accessible to the specified user or token.
         """
-        return cls.query_records_accessible_by(
-            user_or_token, mode=mode, options=options, columns=columns
-        ).all()
-
-    @classmethod
-    def query_records_accessible_by(
-        cls, user_or_token, mode="read", options=[], columns=None
-    ):
-        """Return the query for all database records accessible by the
-        specified User or token.
-        All query based functions will be deprecated when moving to
-        SQL Alchemy 2.0 in favor of select functions.
-
-        Parameters
-        ----------
-        user_or_token : `baselayer.app.models.User` or `baselayer.app.models.Token`
-            The User or Token to check.
-        mode : string
-            Type of access to check. Valid choices are `['create', 'read', 'update',
-            'delete']`.
-        options : list of `sqlalchemy.orm.MapperOption`s
-            Options that will be passed to `options()` in the loader query.
-        columns : list of sqlalchemy.Column, optional, default None
-            The columns to retrieve from the target table. If None, queries
-            the mapped class directly and returns mapped instances.
-
-        Returns
-        -------
-        query : sqlalchemy.Query
-            The query for the specified records.
-        """
-
-        if not isinstance(user_or_token, (User, Token)):
-            raise ValueError(
-                "user_or_token must be an instance of User or Token, "
-                f"got {user_or_token.__class__.__name__}."
+        with DBSession() as session:
+            stmt = cls.select(
+                user_or_token, mode=mode, options=options, columns=columns
             )
-
-        logic = getattr(cls, mode)
-        accessible_rows = logic.query_accessible_rows(
-            cls, user_or_token, columns=columns
-        )
-        if len(options) > 0:
-            return accessible_rows.options(*options)
-        return accessible_rows
+            if columns is not None:
+                return session.execute(stmt).all()
+            return session.scalars(stmt).all()
 
     @classmethod
     def get(
