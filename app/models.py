@@ -326,6 +326,27 @@ EXECUTEMANY_PAGESIZE = 50000
 utcnow = func.timezone("UTC", func.current_timestamp())
 
 
+def _resolve_pooler(host, port, engine_args, pooler):
+    """Route the connection through a transaction pooler (pgbouncer/pgcat) when
+    enabled, so backend connections stay bounded across all processes. Returns
+    adjusted ``(host, port, engine_args)``."""
+    if not (pooler and pooler.get("enabled")):
+        return host, port, engine_args
+    host = pooler.get("host") or host
+    port = pooler.get("port") or 6432
+    # Transaction pooling breaks psycopg3 server-side prepared statements
+    # (per-connection) and can hand out stale connections.
+    engine_args = {
+        "pool_pre_ping": True,
+        **engine_args,
+        "connect_args": {
+            "prepare_threshold": None,
+            **(engine_args.get("connect_args") or {}),
+        },
+    }
+    return host, port, engine_args
+
+
 # The db has to be initialized later; this is done by the app itself
 # See `app_server.py`
 def init_db(
@@ -336,6 +357,7 @@ def init_db(
     port=None,
     autoflush=True,
     engine_args={},
+    pooler=None,
 ):
     """
     Parameters
@@ -355,6 +377,8 @@ def init_db(
            Default 3600.
 
     """
+    host, port, engine_args = _resolve_pooler(host, port, engine_args, pooler)
+
     url = "postgresql+psycopg://{}:{}@{}:{}/{}".format(
         user, password or "", host or "", port or "", database
     )
