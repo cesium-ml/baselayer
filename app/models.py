@@ -340,8 +340,9 @@ def _resolve_pooler(host, port, engine_args, pooler):
         "pool_pre_ping": True,
         **engine_args,
         "connect_args": {
-            "prepare_threshold": None,
             **(engine_args.get("connect_args") or {}),
+            # Mandatory under transaction pooling; must override any caller value.
+            "prepare_threshold": None,
         },
     }
     return host, port, engine_args
