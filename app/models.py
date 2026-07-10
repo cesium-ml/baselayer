@@ -384,11 +384,20 @@ def init_db(
         user, password or "", host or "", port or "", database
     )
 
-    default_engine_args = {
-        "pool_size": 5,
-        "max_overflow": 10,
-        "pool_recycle": 3600,
-    }
+    if pooler and pooler.get("enabled"):
+        # Let the pooler own pooling; a QueuePool on top double-pools.
+        default_engine_args = {"poolclass": sa.NullPool}
+        engine_args = {
+            k: v
+            for k, v in engine_args.items()
+            if k not in ("pool_size", "max_overflow", "pool_recycle")
+        }
+    else:
+        default_engine_args = {
+            "pool_size": 5,
+            "max_overflow": 10,
+            "pool_recycle": 3600,
+        }
     conn = sa.create_engine(
         url,
         insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
