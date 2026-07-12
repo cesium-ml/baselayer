@@ -65,7 +65,9 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	@find -L . -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run python ./baselayer/tools/fill_conf_values.py $(FLAGS)
+	# -xdev keeps find on the source-tree filesystem, skipping mounted data
+	# volumes (e.g. cephfs thumbnails) that hold no templates but slow startup.
+	@find -L . -xdev -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run python ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 system_setup: | paths dependencies fill_conf_values service_setup
 
