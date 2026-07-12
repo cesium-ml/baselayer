@@ -1733,13 +1733,18 @@ class BaseMixin:
         autoincrement=True,
         doc="Unique object identifier.",
     )
-    created_at = sa.Column(
-        sa.DateTime,
-        nullable=False,
-        default=utcnow,
-        index=True,
-        doc="UTC time of insertion of object's row into the database.",
-    )
+
+    # Opt out of the created_at index per-model with `index_created_at = False`.
+    @declared_attr
+    def created_at(cls):
+        return sa.Column(
+            sa.DateTime,
+            nullable=False,
+            default=utcnow,
+            index=getattr(cls, "index_created_at", True),
+            doc="UTC time of insertion of object's row into the database.",
+        )
+
     modified = sa.Column(
         sa.DateTime,
         default=utcnow,
@@ -1847,6 +1852,8 @@ def join_model(
     base=Base,
     new_name=None,
     overlaps=None,
+    index_created_at=True,
+    composite_pk=False,
 ):
     """Helper function to create a join table for a many-to-many relationship.
 
@@ -1878,6 +1885,12 @@ def join_model(
         overlaps=f"{table_1}, {table_2}". If any additional overalapping
         relationships or columns need to be added, they can be given as
         a string or list of strings.
+    index_created_at : bool, optional
+        Whether to index the auto-added ``created_at`` column. Defaults to True.
+    composite_pk : bool, optional
+        If True, use ``(column_1, column_2)`` as the primary key instead of a
+        surrogate ``id`` column; the PK's unique index replaces the forward index.
+        Defaults to False.
 
     Returns
     -------
@@ -1896,18 +1909,29 @@ def join_model(
 
     model_attrs = {
         "__tablename__": join_table,
-        "id": sa.Column(sa.Integer, primary_key=True, doc="Unique object identifier."),
+        # honored by BaseMixin.created_at to opt out of the dead created_at index
+        "index_created_at": index_created_at,
         column_1: sa.Column(
             column_1,
             sa.ForeignKey(f"{table_1}.{fk_1}", ondelete="CASCADE"),
             nullable=False,
+            primary_key=composite_pk,
         ),
         column_2: sa.Column(
             column_2,
             sa.ForeignKey(f"{table_2}.{fk_2}", ondelete="CASCADE"),
             nullable=False,
+            primary_key=composite_pk,
         ),
     }
+    # `composite_pk` uses (column_1, column_2) as the primary key instead of a
+    # surrogate `id`; the PK's unique index then replaces the forward index below.
+    # id=None cancels the surrogate `id` inherited from BaseMixin.
+    model_attrs["id"] = (
+        None
+        if composite_pk
+        else sa.Column(sa.Integer, primary_key=True, doc="Unique object identifier.")
+    )
 
     if overlaps:
         if isinstance(overlaps, str):
@@ -1934,17 +1958,20 @@ def join_model(
                 foreign_keys=[model_attrs[column_2]],
                 overlaps=overlap_string,
             ),
-            forward_ind_name: sa.Index(
-                forward_ind_name,
-                model_attrs[column_1],
-                model_attrs[column_2],
-                unique=True,
-            ),
             reverse_ind_name: sa.Index(
                 reverse_ind_name, model_attrs[column_2], model_attrs[column_1]
             ),
         }
     )
+    # With a composite PK, (column_1, column_2) already has a unique index, so a
+    # separate forward index would be redundant.
+    if not composite_pk:
+        model_attrs[forward_ind_name] = sa.Index(
+            forward_ind_name,
+            model_attrs[column_1],
+            model_attrs[column_2],
+            unique=True,
+        )
 
     if new_name is None:
         new_name = f"{model_1.__name__}{model_2.__name__}"
