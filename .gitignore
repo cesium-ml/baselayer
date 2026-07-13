@@ -1,24 +1,12 @@
+# Nix
 .direnv/
 
-.#*
-log/
-.cache
-static/build
-run/
-public/
-\#*
-*~
-*.swp
-*.swo
-.DS_Store
+# Python
 __pycache__/
-node_modules/
 *.pyc
-doc/_build
 
-# These are built from templates
-conf/supervisor/supervisor.conf
-services/dask/supervisor.conf
-services/app/supervisor.conf
-services/nginx/nginx.conf
-conf/nginx.conf
+# Node.JS
+node_modules/
+
+# Banish DS_Store
+.DS_Store
