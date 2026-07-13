@@ -73,8 +73,8 @@ def __colorize(
 
 
 def make_log(appName: str) -> Callable[[str], None]:
-    color_table = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"]
-    color = color_table[hash(appName.encode("ascii")) % len(color_table)]
+    app_color_table = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+    color = app_color_table[hash(appName.encode("ascii")) % len(app_color_table)]
 
     return lambda message: print(
         __colorize(
