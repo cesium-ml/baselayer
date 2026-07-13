@@ -289,6 +289,20 @@ def safe_aliased(entity):
     return sa.orm.aliased(sa.inspect(entity).mapper)
 
 
+def primary_key_keys(cls):
+    """Return the attribute keys of ``cls``'s primary key columns.
+
+    Most mapped classes use a single surrogate ``id``, but join tables may use
+    a composite primary key (e.g. ``group_id`` + ``photometr_id``). Access
+    control joins on the primary key, so deriving it here keeps that logic
+    PK-agnostic instead of assuming a column named ``id``.
+
+    Uses ``.mapper.primary_key`` so it works for both mapped classes and aliased
+    classes (an ``AliasedInsp`` has no ``primary_key`` of its own).
+    """
+    return [col.key for col in sa.inspect(cls).mapper.primary_key]
+
+
 def handle_inaccessible(mode, row_ids, row_type, accessor):
     tb = "".join(traceback.extract_stack().format())
     tb = f"```{tb}```"
@@ -1085,6 +1099,7 @@ class ComposedAccessControl(UserAccessControl):
         # keep track of columns that will be null in the case of an unsuccessful
         # match for OR logic.
         accessible_id_cols = []
+        pk_keys = primary_key_keys(cls)
 
         for access_control in self.access_controls:
             # Just ignore public ACLs
@@ -1100,11 +1115,15 @@ class ComposedAccessControl(UserAccessControl):
             # name collisions. The subquery is automatically de-subbed by
             # postgres and uses all available indices.
             accessible = access_control.query_accessible_rows(
-                target_alias, user_or_token, columns=[target_alias.id]
+                target_alias,
+                user_or_token,
+                columns=[getattr(target_alias, key) for key in pk_keys],
             ).subquery()
 
-            # join on the FK
-            join_condition = accessible.c.id == cls.id
+            # join on the primary key (composite for join tables)
+            join_condition = sa.and_(
+                *(accessible.c[key] == getattr(cls, key) for key in pk_keys)
+            )
             if self.logic == "and":
                 # for and logic, we want an INNER join
                 query = query.join(accessible, join_condition)
@@ -1117,7 +1136,8 @@ class ComposedAccessControl(UserAccessControl):
                 raise ValueError(
                     f'Invalid composition logic: {self.logic}, must be either "and" or "or".'
                 )
-            accessible_id_cols.append(accessible.c.id)
+            # a PK column is NOT NULL exactly when the row matched; use the first
+            accessible_id_cols.append(accessible.c[pk_keys[0]])
 
         # in the case of or logic, require that only one of the conditions be
         # met for each row
@@ -1156,6 +1176,7 @@ class ComposedAccessControl(UserAccessControl):
         # keep track of columns that will be null in the case of an unsuccessful
         # match for OR logic.
         accessible_id_cols = []
+        pk_keys = primary_key_keys(cls)
 
         for access_control in self.access_controls:
             # Just ignore public ACLs
@@ -1171,11 +1192,15 @@ class ComposedAccessControl(UserAccessControl):
             # name collisions. The subquery is automatically de-subbed by
             # postgres and uses all available indices.
             accessible = access_control.select_accessible_rows(
-                target_alias, user_or_token, columns=[target_alias.id]
+                target_alias,
+                user_or_token,
+                columns=[getattr(target_alias, key) for key in pk_keys],
             ).subquery()
 
-            # join on the FK
-            join_condition = accessible.c.id == cls.id
+            # join on the primary key (composite for join tables)
+            join_condition = sa.and_(
+                *(accessible.c[key] == getattr(cls, key) for key in pk_keys)
+            )
             if self.logic == "and":
                 # for and logic, we want an INNER join
                 stmt = stmt.join(accessible, join_condition)
@@ -1188,7 +1213,8 @@ class ComposedAccessControl(UserAccessControl):
                 raise ValueError(
                     f'Invalid composition logic: {self.logic}, must be either "and" or "or".'
                 )
-            accessible_id_cols.append(accessible.c.id)
+            # a PK column is NOT NULL exactly when the row matched; use the first
+            accessible_id_cols.append(accessible.c[pk_keys[0]])
 
         # in the case of or logic, require that only one of the conditions be
         # met for each row
@@ -1447,15 +1473,19 @@ class BaseMixin:
         cls = type(self)
         logic = getattr(cls, mode)
 
-        # Construct the join from which accessibility can be selected.
-        # accessibility_target = (sa.func.count("*") > 0).label(f"{mode}_ok")
+        # Construct the join from which accessibility can be selected. Match
+        # this record by its primary key (which may be composite, e.g. on join
+        # tables), not an assumed `id` column.
+        pk_keys = primary_key_keys(cls)
         accessibility_table = (
             logic.query_accessible_rows(cls, user_or_token)
-            .where(cls.id == self.id)
+            .where(
+                sa.and_(*(getattr(cls, key) == getattr(self, key) for key in pk_keys))
+            )
             .subquery()
         )
 
-        stmt = sa.select(sa.func.count(accessibility_table.columns.id))
+        stmt = sa.select(sa.func.count()).select_from(accessibility_table)
 
         # Query for the value of the access_func for this particular record and
         # return the result.
@@ -1467,7 +1497,7 @@ class BaseMixin:
             raise RuntimeError(
                 f"Non-boolean result ({result}) from operation "
                 f'"{type(user_or_token).__name__} {user_or_token.id} '
-                f'{mode} {cls.__name__} {self.id}".'
+                f'{mode} {cls.__name__} {sa.inspect(self).identity}".'
             )
 
         return result
