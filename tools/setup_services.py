@@ -4,6 +4,7 @@ from collections import Counter
 from importlib import import_module
 from os.path import join as pjoin
 
+import jinja2
 from packaging import version
 from packaging.specifiers import SpecifierSet
 
@@ -51,6 +52,14 @@ stdout_logfile=log/{service_name}_service.log
 redirect_stderr=true
 """
     return supervisor_conf_template
+
+
+def render_supervisor_template(template_path: str, cfg: dict) -> str:
+    """Render a service's supervisor.conf.template against the config, so
+    external services can parametrize their supervisor config from config."""
+    tpath, tfile = os.path.split(template_path)
+    jenv = jinja2.Environment(loader=jinja2.FileSystemLoader(tpath))
+    return jenv.get_template(tfile).render(cfg)
 
 
 def read_plugin_config(plugin_path: str) -> dict:
@@ -421,7 +430,8 @@ def copy_supervisor_configs(external_services=[]):
     -------
     None
     """
-    _, cfg = load_env(False)
+    env, cfg = load_env(False)
+    cfg["env"] = env
 
     services = {}
     for path in cfg["services.paths"]:
@@ -474,10 +484,15 @@ def copy_supervisor_configs(external_services=[]):
     for service in services_to_run:
         path = services[service]
         supervisor_conf = pjoin(path, "supervisor.conf")
+        supervisor_conf_template = pjoin(path, "supervisor.conf.template")
 
         if os.path.exists(supervisor_conf):
             with open(supervisor_conf) as f:
                 supervisor_configs.append(f.read())
+        elif os.path.exists(supervisor_conf_template):
+            supervisor_configs.append(
+                render_supervisor_template(supervisor_conf_template, cfg)
+            )
         else:
             conf = generate_supervisor_config(service, path)
             supervisor_configs.append(conf)
