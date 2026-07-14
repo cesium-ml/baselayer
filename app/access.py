@@ -48,6 +48,16 @@ def auth_or_token(method):
             if self.current_user is not None:
                 if not self.current_user.is_active():
                     raise tornado.web.HTTPError(403, "User account expired")
+                # Anonymous access serves a user without a signed-in `user_id`
+                # cookie; restrict it to safe (read-only) HTTP methods.
+                if self.user_id() is None and self.request.method not in (
+                    "GET",
+                    "HEAD",
+                    "OPTIONS",
+                ):
+                    raise tornado.web.HTTPError(
+                        403, "Anonymous users have read-only access"
+                    )
             else:
                 raise tornado.web.HTTPError(
                     401,
