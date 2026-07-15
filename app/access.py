@@ -12,6 +12,11 @@ from baselayer.app.models import (  # noqa: F401
     Token,
     User,
 )
+from baselayer.log import make_log
+
+log = make_log("access")
+
+DB_UNAVAILABLE_MSG = "Database is temporarily unavailable; please retry shortly."
 
 
 def _token_select_stmt(token_id):
@@ -54,9 +59,14 @@ def auth_or_token(method):
                 # init by init_db() is reflected here.
                 from baselayer.app import models as _models
 
-                async with _models.async_plain_session_factory() as session:
-                    result = await session.scalars(_token_select_stmt(token_id))
-                    token = result.first()
+                try:
+                    async with _models.async_plain_session_factory() as session:
+                        result = await session.scalars(_token_select_stmt(token_id))
+                        token = result.first()
+                except sa.exc.SQLAlchemyError as e:
+                    # Don't leak the raw SQL/token id as a 500; return a retryable 503.
+                    log(f"Token auth DB lookup failed for [{self.request.path}]: {e}")
+                    raise tornado.web.HTTPError(503, DB_UNAVAILABLE_MSG) from None
                 if token is not None:
                     self.current_user = token
                     if not token.created_by.is_active():
@@ -88,8 +98,13 @@ def auth_or_token(method):
         token_header = self.request.headers.get("Authorization", None)
         if token_header is not None and token_header.startswith("token "):
             token_id = token_header.replace("token", "").strip()
-            with DBSession() as session:
-                token = session.scalars(_token_select_stmt(token_id)).first()
+            try:
+                with DBSession() as session:
+                    token = session.scalars(_token_select_stmt(token_id)).first()
+            except sa.exc.SQLAlchemyError as e:
+                # Don't leak the raw SQL/token id as a 500; return a retryable 503.
+                log(f"Token auth DB lookup failed for [{self.request.path}]: {e}")
+                raise tornado.web.HTTPError(503, DB_UNAVAILABLE_MSG) from None
             if token is not None:
                 self.current_user = token
                 if not token.created_by.is_active():

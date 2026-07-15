@@ -12,12 +12,13 @@ from json.decoder import JSONDecodeError
 import sqlalchemy
 import tornado.escape
 from tornado.log import app_log
-from tornado.web import RequestHandler
+from tornado.web import HTTPError, RequestHandler
 
 from ...log import make_log
 
 # Initialize PSA tornado models
 from .. import psa
+from ..access import DB_UNAVAILABLE_MSG
 from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
@@ -56,27 +57,33 @@ class PSABaseHandler(RequestHandler):
         user_id = int(self.user_id())
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
-            with DBSession() as session:
-                try:
-                    user = session.scalars(
-                        sqlalchemy.select(User).where(User.id == user_id)
-                    ).first()
-                    if user is None:
+            try:
+                with DBSession() as session:
+                    try:
+                        user = session.scalars(
+                            sqlalchemy.select(User).where(User.id == user_id)
+                        ).first()
+                        if user is None:
+                            return None
+                        sa = session.scalars(
+                            sqlalchemy.select(psa.TornadoStorage.user).where(
+                                psa.TornadoStorage.user.user_id == user_id
+                            )
+                        ).first()
+                        if sa is None:
+                            # No SocialAuth entry; probably machine generated user
+                            return user
+                        if sa.uid.encode("utf-8") == oauth_uid:
+                            return user
+                    except Exception as e:
+                        session.rollback()
+                        log(f"Could not get current user: {e}")
                         return None
-                    sa = session.scalars(
-                        sqlalchemy.select(psa.TornadoStorage.user).where(
-                            psa.TornadoStorage.user.user_id == user_id
-                        )
-                    ).first()
-                    if sa is None:
-                        # No SocialAuth entry; probably machine generated user
-                        return user
-                    if sa.uid.encode("utf-8") == oauth_uid:
-                        return user
-                except Exception as e:
-                    session.rollback()
-                    log(f"Could not get current user: {e}")
-                    return None
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                # A dead DB connection can re-raise on rollback / session exit; don't
+                # leak the raw SQL as a 500 via write_error. Return a retryable 503.
+                log(f"Cookie auth DB lookup failed for [{self.request.path}]: {e}")
+                raise HTTPError(503, DB_UNAVAILABLE_MSG) from None
         else:
             return None
 
