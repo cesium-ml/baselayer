@@ -7,6 +7,12 @@ app:
                           # using:
                           #
                           # base64.b64encode(os.urandom(50)).decode('ascii')
+
+    # If true, unauthenticated visitors get read-only access as the
+    # `anonymous_user` account (which must exist).
+    anonymous_access: false
+    anonymous_user: anonymous
+
     factory:
 
 database:
