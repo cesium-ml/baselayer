@@ -75,37 +75,47 @@ class PSABaseHandler(RequestHandler):
                             return user
                         if sa.uid.encode("utf-8") == oauth_uid:
                             return user
+                    except sqlalchemy.exc.SQLAlchemyError:
+                        # Let the 503 handler below answer, not a misleading 401.
+                        raise
                     except Exception as e:
                         session.rollback()
                         log(f"Could not get current user: {e}")
                         return None
             except sqlalchemy.exc.SQLAlchemyError as e:
-                # A dead DB connection can re-raise on rollback / session exit; don't
-                # leak the raw SQL as a 500 via write_error. Return a retryable 503.
+                # DB outage: return a retryable 503 instead of leaking SQL as a 500.
                 log(f"Cookie auth DB lookup failed for [{self.request.path}]: {e}")
                 raise HTTPError(503, DB_UNAVAILABLE_MSG) from None
         else:
             return None
 
     def login_user(self, user):
-        with DBSession() as session:
-            try:
-                self.set_secure_cookie("user_id", str(user.id))
-                user = session.scalars(
-                    sqlalchemy.select(User).where(User.id == user.id)
-                ).first()
-                if user is None:
-                    return
-                sa = session.scalars(
-                    sqlalchemy.select(psa.TornadoStorage.user).where(
-                        psa.TornadoStorage.user.user_id == user.id
-                    )
-                ).first()
-                if sa is not None:
-                    self.set_secure_cookie("user_oauth_uid", sa.uid)
-            except Exception as e:
-                session.rollback()
-                log(f"Could not login user: {e}")
+        try:
+            with DBSession() as session:
+                try:
+                    self.set_secure_cookie("user_id", str(user.id))
+                    user = session.scalars(
+                        sqlalchemy.select(User).where(User.id == user.id)
+                    ).first()
+                    if user is None:
+                        return
+                    sa = session.scalars(
+                        sqlalchemy.select(psa.TornadoStorage.user).where(
+                            psa.TornadoStorage.user.user_id == user.id
+                        )
+                    ).first()
+                    if sa is not None:
+                        self.set_secure_cookie("user_oauth_uid", sa.uid)
+                except sqlalchemy.exc.SQLAlchemyError:
+                    # Let the 503 handler below answer, not a silent failed login.
+                    raise
+                except Exception as e:
+                    session.rollback()
+                    log(f"Could not login user: {e}")
+        except sqlalchemy.exc.SQLAlchemyError as e:
+            # DB outage: return a retryable 503 instead of leaking SQL as a 500.
+            log(f"Login DB write failed for [{self.request.path}]: {e}")
+            raise HTTPError(503, DB_UNAVAILABLE_MSG) from None
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
