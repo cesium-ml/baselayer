@@ -12,13 +12,13 @@ from json.decoder import JSONDecodeError
 import sqlalchemy
 import tornado.escape
 from tornado.log import app_log
-from tornado.web import HTTPError, RequestHandler
+from tornado.web import RequestHandler
 
 from ...log import make_log
 
 # Initialize PSA tornado models
 from .. import psa
-from ..access import DB_UNAVAILABLE_MSG
+from ..access import db_error_503
 from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
@@ -57,7 +57,7 @@ class PSABaseHandler(RequestHandler):
         user_id = int(self.user_id())
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
-            try:
+            with db_error_503(self.request.path):
                 with DBSession() as session:
                     try:
                         user = session.scalars(
@@ -76,21 +76,17 @@ class PSABaseHandler(RequestHandler):
                         if sa.uid.encode("utf-8") == oauth_uid:
                             return user
                     except sqlalchemy.exc.SQLAlchemyError:
-                        # Let the 503 handler below answer, not a misleading 401.
+                        # Let db_error_503 answer, not a misleading 401.
                         raise
                     except Exception as e:
                         session.rollback()
                         log(f"Could not get current user: {e}")
                         return None
-            except sqlalchemy.exc.SQLAlchemyError as e:
-                # DB outage: return a retryable 503 instead of leaking SQL as a 500.
-                log(f"Cookie auth DB lookup failed for [{self.request.path}]: {e}")
-                raise HTTPError(503, DB_UNAVAILABLE_MSG) from None
         else:
             return None
 
     def login_user(self, user):
-        try:
+        with db_error_503(self.request.path):
             with DBSession() as session:
                 try:
                     self.set_secure_cookie("user_id", str(user.id))
@@ -107,15 +103,11 @@ class PSABaseHandler(RequestHandler):
                     if sa is not None:
                         self.set_secure_cookie("user_oauth_uid", sa.uid)
                 except sqlalchemy.exc.SQLAlchemyError:
-                    # Let the 503 handler below answer, not a silent failed login.
+                    # Let db_error_503 answer, not a silent failed login.
                     raise
                 except Exception as e:
                     session.rollback()
                     log(f"Could not login user: {e}")
-        except sqlalchemy.exc.SQLAlchemyError as e:
-            # DB outage: return a retryable 503 instead of leaking SQL as a 500.
-            log(f"Login DB write failed for [{self.request.path}]: {e}")
-            raise HTTPError(503, DB_UNAVAILABLE_MSG) from None
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:
