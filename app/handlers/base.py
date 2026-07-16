@@ -18,6 +18,7 @@ from ...log import make_log
 
 # Initialize PSA tornado models
 from .. import psa
+from ..access import db_error_503
 from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
@@ -75,49 +76,57 @@ class PSABaseHandler(RequestHandler):
         user_id = int(self.user_id())
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
         if user_id and oauth_uid:
-            with DBSession() as session:
-                try:
-                    user = session.scalars(
-                        sqlalchemy.select(User).where(User.id == user_id)
-                    ).first()
-                    if user is None:
+            with db_error_503(self.request.path):
+                with DBSession() as session:
+                    try:
+                        user = session.scalars(
+                            sqlalchemy.select(User).where(User.id == user_id)
+                        ).first()
+                        if user is None:
+                            return None
+                        sa = session.scalars(
+                            sqlalchemy.select(psa.TornadoStorage.user).where(
+                                psa.TornadoStorage.user.user_id == user_id
+                            )
+                        ).first()
+                        if sa is None:
+                            # No SocialAuth entry; probably machine generated user
+                            return user
+                        if sa.uid.encode("utf-8") == oauth_uid:
+                            return user
+                    except sqlalchemy.exc.SQLAlchemyError:
+                        # Let db_error_503 answer, not a misleading 401.
+                        raise
+                    except Exception as e:
+                        session.rollback()
+                        log(f"Could not get current user: {e}")
                         return None
-                    sa = session.scalars(
-                        sqlalchemy.select(psa.TornadoStorage.user).where(
-                            psa.TornadoStorage.user.user_id == user_id
-                        )
-                    ).first()
-                    if sa is None:
-                        # No SocialAuth entry; probably machine generated user
-                        return user
-                    if sa.uid.encode("utf-8") == oauth_uid:
-                        return user
-                except Exception as e:
-                    session.rollback()
-                    log(f"Could not get current user: {e}")
-                    return None
         else:
             return None
 
     def login_user(self, user):
-        with DBSession() as session:
-            try:
-                self.set_secure_cookie("user_id", str(user.id))
-                user = session.scalars(
-                    sqlalchemy.select(User).where(User.id == user.id)
-                ).first()
-                if user is None:
-                    return
-                sa = session.scalars(
-                    sqlalchemy.select(psa.TornadoStorage.user).where(
-                        psa.TornadoStorage.user.user_id == user.id
-                    )
-                ).first()
-                if sa is not None:
-                    self.set_secure_cookie("user_oauth_uid", sa.uid)
-            except Exception as e:
-                session.rollback()
-                log(f"Could not login user: {e}")
+        with db_error_503(self.request.path):
+            with DBSession() as session:
+                try:
+                    self.set_secure_cookie("user_id", str(user.id))
+                    user = session.scalars(
+                        sqlalchemy.select(User).where(User.id == user.id)
+                    ).first()
+                    if user is None:
+                        return
+                    sa = session.scalars(
+                        sqlalchemy.select(psa.TornadoStorage.user).where(
+                            psa.TornadoStorage.user.user_id == user.id
+                        )
+                    ).first()
+                    if sa is not None:
+                        self.set_secure_cookie("user_oauth_uid", sa.uid)
+                except sqlalchemy.exc.SQLAlchemyError:
+                    # Let db_error_503 answer, not a silent failed login.
+                    raise
+                except Exception as e:
+                    session.rollback()
+                    log(f"Could not login user: {e}")
 
     def write_error(self, status_code, exc_info=None):
         if exc_info is not None:

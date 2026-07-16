@@ -1,5 +1,6 @@
 import functools
 import inspect
+from contextlib import contextmanager
 
 import sqlalchemy as sa
 import tornado.web
@@ -12,6 +13,21 @@ from baselayer.app.models import (  # noqa: F401
     Token,
     User,
 )
+from baselayer.log import make_log
+
+log = make_log("access")
+
+DB_UNAVAILABLE_MSG = "Database is temporarily unavailable; please retry shortly."
+
+
+@contextmanager
+def db_error_503(path):
+    """Turn an auth-boundary DB failure into a retryable 503 (no SQL leak)."""
+    try:
+        yield
+    except sa.exc.SQLAlchemyError as e:
+        log(f"Auth DB access failed for [{path}]: {e}")
+        raise tornado.web.HTTPError(503, DB_UNAVAILABLE_MSG) from None
 
 
 def _token_select_stmt(token_id):
@@ -54,9 +70,10 @@ def auth_or_token(method):
                 # init by init_db() is reflected here.
                 from baselayer.app import models as _models
 
-                async with _models.async_plain_session_factory() as session:
-                    result = await session.scalars(_token_select_stmt(token_id))
-                    token = result.first()
+                with db_error_503(self.request.path):
+                    async with _models.async_plain_session_factory() as session:
+                        result = await session.scalars(_token_select_stmt(token_id))
+                        token = result.first()
                 if token is not None:
                     self.current_user = token
                     if not token.created_by.is_active():
@@ -88,8 +105,9 @@ def auth_or_token(method):
         token_header = self.request.headers.get("Authorization", None)
         if token_header is not None and token_header.startswith("token "):
             token_id = token_header.replace("token", "").strip()
-            with DBSession() as session:
-                token = session.scalars(_token_select_stmt(token_id)).first()
+            with db_error_503(self.request.path):
+                with DBSession() as session:
+                    token = session.scalars(_token_select_stmt(token_id)).first()
             if token is not None:
                 self.current_user = token
                 if not token.created_by.is_active():
