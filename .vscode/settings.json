@@ -1,0 +1,21 @@
+{
+  "oxc.useExecPath": true,
+  "oxc.path.oxfmt": "node_modules/oxfmt/bin/oxfmt",
+  "oxc.path.oxlint": "node_modules/oxlint/bin/oxlint",
+
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.preferences.autoImportFileExcludePatterns": [".direnv/**"],
+  "editor.defaultFormatter": "EditorConfig.EditorConfig",
+
+  "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.defaultColorDecorators": "always"
+  },
+  "[nix]": {
+    "editor.defaultFormatter": "jnoortheen.nix-ide"
+  }
+}
