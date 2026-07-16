@@ -1,9 +1,8 @@
-import zlib
+from collections.abc import Callable
 from datetime import datetime
 
-BOLD = "\033[1m"
-NORMAL = "\033[0;0m"
-
+ESC = "\x1b["
+RESET = f"{ESC}0m"
 
 COLOR_TABLE = [
     "black",
@@ -18,7 +17,19 @@ COLOR_TABLE = [
 ]
 
 
-def colorize(s, fg=None, bg=None, bold=False, underline=False, reverse=False):
+def __colorize(
+    string: str,
+    foreground: str | None = None,
+    background: str | None = None,
+    bold: bool = False,
+    dim: bool = False,
+    italic: bool = False,
+    underline: bool = False,
+    blinking: bool = False,
+    invert: bool = False,
+    invisible: bool = False,
+    strikethrough: bool = False,
+) -> str:
     """Wraps a string with ANSI color escape sequences corresponding to the
     style parameters given.
 
@@ -29,55 +40,46 @@ def colorize(s, fg=None, bg=None, bold=False, underline=False, reverse=False):
       https://github.com/cpcloud/grin
 
     Copyright (c) 2007, Enthought, Inc. under a BSD license.
-
-    Parameters
-    ----------
-    s : str
-    fg : str
-        Foreground color of the text.  One of (black, red, green, yellow, blue,
-        magenta, cyan, white, default)
-    bg : str
-        Background color of the text.  Color choices are the same as for fg.
-    bold : bool
-        Whether or not to display the text in bold.
-    underline : bool
-        Whether or not to underline the text.
-    reverse : bool
-        Whether or not to show the text in reverse video.
-
-    Returns
-    -------
-    A string with embedded color escape sequences.
     """
+    style_fragments: list[int] = []
 
-    style_fragments = []
-    if fg in COLOR_TABLE:
-        # Foreground colors go from 30-39
-        style_fragments.append(COLOR_TABLE.index(fg) + 30)
-    if bg in COLOR_TABLE:
-        # Background colors go from 40-49
-        style_fragments.append(COLOR_TABLE.index(bg) + 40)
+    # Foreground colors go from 30-39
+    if foreground in COLOR_TABLE:
+        style_fragments.append(COLOR_TABLE.index(foreground) + 30)
+
+    # Background colors go from 40-49
+    if background in COLOR_TABLE:
+        style_fragments.append(COLOR_TABLE.index(background) + 40)
+
     if bold:
         style_fragments.append(1)
+    if dim:
+        style_fragments.append(2)
+    if italic:
+        style_fragments.append(3)
     if underline:
         style_fragments.append(4)
-    if reverse:
+    if blinking:
+        style_fragments.append(5)
+    if invert:
         style_fragments.append(7)
-    style_start = "\x1b[" + ";".join(map(str, style_fragments)) + "m"
-    style_end = "\x1b[0m"
-    return style_start + s + style_end
+    if invisible:
+        style_fragments.append(8)
+    if strikethrough:
+        style_fragments.append(9)
+
+    styles = ";".join(map(str, style_fragments)) + "m"
+    return f"{ESC}{styles}{string}{RESET}" if styles else string
 
 
-def log(app, message):
-    color_table = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"]
-    color = color_table[zlib.crc32(app.encode("ascii")) % len(color_table)]
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    formatted_message = f"[{timestamp} {app}] {message}"
-    print(colorize(formatted_message, fg=color, bold=True))
+def make_log(appName: str) -> Callable[[str], None]:
+    app_color_table = ["red", "green", "yellow", "blue", "magenta", "cyan", "white"]
+    color = app_color_table[hash(appName.encode("ascii")) % len(app_color_table)]
 
-
-def make_log(app):
-    def app_log(*args, **kwargs):
-        log(app, *args, **kwargs)
-
-    return app_log
+    return lambda message: print(
+        __colorize(
+            f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {appName}] {message}",
+            foreground=color,
+            bold=True,
+        )
+    )
