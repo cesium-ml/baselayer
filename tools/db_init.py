@@ -18,13 +18,18 @@ parser.add_argument(
     action="store_true",
     help="recreate the db, even if it already exists",
 )
+parser.add_argument(
+    "--test-only",
+    action="store_true",
+    help="only act on the test database",
+)
 args, unknown = parser.parse_known_args()
 
 env, cfg = load_env()
 
 db = cfg["database.database"]
 db_test = db + "_test"
-all_dbs = (db, db_test)
+dbs = (db_test,) if args.test_only else (db, db_test)
 
 user = cfg["database.user"] or db
 host = cfg["database.host"]
@@ -65,11 +70,11 @@ with status(f"Creating user [{user}]"):
 
 if args.force:
     try:
-        for current_db in all_dbs:
+        for current_db in dbs:
             with status(f"Removing database [{current_db}]"):
                 p = run(
                     f'{psql_cmd} {admin_flags}\
-                          -c "DROP DATABASE {current_db};"'
+                          -c "DROP DATABASE IF EXISTS {current_db};"'
                 )
                 if p.returncode != 0:
                     raise RuntimeError()
@@ -80,12 +85,12 @@ if args.force:
         )
         sys.exit(1)
 
-for current_db in all_dbs:
+for current_db in dbs:
     with status(f"Creating database [{current_db}]"):
         # We allow this to fail, because oftentimes because of complicated db setups
         # users want to create their own databases
 
-        # If database already exists and we can connect to it, there's nothing to do
+        # If database already exists, and we can connect to it, there's nothing to do
         if test_db(current_db):
             continue
 
@@ -121,11 +126,12 @@ for current_db in all_dbs:
             )
             print()
 
-# We only test the connection to the main database, since
-# the test database may not exist in production
+# If test_only is false, we only test the connection to the main database,
+# since the test database may not exist in production
+db_to_check = db_test if args.test_only else db
 try:
-    with status(f"Testing database connection to [{db}]"):
-        if not test_db(db):
+    with status(f"Testing database connection to [{db_to_check}]"):
+        if not test_db(db_to_check):
             raise RuntimeError()
 
 except RuntimeError:
@@ -139,7 +145,7 @@ except RuntimeError:
 
         We tried to connect to the database with the following parameters:
 
-          database: {db}
+          database: {db_to_check}
           username: {user}
           host:     {host}
           port:     {port}
@@ -153,7 +159,7 @@ except RuntimeError:
         Please modify your `pg_hba.conf`, and use the following command to
         check your connection:
 
-          {test_cmd + db}
+          {test_cmd + db_to_check}
         """
         )
     )
