@@ -262,7 +262,9 @@ async def async_bulk_verify(session, mode, collection, accessor):
         grouped_collection[type(row)].append(row)
 
     for record_cls, collection in grouped_collection.items():
-        collection_ids = {record.id for record in collection}
+        # PKs from the identity map (no I/O); `record.id` can sync-lazy-load an
+        # expired object and raise MissingGreenlet under async.
+        collection_ids = {sa.inspect(record).identity[0] for record in collection}
 
         # `cls.select(...)` returns a 2.0-style Select; `.subquery()` is
         # statement-level (no I/O) and so works under either dialect.
