@@ -75,7 +75,7 @@ class CompleteHandler(BaseHandler):
         do_complete(
             self.backend,
             login=lambda backend, user, social_user: self.login_user(user),
-            user=self.get_current_user(),
+            user=self._signed_in_user(),
         )
 
 
