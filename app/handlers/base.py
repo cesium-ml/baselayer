@@ -11,6 +11,7 @@ from json.decoder import JSONDecodeError
 # be used to look up the logged in user.
 import sqlalchemy
 import tornado.escape
+import tornado.web
 from tornado.log import app_log
 from tornado.web import RequestHandler
 
@@ -18,7 +19,7 @@ from ...log import make_log
 
 # Initialize PSA tornado models
 from .. import psa
-from ..access import db_error_503
+from ..access import db_error_503, load_token
 from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
@@ -259,7 +260,7 @@ class BaseHandler(PSABaseHandler):
         self.verify_permissions()
         DBSession().commit()
 
-    def prepare(self):
+    async def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
         session_context_id.set(uuid.uuid4().hex)
@@ -287,6 +288,19 @@ class BaseHandler(PSABaseHandler):
                 else:
                     log("Error connecting to database, sleeping for a while")
                     time.sleep(5)
+
+        # Tornado convention: `get_current_user()` may not be a coroutine,
+        # so credentials that require async I/O — API tokens, looked up on
+        # the async engine — are resolved here and assigned to
+        # `current_user`. Cookie (and anonymous-fallback) auth stays in
+        # `get_current_user()`, which Tornado calls lazily on first access.
+        token_header = self.request.headers.get("Authorization", None)
+        if token_header is not None and token_header.startswith("token "):
+            token_id = token_header.replace("token", "").strip()
+            token = await load_token(token_id, self.request.path)
+            if token is None:
+                raise tornado.web.HTTPError(401)
+            self.current_user = token
 
         return super().prepare()
 
