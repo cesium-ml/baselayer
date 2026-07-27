@@ -46,7 +46,7 @@ def all_services_running():
     return running if return_code in (0, 3) else False
 
 
-def verify_server_availability(url, timeout=180):
+def verify_server_availability(url, timeout=180, check_bundle=True):
     """Raise exception if webservices fail to launch or connection to `url` is not
     available.
     """
@@ -65,10 +65,11 @@ def verify_server_availability(url, timeout=180):
                 f"Expected status 200, got {response.status_code} for URL {url}. Retrying."
             )
 
-            bundle_dir = pathlib.Path("static/build")
-            assert bundle_dir.exists() and any(bundle_dir.glob("main*.bundle.js")), (
-                "Javascript bundle not found in static/build/, did packing fail?"
-            )
+            if check_bundle:
+                bundle_dir = pathlib.Path("static/build")
+                assert bundle_dir.exists() and any(bundle_dir.glob("main*.bundle.js")), (
+                    "Javascript bundle not found in static/build/, did packing fail?"
+                )
 
             return True  # all checks passed
         except Exception as e:
@@ -135,9 +136,17 @@ if __name__ == "__main__":
     log(f"Waiting for server to appear at {server_url}...")
 
     exit_status = (0, "OK")
+    # API-only runs disable the rspack service, so no bundle is ever built;
+    # don't gate startup on one (nothing in those tests loads the frontend).
+    disabled = cfg["services.disabled"] or []
+    enabled = cfg["services.enabled"] or []
+    rspack_off = (disabled == "*" or "rspack" in disabled) and "rspack" not in enabled
+
     try:
         timeout = 180
-        if not verify_server_availability(server_url, timeout=timeout):
+        if not verify_server_availability(
+            server_url, timeout=timeout, check_bundle=not rspack_off
+        ):
             raise RuntimeError(f"Server still unavailable after {timeout}s")
 
         log(f"Launching pytest on {test_spec}...\n")
