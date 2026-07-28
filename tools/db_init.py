@@ -36,20 +36,28 @@ host = cfg["database.host"]
 port = cfg["database.port"]
 password = cfg["database.password"]
 
-psql_cmd = "psql"
-flags = f"-U {user}"
+# Administrative user, used to create the application user and databases.
+# Not every installation has the default `postgres` superuser: e.g.,
+# PostgreSQL Docker containers are initialized with a superuser named
+# after `POSTGRES_USER`.  See `database.admin_user` in the configuration.
+admin_user = cfg.get("database.admin_user") or "postgres"
+admin_password = cfg.get("database.admin_password") or password
 
-if password:
-    psql_cmd = f'PGPASSWORD="{password}" {psql_cmd}'
-flags += " --no-password"
 
-if host:
-    flags += f" -h {host}"
+def psql_connection(psql_user, psql_password):
+    cmd = "psql"
+    if psql_password:
+        cmd = f'PGPASSWORD="{psql_password}" {cmd}'
+    conn_flags = f"-U {psql_user} --no-password"
+    if host:
+        conn_flags += f" -h {host}"
+    if port:
+        conn_flags += f" -p {port}"
+    return cmd, conn_flags
 
-if port:
-    flags += f" -p {port}"
 
-admin_flags = flags.replace(f"-U {user}", "-U postgres")
+psql_cmd, flags = psql_connection(user, password)
+admin_cmd, admin_flags = psql_connection(admin_user, admin_password)
 
 test_cmd = f"{psql_cmd} {flags} -c 'SELECT 0;' "
 
@@ -65,15 +73,45 @@ def test_db(database):
 
 log("Initializing databases")
 
+# Unless given a database explicitly, psql connects to a database named
+# after the connecting user, which does not necessarily exist for the
+# admin user.  Like `createdb`, we therefore run administrative commands
+# against the `postgres` maintenance database, falling back to `template1`.
+for maintenance_db in ("postgres", "template1"):
+    p = run(f"{admin_cmd} {admin_flags} -d {maintenance_db} -c 'SELECT 0;'")
+    if p.returncode == 0:
+        break
+admin_flags += f" -d {maintenance_db}"
+
+if p.returncode != 0:
+    print(f"Warning: could not connect as database administrator [{admin_user}]:\n")
+    print(textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  "))
+    print(
+        textwrap.dedent(
+            """
+            If your PostgreSQL installation uses an administrative account
+            other than [postgres] (as do, e.g., Docker containers started
+            with a custom `POSTGRES_USER`), set `database.admin_user` and,
+            if needed, `database.admin_password` in your configuration.
+
+            Continuing, in case the user and databases already exist.
+            """
+        )
+    )
+
+create_user_sql = f"CREATE USER {user}"
+if password:
+    create_user_sql += f" WITH PASSWORD '{password}'"
+
 with status(f"Creating user [{user}]"):
-    run(f'{psql_cmd} {admin_flags} -c "CREATE USER {user};"')
+    run(f'{admin_cmd} {admin_flags} -c "{create_user_sql};"')
 
 if args.force:
     try:
         for current_db in dbs:
             with status(f"Removing database [{current_db}]"):
                 p = run(
-                    f'{psql_cmd} {admin_flags}\
+                    f'{admin_cmd} {admin_flags}\
                           -c "DROP DATABASE IF EXISTS {current_db};"'
                 )
                 if p.returncode != 0:
@@ -95,7 +133,7 @@ for current_db in dbs:
             continue
 
         p = run(
-            f'{psql_cmd} {admin_flags}\
+            f'{admin_cmd} {admin_flags}\
                   -c "CREATE DATABASE {current_db} OWNER {user};"'
         )
         if p.returncode == 0:
@@ -108,13 +146,7 @@ for current_db in dbs:
             print()
             print(f"Warning: could not create db {current_db}")
             print()
-            print(
-                "\n".join(
-                    line
-                    for line in p.stderr.decode("utf-8").split("\n")
-                    if "ERROR" in line
-                )
-            )
+            print(textwrap.indent(p.stderr.decode("utf-8").strip(), prefix="  "))
             print()
             print("  You should create it manually by invoking `createdb`.")
             print("  Then, execute:")
@@ -131,7 +163,8 @@ for current_db in dbs:
 db_to_check = db_test if args.test_only else db
 try:
     with status(f"Testing database connection to [{db_to_check}]"):
-        if not test_db(db_to_check):
+        p = run(test_cmd + db_to_check)
+        if p.returncode != 0:
             raise RuntimeError()
 
 except RuntimeError:

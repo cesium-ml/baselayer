@@ -22,6 +22,14 @@ database:
     user:
     password:
 
+    # Administrative account used by `make db_init` to create the user and
+    # databases specified above.  If left blank, this defaults to the
+    # `postgres` superuser, with `password` as its password.  Set these if
+    # your installation's superuser goes by a different name, e.g., for
+    # PostgreSQL Docker containers started with a custom `POSTGRES_USER`.
+    admin_user:
+    admin_password:
+
 paths:
     downloads_folder: '/tmp'
 

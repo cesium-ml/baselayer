@@ -67,6 +67,12 @@ See [below](#configuration) for more information on modifying the baselayer conf
 
   If you use IPv6, `localhost` becomes `::1/128`.
 
+- If your PostgreSQL installation uses an administrative account other than
+  `postgres` (e.g., a Docker container started with a custom `POSTGRES_USER`),
+  set `database.admin_user` (and, if password authentication is used,
+  `database.admin_password`) in your `config.yaml`, and substitute that
+  username in the `pg_hba.conf` lines above.
+
 ## Building the baselayer database
 
 - Initialize the database with `make db_init` (also tests that your

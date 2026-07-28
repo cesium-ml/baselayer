@@ -98,6 +98,9 @@ jobs:
         run: |
           cd baselayer_template_app
 
+          # The postgres service container has no `postgres` superuser:
+          # its superuser is `baselayer` (see POSTGRES_USER above), so
+          # db_init must create the databases via database.admin_user.
           cat << EOF > config.yaml
           database:
             database: template_app
@@ -105,6 +108,8 @@ jobs:
             host: localhost
             port: 5432
             password: anything
+            admin_user: baselayer
+            admin_password: anything
           EOF
 
           cat << EOF > test_config.yaml
@@ -114,16 +119,12 @@ jobs:
             host: localhost
             port: 5432
             password: anything
+            admin_user: baselayer
+            admin_password: anything
           EOF
 
           echo "localhost:5432:*:baselayer:anything" > ~/.pgpass
           chmod 600 ~/.pgpass
-
-          createdb -h localhost -U baselayer template_app
-          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app TO baselayer;" template_app
-
-          createdb -h localhost -U baselayer template_app_test
-          psql -U baselayer -h localhost -c "GRANT ALL PRIVILEGES ON DATABASE template_app_test TO baselayer;" template_app_test
 
           make db_init
 
