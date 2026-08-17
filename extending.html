@@ -106,13 +106,13 @@ argument contains baselayer-specific Tornado configuration.</p>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">make_app</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">baselayer_handlers</span><span class="p">,</span> <span class="n">baselayer_settings</span><span class="p">):</span>
        <span class="n">handlers</span> <span class="o">=</span> <span class="n">baselayer_handlers</span> <span class="o">+</span> <span class="p">[</span>
-           <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;/my_page&#39;</span><span class="p">,</span> <span class="n">MyPageHandler</span><span class="p">),</span>
-           <span class="p">(</span><span class="sa">r</span><span class="s1">&#39;/.*&#39;</span><span class="p">,</span> <span class="n">MainPageHandler</span><span class="p">)</span>
+           <span class="p">(</span><span class="sa">r</span><span class="s1">'/my_page'</span><span class="p">,</span> <span class="n">MyPageHandler</span><span class="p">),</span>
+           <span class="p">(</span><span class="sa">r</span><span class="s1">'/.*'</span><span class="p">,</span> <span class="n">MainPageHandler</span><span class="p">)</span>
        <span class="p">]</span>
 
        <span class="n">settings</span> <span class="o">=</span> <span class="n">baselayer_settings</span>
        <span class="n">settings</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
-           <span class="s1">&#39;tornado_config_key&#39;</span><span class="p">:</span> <span class="s1">&#39;tornado_config_value&#39;</span>
+           <span class="s1">'tornado_config_key'</span><span class="p">:</span> <span class="s1">'tornado_config_value'</span>
        <span class="p">})</span>  <span class="c1"># Specify any additional settings here</span>
 
        <span class="n">app</span> <span class="o">=</span> <span class="n">tornado</span><span class="o">.</span><span class="n">web</span><span class="o">.</span><span class="n">Application</span><span class="p">(</span><span class="n">handlers</span><span class="p">,</span> <span class="o">**</span><span class="n">settings</span><span class="p">)</span>
@@ -136,7 +136,7 @@ include their values as follows:</p>
 <p>When you launch the <code class="docutils literal notranslate"><span class="pre">run</span></code> or <code class="docutils literal notranslate"><span class="pre">run_production</span></code> targets for baselayer,
 it will automatically fill out all template files. Alternatively, you
 can run the templating manually:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">tools</span><span class="o">/</span><span class="n">fill_conf_values</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">config</span><span class="o">=</span><span class="s2">&quot;config.yaml&quot;</span> <span class="n">static</span><span class="o">/</span><span class="n">js</span><span class="o">/</span><span class="n">component</span><span class="o">.</span><span class="n">jsx</span><span class="o">.</span><span class="n">template</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">baselayer</span><span class="o">/</span><span class="n">tools</span><span class="o">/</span><span class="n">fill_conf_values</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">config</span><span class="o">=</span><span class="s2">"config.yaml"</span> <span class="n">static</span><span class="o">/</span><span class="n">js</span><span class="o">/</span><span class="n">component</span><span class="o">.</span><span class="n">jsx</span><span class="o">.</span><span class="n">template</span>
 </pre></div>
 </div>
 </section>
@@ -149,13 +149,13 @@ This is useful for integrating third-party services or custom scripts.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">services</span><span class="p">:</span>
   <span class="n">external</span><span class="p">:</span>
     <span class="n">my_service</span><span class="p">:</span>
-        <span class="n">repo</span><span class="p">:</span> <span class="s2">&quot;https://github.com/my_service.git&quot;</span>
+        <span class="n">repo</span><span class="p">:</span> <span class="s2">"https://github.com/my_service.git"</span>
         <span class="n">rev</span><span class="p">:</span> <span class="n">abc01234</span>  <span class="c1"># SHA revision specification</span>
     <span class="n">another_service</span><span class="p">:</span>
-        <span class="n">url</span><span class="p">:</span> <span class="s2">&quot;https://github.com/another_service.git&quot;</span>
+        <span class="n">url</span><span class="p">:</span> <span class="s2">"https://github.com/another_service.git"</span>
         <span class="n">rev</span><span class="p">:</span> <span class="n">v0</span><span class="mf">.1.0</span>  <span class="c1"># tag revision specification</span>
         <span class="n">params</span><span class="p">:</span>
-            <span class="n">endpoint</span><span class="p">:</span> <span class="s2">&quot;https://api.example.com&quot;</span>
+            <span class="n">endpoint</span><span class="p">:</span> <span class="s2">"https://api.example.com"</span>
 </pre></div>
 </div>
 <p>You must provide the <code class="docutils literal notranslate"><span class="pre">repo</span></code> git URL, as well as a revision (SHA, tag, or branch).</p>
@@ -177,16 +177,16 @@ This is useful for integrating third-party services or custom scripts.</p>
 It specifies plugin meta-data, and also compatibility with other packages—enforced by baselayer.</p>
 <p>In this file:</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project]</span>
-<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my_service&quot;</span>
-<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
-<span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;A micro-service to add to an application built on top of baselayer&quot;</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"my_service"</span>
+<span class="n">version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"0.1.0"</span>
+<span class="n">description</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"A micro-service to add to an application built on top of baselayer"</span>
 <span class="n">authors</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;John Doe&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;john.doe@example.com&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"John Doe"</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"john.doe@example.com"</span><span class="w"> </span><span class="p">}</span>
 <span class="p">]</span>
 
 <span class="k">[tool.compatibility]</span>
 <span class="n">compatible-with</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
-<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;skyportal&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;&gt;=1.4.0&quot;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="n">name</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"skyportal"</span><span class="p">,</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"&gt;=1.4.0"</span><span class="w"> </span><span class="p">}</span>
 <span class="p">]</span>
 </pre></div>
 </div>
@@ -203,7 +203,7 @@ These values can be overridden in the app’s <code class="docutils literal notr
 <span class="w">  </span><span class="nt">external</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">my_service</span><span class="p">:</span>
 <span class="w">      </span><span class="nt">params</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://api.example.com&quot;</span>
+<span class="w">        </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="s">"https://api.example.com"</span>
 </pre></div>
 </div>
 </section>
