@@ -55,6 +55,8 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#building-the-baselayer-database">Building the baselayer database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sign-in-providers">Sign-in providers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#signing-in-with-more-than-one-provider">Signing in with more than one provider</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#username-generation">Username generation</a></li>
 </ul>
 </li>
@@ -183,10 +185,66 @@ permissions have been properly configured).</p></li>
 </li>
 <li><p>If you want other users to be able to log in:</p>
 <ul>
-<li><p>Provide Google auth credentials, obtained as described in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>.</p></li>
+<li><p>Provide Google auth credentials, obtained as described in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>,
+or configure another provider (see below).</p></li>
 </ul>
 </li>
 </ul>
+<section id="sign-in-providers">
+<h3>Sign-in providers<a class="headerlink" href="#sign-in-providers" title="Link to this heading"></a></h3>
+<p>Sign-in is handled by <a class="reference external" href="https://github.com/python-social-auth/social-core">python-social-auth</a>,
+which ships backends for Google, ORCID, GitHub, Slack, SAML, generic OpenID
+Connect and many others. With no configuration, Google is used, taking its
+credentials from <code class="docutils literal notranslate"><span class="pre">server.auth.google_oauth2_key</span></code> / <code class="docutils literal notranslate"><span class="pre">_secret</span></code>.</p>
+<p>To offer something else, list it under <code class="docutils literal notranslate"><span class="pre">server.auth.backends</span></code>. Each entry needs
+the backend’s own <code class="docutils literal notranslate"><span class="pre">name</span></code>, plus the dotted path to its class. The name is what
+appears in <code class="docutils literal notranslate"><span class="pre">/login/&lt;name&gt;</span></code>, and what its <code class="docutils literal notranslate"><span class="pre">SOCIAL_AUTH_&lt;NAME&gt;_*</span></code> settings are
+keyed on:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">server</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">backends</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orcid</span>
+<span class="w">        </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">social_core.backends.orcid.ORCIDOAuth2</span>
+<span class="w">        </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">        </span><span class="nt">secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">        </span><span class="nt">label</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Sign in with ORCID</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-iam</span>
+<span class="w">        </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">social_core.backends.open_id_connect.OpenIdConnectAuth</span>
+<span class="w">        </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">        </span><span class="nt">secret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">        </span><span class="nt">settings</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">oidc_endpoint</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://iam.example.org</span>
+</pre></div>
+</div>
+<p>Anything under <code class="docutils literal notranslate"><span class="pre">settings</span></code> is exported as <code class="docutils literal notranslate"><span class="pre">SOCIAL_AUTH_&lt;NAME&gt;_&lt;KEY&gt;</span></code>, so a
+provider speaking standard OpenID Connect needs no code at all. A provider that
+does need code, for example a bespoke federation endpoint, can subclass
+<code class="docutils literal notranslate"><span class="pre">social_core.backends.oauth.BaseOAuth2</span></code> anywhere importable and be named here by
+its dotted path; it does not have to live in baselayer.</p>
+<p>The login page shows one button per provider, in the order listed. In <a class="reference external" href="#debug-mode">debug
+mode</a>, where sign-in succeeds without contacting any provider, the
+stand-in takes the name of the first provider you list, so development and
+production exercise the same login page and the same routes.</p>
+</section>
+<section id="signing-in-with-more-than-one-provider">
+<h3>Signing in with more than one provider<a class="headerlink" href="#signing-in-with-more-than-one-provider" title="Link to this heading"></a></h3>
+<p>Returning with a provider you have used before always lands you back in the same
+account, even if you have since changed your email address there.</p>
+<p>Returning with a <em>different</em> provider is recognised as the same person only when
+the second provider reports an email address matching the account and vouches
+that the address is yours. Otherwise you get a second, separate account.</p>
+<p>Most providers say whether they have verified an address, and some verify but
+never say so. For one you are confident about, add <code class="docutils literal notranslate"><span class="pre">trust_email</span></code> and its
+addresses will be accepted for matching:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">orcid</span>
+<span class="w">  </span><span class="nt">class</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">social_core.backends.orcid.ORCIDOAuth2</span>
+<span class="w">  </span><span class="nt">trust_email</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+<p>Leave it off for anything else. There is also <code class="docutils literal notranslate"><span class="pre">use_unique_user_id</span></code>, on by
+default, which keeps accounts tied to the provider’s own id for the user rather
+than to their email address; there is rarely a reason to change it.</p>
+</section>
 <section id="username-generation">
 <h3>Username generation<a class="headerlink" href="#username-generation" title="Link to this heading"></a></h3>
 <p>When <code class="docutils literal notranslate"><span class="pre">server.auth.username_is_email</span></code> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code> (the default), the user’s email address is used as their username.</p>

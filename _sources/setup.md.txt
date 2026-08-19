@@ -79,7 +79,71 @@ See [below](#configuration) for more information on modifying the baselayer conf
 - Customize `config.yaml` (see `config.yaml.defaults` for all options).
   - Always modify `secret_key` before deployment!
 - If you want other users to be able to log in:
-  - Provide Google auth credentials, obtained as described in `config.yaml`.
+  - Provide Google auth credentials, obtained as described in `config.yaml`,
+    or configure another provider (see below).
+
+### Sign-in providers
+
+Sign-in is handled by [python-social-auth](https://github.com/python-social-auth/social-core),
+which ships backends for Google, ORCID, GitHub, Slack, SAML, generic OpenID
+Connect and many others. With no configuration, Google is used, taking its
+credentials from `server.auth.google_oauth2_key` / `_secret`.
+
+To offer something else, list it under `server.auth.backends`. Each entry needs
+the backend's own `name`, plus the dotted path to its class. The name is what
+appears in `/login/<name>`, and what its `SOCIAL_AUTH_<NAME>_*` settings are
+keyed on:
+
+```yaml
+server:
+  auth:
+    backends:
+      - name: orcid
+        class: social_core.backends.orcid.ORCIDOAuth2
+        key: ...
+        secret: ...
+        label: Sign in with ORCID
+      - name: my-iam
+        class: social_core.backends.open_id_connect.OpenIdConnectAuth
+        key: ...
+        secret: ...
+        settings:
+          oidc_endpoint: https://iam.example.org
+```
+
+Anything under `settings` is exported as `SOCIAL_AUTH_<NAME>_<KEY>`, so a
+provider speaking standard OpenID Connect needs no code at all. A provider that
+does need code, for example a bespoke federation endpoint, can subclass
+`social_core.backends.oauth.BaseOAuth2` anywhere importable and be named here by
+its dotted path; it does not have to live in baselayer.
+
+The login page shows one button per provider, in the order listed. In [debug
+mode](#debug-mode), where sign-in succeeds without contacting any provider, the
+stand-in takes the name of the first provider you list, so development and
+production exercise the same login page and the same routes.
+
+### Signing in with more than one provider
+
+Returning with a provider you have used before always lands you back in the same
+account, even if you have since changed your email address there.
+
+Returning with a _different_ provider is recognised as the same person only when
+the second provider reports an email address matching the account and vouches
+that the address is yours. Otherwise you get a second, separate account.
+
+Most providers say whether they have verified an address, and some verify but
+never say so. For one you are confident about, add `trust_email` and its
+addresses will be accepted for matching:
+
+```yaml
+- name: orcid
+  class: social_core.backends.orcid.ORCIDOAuth2
+  trust_email: true
+```
+
+Leave it off for anything else. There is also `use_unique_user_id`, on by
+default, which keeps accounts tied to the provider's own id for the user rather
+than to their email address; there is rarely a reason to change it.
 
 ### Username generation
 
