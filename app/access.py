@@ -1,5 +1,4 @@
 import functools
-import inspect
 from contextlib import contextmanager
 
 import sqlalchemy as sa
@@ -43,8 +42,25 @@ def _token_select_stmt(token_id):
     )
 
 
+async def load_token(token_id, path):
+    """Load a Token (with its creator's ACLs and roles) via the async engine.
+
+    Called from `BaseHandler.prepare()`: `get_current_user()` may not be a
+    coroutine, so async credential resolution belongs in `prepare()`, per
+    the Tornado docs.
+    """
+    # Use the import via models module so monkeypatching/late
+    # init by init_db() is reflected here.
+    from baselayer.app import models as _models
+
+    with db_error_503(path):
+        async with _models.async_plain_session_factory() as session:
+            result = await session.scalars(_token_select_stmt(token_id))
+            return result.first()
+
+
 def auth_or_token(method):
-    """Ensure that a user is signed in.
+    """Ensure that a user or token is signed in.
 
     This is a decorator for Tornado handler `get`, `put`, etc. methods.
 
@@ -54,87 +70,36 @@ def auth_or_token(method):
 
       $ curl -v -H "Authorization: token 123efghj" http://localhost:5000/api/endpoint
 
-    If `method` is a coroutine function, the token lookup runs against the
-    async DB engine; otherwise the original sync path is used. The cookie
-    auth path delegates to `tornado.web.authenticated` in both cases.
+    Credential resolution (token lookup, cookie check, anonymous fallback)
+    happens in `BaseHandler.prepare()` / `get_current_user()`; this
+    decorator only enforces that a valid, active user or token resulted.
     """
-
-    if inspect.iscoroutinefunction(method):
-
-        @functools.wraps(method)
-        async def async_wrapper(self, *args, **kwargs):
-            token_header = self.request.headers.get("Authorization", None)
-            if token_header is not None and token_header.startswith("token "):
-                token_id = token_header.replace("token", "").strip()
-                # Use the import via models module so monkeypatching/late
-                # init by init_db() is reflected here.
-                from baselayer.app import models as _models
-
-                with db_error_503(self.request.path):
-                    async with _models.async_plain_session_factory() as session:
-                        result = await session.scalars(_token_select_stmt(token_id))
-                        token = result.first()
-                if token is not None:
-                    self.current_user = token
-                    if not token.created_by.is_active():
-                        raise tornado.web.HTTPError(403, "User account expired")
-                else:
-                    raise tornado.web.HTTPError(401)
-                return await method(self, *args, **kwargs)
-            else:
-                if self.current_user is not None:
-                    if not self.current_user.is_active():
-                        raise tornado.web.HTTPError(403, "User account expired")
-                else:
-                    raise tornado.web.HTTPError(
-                        401,
-                        'Credentials malformed; expected form "Authorization: token abc123"',
-                    )
-                # tornado.web.authenticated returns whatever the method
-                # returns; for an async method that's a coroutine to await.
-                result = tornado.web.authenticated(method)(self, *args, **kwargs)
-                if inspect.isawaitable(result):
-                    return await result
-                return result
-
-        async_wrapper.__authenticated__ = True
-        return async_wrapper
 
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
-        token_header = self.request.headers.get("Authorization", None)
-        if token_header is not None and token_header.startswith("token "):
-            token_id = token_header.replace("token", "").strip()
-            with db_error_503(self.request.path):
-                with DBSession() as session:
-                    token = session.scalars(_token_select_stmt(token_id)).first()
-            if token is not None:
-                self.current_user = token
-                if not token.created_by.is_active():
-                    raise tornado.web.HTTPError(403, "User account expired")
-            else:
-                raise tornado.web.HTTPError(401)
+        user_or_token = self.current_user
+        if user_or_token is None:
+            raise tornado.web.HTTPError(
+                401,
+                'Credentials malformed; expected form "Authorization: token abc123"',
+            )
+        if isinstance(user_or_token, Token):
+            if not user_or_token.created_by.is_active():
+                raise tornado.web.HTTPError(403, "User account expired")
             return method(self, *args, **kwargs)
-        else:
-            if self.current_user is not None:
-                if not self.current_user.is_active():
-                    raise tornado.web.HTTPError(403, "User account expired")
-                # The anonymous fallback account is served whenever no valid
-                # user is signed in; restrict it to safe (read-only) methods.
-                # Keying off is_anonymous_user (not a present user_id cookie)
-                # also covers cookies that are present but invalid.
-                if getattr(self, "is_anonymous_user", False) and (
-                    self.request.method not in ("GET", "HEAD", "OPTIONS")
-                ):
-                    raise tornado.web.HTTPError(
-                        403, "Anonymous users have read-only access"
-                    )
-            else:
-                raise tornado.web.HTTPError(
-                    401,
-                    'Credentials malformed; expected form "Authorization: token abc123"',
-                )
-            return tornado.web.authenticated(method)(self, *args, **kwargs)
+        if not user_or_token.is_active():
+            raise tornado.web.HTTPError(403, "User account expired")
+        # The anonymous fallback account is served whenever no valid
+        # user is signed in; restrict it to safe (read-only) methods.
+        # Keying off is_anonymous_user (not a present user_id cookie)
+        # also covers cookies that are present but invalid.
+        if getattr(self, "is_anonymous_user", False) and (
+            self.request.method not in ("GET", "HEAD", "OPTIONS")
+        ):
+            raise tornado.web.HTTPError(403, "Anonymous users have read-only access")
+        # tornado.web.authenticated returns whatever the method returns;
+        # for an async method Tornado awaits that result itself.
+        return tornado.web.authenticated(method)(self, *args, **kwargs)
 
     wrapper.__authenticated__ = True
     return wrapper
@@ -146,21 +111,6 @@ def permissions(acl_list):
     """
 
     def check_acls(method):
-        if inspect.iscoroutinefunction(method):
-
-            @auth_or_token
-            @functools.wraps(method)
-            async def async_wrapper(self, *args, **kwargs):
-                if not (
-                    set(acl_list).issubset(self.current_user.permissions)
-                    or "System admin" in self.current_user.permissions
-                ):
-                    raise tornado.web.HTTPError(401)
-                return await method(self, *args, **kwargs)
-
-            async_wrapper.__permissions__ = acl_list
-            return async_wrapper
-
         @auth_or_token
         @functools.wraps(method)
         def wrapper(self, *args, **kwargs):
