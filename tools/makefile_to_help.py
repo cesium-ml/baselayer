@@ -9,15 +9,13 @@ The Makefile can also be preceded by a category, e.g.
 
 in which case the category names are printed as a heading before the targets.
 
-A target described in several makefiles is listed once, with the description of
-the last one that defines it, under its own heading named after that last
-category, e.g. "App-overrides".
+A target described in several makefiles is listed once, under the last category
+that defines it.
 
 """
 
 import re
 import sys
-from collections import Counter
 
 
 def parse_targets(fname):
@@ -31,19 +29,15 @@ for source in sys.argv[1:]:
     category, fname = source.split(":") if ":" in source else (None, source)
     sections.append((category, parse_targets(fname)))
 
-counts = Counter(target for _, targets in sections for target in targets)
-kept, overrides = [], {}
+seen = set()
+for _, targets in reversed(sections):
+    for target in seen.intersection(targets):
+        del targets[target]
+    seen.update(targets)
+
+width = max((len(target) for _, targets in sections for target in targets), default=0)
+
 for category, targets in sections:
-    kept.append((category, {t: d for t, d in targets.items() if counts[t] == 1}))
-    overrides.update({t: d for t, d in targets.items() if counts[t] > 1})
-
-if overrides:
-    category = sections[-1][0]
-    kept.insert(1, (f"{category}-overrides" if category else "Overrides", overrides))
-
-width = max((len(target) for _, targets in kept for target in targets), default=0)
-
-for category, targets in kept:
     if category:
         print(f"\n{category}\n{'-' * len(category)}")
     for target, desc in targets.items():
