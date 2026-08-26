@@ -50,8 +50,9 @@ db_init: dependencies
 	@echo -e "\nInitializing database:"
 	@$(PYTHON) ./baselayer/tools/db_init.py $(FLAGS)
 
-db_clear: ## Delete all data from the database.
+db_clear: ## Delete all data from the database, and the on-disk data tied to it.
 db_clear: dependencies
+	@if [ -f tools/clear_data.py ]; then $(PYTHON) tools/clear_data.py $(FLAGS); fi
 	@$(PYTHON) ./baselayer/tools/silent_monitor.py ./baselayer/tools/db_init.py -f $(FLAGS)
 
 bundle:
