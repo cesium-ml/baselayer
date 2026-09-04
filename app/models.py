@@ -162,29 +162,22 @@ def bulk_verify(mode, collection, accessor):
 
     # check all rows of the same type with a single database query
     for record_cls, collection in grouped_collection.items():
-        collection_ids = {record.id for record in collection}
+        pk_cols = [getattr(record_cls, key) for key in primary_key_keys(record_cls)]
 
         # vectorized query for ids of rows in the session that
         # are accessible
-        accessible_row_ids_sq = record_cls.query_records_accessible_by(
-            accessor, mode=mode, columns=[record_cls.id]
-        ).subquery()
+        accessible_rows = record_cls.query_records_accessible_by(
+            accessor, mode=mode, columns=pk_cols
+        )
 
-        inaccessible_row_ids = (
+        rows = (
             DBSession()
-            .scalars(
-                sa.select(record_cls.id)
-                .outerjoin(
-                    accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
-                )
-                .where(record_cls.id.in_(collection_ids))
-                .where(accessible_row_ids_sq.c.id.is_(None))
-            )
+            .execute(inaccessible_pks_stmt(collection, accessible_rows, pk_cols))
             .all()
         )
 
         # compare the accessible ids with the ids that are in the session
-        inaccessible_row_ids = {id for id in inaccessible_row_ids}
+        inaccessible_row_ids = pks_of(rows, pk_cols)
 
         # if any of the rows in the session are inaccessible, handle
         if len(inaccessible_row_ids) > 0:
@@ -262,25 +255,16 @@ async def async_bulk_verify(session, mode, collection, accessor):
         grouped_collection[type(row)].append(row)
 
     for record_cls, collection in grouped_collection.items():
-        # PKs from the identity map (no I/O); `record.id` can sync-lazy-load an
-        # expired object and raise MissingGreenlet under async.
-        collection_ids = {sa.inspect(record).identity[0] for record in collection}
+        pk_cols = [getattr(record_cls, key) for key in primary_key_keys(record_cls)]
 
         # `cls.select(...)` returns a 2.0-style Select; `.subquery()` is
         # statement-level (no I/O) and so works under either dialect.
-        accessible_row_ids_sq = record_cls.select(
-            accessor, mode=mode, columns=[record_cls.id]
-        ).subquery()
+        accessible_rows = record_cls.select(accessor, mode=mode, columns=pk_cols)
 
-        result = await session.scalars(
-            sa.select(record_cls.id)
-            .outerjoin(
-                accessible_row_ids_sq, record_cls.id == accessible_row_ids_sq.c.id
-            )
-            .where(record_cls.id.in_(collection_ids))
-            .where(accessible_row_ids_sq.c.id.is_(None))
+        result = await session.execute(
+            inaccessible_pks_stmt(collection, accessible_rows, pk_cols)
         )
-        inaccessible_row_ids = set(result.all())
+        inaccessible_row_ids = pks_of(result.all(), pk_cols)
 
         if inaccessible_row_ids:
             handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
@@ -303,6 +287,40 @@ def primary_key_keys(cls):
     classes (an ``AliasedInsp`` has no ``primary_key`` of its own).
     """
     return [col.key for col in sa.inspect(cls).mapper.primary_key]
+
+
+def inaccessible_pks_stmt(collection, accessible_rows, pk_cols):
+    """Select the primary keys of ``collection`` that are absent from
+    ``accessible_rows``.
+
+    Keyed on ``pk_cols`` rather than a surrogate ``id`` so join tables built with
+    ``composite_pk=True`` are handled. PKs come from the identity map because
+    ``record.id`` can sync-lazy-load an expired object and raise MissingGreenlet
+    under async.
+    """
+    sq = accessible_rows.subquery()
+    pk_keys = [col.key for col in pk_cols]
+    identities = [sa.inspect(record).identity for record in collection]
+
+    if len(pk_cols) == 1:
+        in_scope = pk_cols[0].in_({identity[0] for identity in identities})
+    else:
+        in_scope = sa.tuple_(*pk_cols).in_(identities)
+
+    return (
+        sa.select(*pk_cols)
+        .outerjoin(
+            sq, sa.and_(*(col == sq.c[key] for col, key in zip(pk_cols, pk_keys)))
+        )
+        .where(in_scope)
+        .where(sq.c[pk_keys[0]].is_(None))
+    )
+
+
+def pks_of(rows, pk_cols):
+    """Collect the primary keys returned by `inaccessible_pks_stmt`, as scalars
+    for a surrogate PK and as tuples for a composite one."""
+    return {row[0] if len(pk_cols) == 1 else tuple(row) for row in rows}
 
 
 def handle_inaccessible(mode, row_ids, row_type, accessor):
