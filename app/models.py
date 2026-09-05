@@ -162,10 +162,12 @@ def bulk_verify(mode, collection, accessor):
 
     # check all rows of the same type with a single database query
     for record_cls, collection in grouped_collection.items():
+        # rows are identified by their primary key, made of a single surrogate
+        # `id` for most models and of several columns for composite-key models
         pk_cols = [getattr(record_cls, key) for key in primary_key_keys(record_cls)]
 
-        # vectorized query for ids of rows in the session that
-        # are accessible
+        # vectorized query for the primary keys of the rows in the session
+        # that are accessible
         accessible_rows = record_cls.query_records_accessible_by(
             accessor, mode=mode, columns=pk_cols
         )
@@ -176,7 +178,7 @@ def bulk_verify(mode, collection, accessor):
             .all()
         )
 
-        # compare the accessible ids with the ids that are in the session
+        # compare the accessible primary keys with those in the session
         inaccessible_row_ids = pks_of(rows, pk_cols)
 
         # if any of the rows in the session are inaccessible, handle
