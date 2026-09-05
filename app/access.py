@@ -6,8 +6,8 @@ import sqlalchemy as sa
 import tornado.web
 from sqlalchemy.orm import joinedload
 
-from baselayer.app.custom_exceptions import AccessError  # noqa: F401
 from baselayer.app import models
+from baselayer.app.custom_exceptions import AccessError  # noqa: F401
 from baselayer.app.models import DBSession, Token, User
 from baselayer.log import make_log
 
