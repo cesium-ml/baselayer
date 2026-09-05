@@ -7,19 +7,13 @@ import tornado.web
 from sqlalchemy.orm import joinedload
 
 from baselayer.app.custom_exceptions import AccessError  # noqa: F401
-from baselayer.app.models import (  # noqa: F401
-    DBSession,
-    Role,
-    Token,
-    User,
-)
+from baselayer.app import models
+from baselayer.app.models import DBSession, Token, User
 from baselayer.log import make_log
 
 log = make_log("access")
 
 DB_UNAVAILABLE_MSG = "Database is temporarily unavailable; please retry shortly."
-
-# Methods that do not modify state can stay open for anonymous users
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 
 
@@ -47,7 +41,6 @@ def _token_select_stmt(token_id):
 
 
 def _token_id_from_header(handler):
-    """Token id carried by the `Authorization` header, or None if absent."""
     header = handler.request.headers.get("Authorization") or ""
     if not header.startswith("token "):
         return None
@@ -61,16 +54,13 @@ def _lookup_token(handler, token_id):
 
 
 async def _lookup_token_async(handler, token_id):
-    from baselayer.app import models as _models
-
     with db_error_503(handler.request.path):
-        async with _models.async_plain_session_factory() as session:
+        async with models.async_plain_session_factory() as session:
             result = await session.scalars(_token_select_stmt(token_id))
             return result.first()
 
 
 def _authorize_token(handler, token):
-    """Accept a looked-up token as the request's credentials."""
     if token is None:
         raise tornado.web.HTTPError(401)
     if not token.created_by.is_active():
@@ -79,7 +69,7 @@ def _authorize_token(handler, token):
 
 
 def _authorize_user(handler):
-    """Accept the cookie-authenticated user already on the request."""
+    # Reading current_user resolves the anonymous fallback and sets is_anonymous_user.
     user = handler.current_user
     if user is None:
         raise tornado.web.HTTPError(
@@ -88,84 +78,66 @@ def _authorize_user(handler):
         )
     if not user.is_active():
         raise tornado.web.HTTPError(403, "User account expired")
-    # `current_user` falls back to the anonymous account whenever no valid user
-    # is signed in, so writes have to be refused here rather than at sign-in.
     if handler.is_anonymous_user and handler.request.method not in SAFE_METHODS:
         raise tornado.web.HTTPError(403, "Anonymous users have read-only access")
 
 
 def _authorize_acls(handler, acl_list):
-    """Require that the request's credentials carry all of `acl_list`."""
-    permissions = handler.current_user.permissions
-    if not (set(acl_list).issubset(permissions) or "System admin" in permissions):
+    granted = handler.current_user.permissions
+    if not (set(acl_list).issubset(granted) or "System admin" in granted):
         raise tornado.web.HTTPError(401)
 
 
 def auth_or_token(method):
-    """Ensure that a user is signed in.
+    """Require a signed-in user, or an `Authorization: token <id>` header.
 
-    This is a decorator for Tornado handler `get`, `put`, etc. methods.
-
-    Signing in happens via the login page, or by using an auth token.
-    To use an auth token, the `Authorization` header has to be
-    provided, and has to be of the form `token 123efghj`.  E.g.:
+    Decorates a Tornado handler's `get`, `post`, ... method:
 
       $ curl -v -H "Authorization: token 123efghj" http://localhost:5000/api/endpoint
-
-    A coroutine `method` looks its token up on the async DB engine. That lookup
-    is the only step that differs between the two paths; every authorization
-    decision, the anonymous read-only guard included, is shared.
     """
-
     if inspect.iscoroutinefunction(method):
 
         @functools.wraps(method)
-        async def async_wrapper(self, *args, **kwargs):
+        async def wrapper(self, *args, **kwargs):
             token_id = _token_id_from_header(self)
             if token_id is None:
                 _authorize_user(self)
             else:
                 _authorize_token(self, await _lookup_token_async(self, token_id))
             return await method(self, *args, **kwargs)
+    else:
 
-        async_wrapper.__authenticated__ = True
-        return async_wrapper
-
-    @functools.wraps(method)
-    def wrapper(self, *args, **kwargs):
-        token_id = _token_id_from_header(self)
-        if token_id is None:
-            _authorize_user(self)
-        else:
-            _authorize_token(self, _lookup_token(self, token_id))
-        return method(self, *args, **kwargs)
+        @functools.wraps(method)
+        def wrapper(self, *args, **kwargs):
+            token_id = _token_id_from_header(self)
+            if token_id is None:
+                _authorize_user(self)
+            else:
+                _authorize_token(self, _lookup_token(self, token_id))
+            return method(self, *args, **kwargs)
 
     wrapper.__authenticated__ = True
     return wrapper
 
 
 def permissions(acl_list):
-    """Decorate methods with this to require that the current user have all the
-    specified ACLs.
-    """
+    """Require all of `acl_list`; the `System admin` ACL satisfies any list."""
 
     def check_acls(method):
         if inspect.iscoroutinefunction(method):
 
             @auth_or_token
             @functools.wraps(method)
-            async def async_wrapper(self, *args, **kwargs):
+            async def wrapper(self, *args, **kwargs):
                 _authorize_acls(self, acl_list)
                 return await method(self, *args, **kwargs)
+        else:
 
-            async_wrapper.__permissions__ = acl_list
-            return async_wrapper
-
-        @auth_or_token
-        @functools.wraps(method)
-        def wrapper(self, *args, **kwargs):
-            _authorize_acls(self, acl_list)
-            return method(self, *args, **kwargs)
+            @auth_or_token
+            @functools.wraps(method)
+            def wrapper(self, *args, **kwargs):
+                _authorize_acls(self, acl_list)
+                return method(self, *args, **kwargs)
 
         wrapper.__permissions__ = acl_list
         return wrapper
