@@ -48,11 +48,13 @@ class PSABaseHandler(RequestHandler):
     Mixin used by Python Social Auth
     """
 
+    # Read by `access.auth_or_token`; the token path never calls get_current_user.
+    is_anonymous_user = False
+
     def user_id(self):
         return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
-        self.is_anonymous_user = False
         user = self._signed_in_user()
         if user is not None:
             return user

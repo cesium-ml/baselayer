@@ -78,10 +78,7 @@ def _authorize_current_user(handler):
     # in; restrict it to safe (read-only) methods. Keying off is_anonymous_user
     # (not a present user_id cookie) also covers cookies that are present but
     # invalid.
-    if (
-        getattr(handler, "is_anonymous_user", False)
-        and handler.request.method not in SAFE_METHODS
-    ):
+    if handler.is_anonymous_user and handler.request.method not in SAFE_METHODS:
         raise tornado.web.HTTPError(403, "Anonymous users have read-only access")
 
 
