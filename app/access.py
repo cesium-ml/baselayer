@@ -60,9 +60,9 @@ def _authorize_token(handler, token):
     """Install a looked-up token as the request's credentials."""
     if token is None:
         raise tornado.web.HTTPError(401)
-    handler.current_user = token
     if not token.created_by.is_active():
         raise tornado.web.HTTPError(403, "User account expired")
+    handler.current_user = token
 
 
 def _authorize_current_user(handler):
