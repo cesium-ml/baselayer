@@ -19,6 +19,9 @@ log = make_log("access")
 
 DB_UNAVAILABLE_MSG = "Database is temporarily unavailable; please retry shortly."
 
+# Methods that do not modify state can stay open for anonymous users
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
 
 @contextmanager
 def db_error_503(path):
@@ -28,10 +31,6 @@ def db_error_503(path):
     except sa.exc.SQLAlchemyError as e:
         log(f"Auth DB access failed for [{path}]: {e}")
         raise tornado.web.HTTPError(503, DB_UNAVAILABLE_MSG) from None
-
-
-#: HTTP methods that do not modify state, and so are available to anonymous users.
-SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 
 
 def _token_select_stmt(token_id):
@@ -48,16 +47,30 @@ def _token_select_stmt(token_id):
 
 
 def _token_id_from_header(handler):
-    """Return the token id in the `Authorization` header, or None if the
-    request does not present one."""
+    """Token id carried by the `Authorization` header, or None if absent."""
     header = handler.request.headers.get("Authorization") or ""
     if not header.startswith("token "):
         return None
     return header.removeprefix("token").strip()
 
 
+def _lookup_token(handler, token_id):
+    with db_error_503(handler.request.path):
+        with DBSession() as session:
+            return session.scalars(_token_select_stmt(token_id)).first()
+
+
+async def _lookup_token_async(handler, token_id):
+    from baselayer.app import models as _models
+
+    with db_error_503(handler.request.path):
+        async with _models.async_plain_session_factory() as session:
+            result = await session.scalars(_token_select_stmt(token_id))
+            return result.first()
+
+
 def _authorize_token(handler, token):
-    """Install a looked-up token as the request's credentials."""
+    """Accept a looked-up token as the request's credentials."""
     if token is None:
         raise tornado.web.HTTPError(401)
     if not token.created_by.is_active():
@@ -65,19 +78,18 @@ def _authorize_token(handler, token):
     handler.current_user = token
 
 
-def _authorize_current_user(handler):
-    """Validate the cookie-authenticated user already on the request."""
-    if handler.current_user is None:
+def _authorize_user(handler):
+    """Accept the cookie-authenticated user already on the request."""
+    user = handler.current_user
+    if user is None:
         raise tornado.web.HTTPError(
             401,
             'Credentials malformed; expected form "Authorization: token abc123"',
         )
-    if not handler.current_user.is_active():
+    if not user.is_active():
         raise tornado.web.HTTPError(403, "User account expired")
-    # The anonymous fallback account is served whenever no valid user is signed
-    # in; restrict it to safe (read-only) methods. Keying off is_anonymous_user
-    # (not a present user_id cookie) also covers cookies that are present but
-    # invalid.
+    # `current_user` falls back to the anonymous account whenever no valid user
+    # is signed in, so writes have to be refused here rather than at sign-in.
     if handler.is_anonymous_user and handler.request.method not in SAFE_METHODS:
         raise tornado.web.HTTPError(403, "Anonymous users have read-only access")
 
@@ -100,10 +112,9 @@ def auth_or_token(method):
 
       $ curl -v -H "Authorization: token 123efghj" http://localhost:5000/api/endpoint
 
-    If `method` is a coroutine function, the token lookup runs against the
-    async DB engine; otherwise the original sync path is used. That lookup is
-    the only step that differs between the two; every authorization decision
-    is shared.
+    A coroutine `method` looks its token up on the async DB engine. That lookup
+    is the only step that differs between the two paths; every authorization
+    decision, the anonymous read-only guard included, is shared.
     """
 
     if inspect.iscoroutinefunction(method):
@@ -111,19 +122,10 @@ def auth_or_token(method):
         @functools.wraps(method)
         async def async_wrapper(self, *args, **kwargs):
             token_id = _token_id_from_header(self)
-            if token_id is not None:
-                # Use the import via models module so monkeypatching/late
-                # init by init_db() is reflected here.
-                from baselayer.app import models as _models
-
-                with db_error_503(self.request.path):
-                    async with _models.async_plain_session_factory() as session:
-                        result = await session.scalars(_token_select_stmt(token_id))
-                        token = result.first()
-                _authorize_token(self, token)
-                return await method(self, *args, **kwargs)
-
-            _authorize_current_user(self)
+            if token_id is None:
+                _authorize_user(self)
+            else:
+                _authorize_token(self, await _lookup_token_async(self, token_id))
             return await method(self, *args, **kwargs)
 
         async_wrapper.__authenticated__ = True
@@ -132,14 +134,10 @@ def auth_or_token(method):
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         token_id = _token_id_from_header(self)
-        if token_id is not None:
-            with db_error_503(self.request.path):
-                with DBSession() as session:
-                    token = session.scalars(_token_select_stmt(token_id)).first()
-            _authorize_token(self, token)
-            return method(self, *args, **kwargs)
-
-        _authorize_current_user(self)
+        if token_id is None:
+            _authorize_user(self)
+        else:
+            _authorize_token(self, _lookup_token(self, token_id))
         return method(self, *args, **kwargs)
 
     wrapper.__authenticated__ = True
