@@ -145,6 +145,7 @@ class PSABaseHandler(RequestHandler):
             "Credentials malformed",
             "Method Not Allowed",
             "Unauthorized",
+            "read-only access",
         ]
         v_str = str(value)
         if any(exception in v_str for exception in expected_exceptions):
