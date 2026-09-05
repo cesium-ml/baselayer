@@ -103,8 +103,7 @@ def auth_or_token(method):
     If `method` is a coroutine function, the token lookup runs against the
     async DB engine; otherwise the original sync path is used. That lookup is
     the only step that differs between the two; every authorization decision
-    is shared. The cookie auth path delegates to `tornado.web.authenticated`
-    in both cases.
+    is shared.
     """
 
     if inspect.iscoroutinefunction(method):
@@ -125,12 +124,7 @@ def auth_or_token(method):
                 return await method(self, *args, **kwargs)
 
             _authorize_current_user(self)
-            # tornado.web.authenticated returns whatever the method
-            # returns; for an async method that's a coroutine to await.
-            result = tornado.web.authenticated(method)(self, *args, **kwargs)
-            if inspect.isawaitable(result):
-                return await result
-            return result
+            return await method(self, *args, **kwargs)
 
         async_wrapper.__authenticated__ = True
         return async_wrapper
@@ -146,7 +140,7 @@ def auth_or_token(method):
             return method(self, *args, **kwargs)
 
         _authorize_current_user(self)
-        return tornado.web.authenticated(method)(self, *args, **kwargs)
+        return method(self, *args, **kwargs)
 
     wrapper.__authenticated__ = True
     return wrapper
