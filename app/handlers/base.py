@@ -65,10 +65,11 @@ class PSABaseHandler(RequestHandler):
         if not cfg.get("app.anonymous_access", False):
             return None
         username = cfg.get("app.anonymous_user") or "anonymous"
-        with DBSession() as session:
-            user = session.scalars(
-                sqlalchemy.select(User).where(User.username == username)
-            ).first()
+        with db_error_503(self.request.path):
+            with DBSession() as session:
+                user = session.scalars(
+                    sqlalchemy.select(User).where(User.username == username)
+                ).first()
         self.is_anonymous_user = user is not None
         return user
 
