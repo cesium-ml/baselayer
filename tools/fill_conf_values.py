@@ -6,6 +6,7 @@ import subprocess
 import jinja2
 from status import status
 
+from baselayer.app.auth_backends import configured_backends
 from baselayer.app.env import load_env
 from baselayer.log import make_log
 
@@ -131,6 +132,9 @@ def fill_config_file_values(template_paths):
 
             template = jenv.get_template(tfile)
             cfg["env"] = env
+            # Resolved sign-in providers, so login templates can render one
+            # button each without repeating the default-to-Google fallback.
+            cfg["auth_backends"] = configured_backends()
             rendered = template.render(cfg)
 
             with open(os.path.splitext(template_path)[0], "w") as f:

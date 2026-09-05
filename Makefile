@@ -65,8 +65,6 @@ paths:
 	@mkdir -p ./log/sv_child
 
 fill_conf_values:
-	# -xdev keeps find on the source-tree filesystem, skipping mounted data
-	# volumes (e.g. cephfs thumbnails) that hold no templates but slow startup.
 	@find -L . -xdev -name '[^.]*.template' | grep -Ev "node_modules|doc|docs|.venv" | PYTHONPATH=. xargs uv run python ./baselayer/tools/fill_conf_values.py $(FLAGS)
 
 system_setup: | paths dependencies fill_conf_values service_setup
@@ -127,8 +125,9 @@ attach: ## Attach to terminal of running webserver; useful to, e.g., use pdb.
 clean:
 	rm -rf static/build
 
-stop: ## Stop all running services.
-	$(SUPERVISORCTL) stop all
+# `stop all` leaves supervisord holding its socket, blocking the next `make run`.
+stop: ## Stop all running services and the supervisor itself.
+	$(SUPERVISORCTL) shutdown
 
 status:
 	@$(PYTHON) ./baselayer/tools/supervisor_status.py

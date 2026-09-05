@@ -21,6 +21,8 @@ database:
     port: 5432
     user:
     password:
+    # Superuser for `make db_init`; empty defaults to "postgres".
+    admin_user:
 
 paths:
     downloads_folder: '/tmp'
@@ -86,6 +88,27 @@ server:
         google_oauth2_key:
         google_oauth2_secret:
         google_oauth2_timeout: 15
+
+        # Sign-in providers, offered in the order listed. Leave empty to use
+        # Google, configured through the keys above. `name` must be the
+        # backend's own name: it is what appears in /login/<name>, and what
+        # its SOCIAL_AUTH_<NAME>_* settings are keyed on. Anything under
+        # `settings` is passed through to the backend, so providers such as
+        # OpenIdConnectAuth need no code, only configuration.
+        #
+        # backends:
+        #   - name: orcid
+        #     class: social_core.backends.orcid.ORCIDOAuth2
+        #     key:
+        #     secret:
+        #     label: Sign in with ORCID
+        #   - name: my-iam
+        #     class: social_core.backends.open_id_connect.OpenIdConnectAuth
+        #     key:
+        #     secret:
+        #     settings:
+        #       oidc_endpoint: https://iam.example.org
+        backends: []
 
 
 services:

@@ -340,6 +340,11 @@ def git_checkout_plugin(url: str, rev: str, plugin_name: str, plugin_path: str) 
                 return False
 
     checkout_rev = get_rev(plugin_path)
+    if checkout_rev is None:
+        # Present but not a git repo (baked/copied into the image): use as-is
+        # rather than failing the git fetch/checkout below.
+        log(f"External service {plugin_name} is not a git repo; using as-is.")
+        return True
     if checkout_rev == rev:
         # Note that for branches, like `main`, this will never pass.
         # That is also correct, because we need to check the branch each time for updates.
