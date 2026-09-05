@@ -292,13 +292,25 @@ def primary_key_keys(cls):
 
 
 def inaccessible_pks_stmt(collection, accessible_rows, pk_cols):
-    """Select the primary keys of ``collection`` that are absent from
-    ``accessible_rows``.
+    """Build the statement selecting the primary keys of ``collection`` that are
+    missing from ``accessible_rows``.
 
-    Keyed on ``pk_cols`` rather than a surrogate ``id`` so join tables built with
-    ``composite_pk=True`` are handled. PKs come from the identity map because
-    ``record.id`` can sync-lazy-load an expired object and raise MissingGreenlet
-    under async.
+    Records are matched on every column of their primary key, so a composite key
+    is checked like a surrogate ``id``.
+
+    Parameters
+    ----------
+    collection : list of `baselayer.app.models.Base`
+        The records to check, all of the type whose PK columns are ``pk_cols``.
+    accessible_rows : sqlalchemy.Query or sqlalchemy select object
+        Query of the ``pk_cols`` of the rows the accessor may access.
+    pk_cols : list of sqlalchemy.Column
+        The primary key columns of the records.
+
+    Returns
+    -------
+    sqlalchemy select object
+        One row per inaccessible record, one column per primary key column.
     """
     sq = accessible_rows.subquery()
     pk_keys = [col.key for col in pk_cols]
@@ -320,8 +332,20 @@ def inaccessible_pks_stmt(collection, accessible_rows, pk_cols):
 
 
 def pks_of(rows, pk_cols):
-    """Collect the primary keys returned by `inaccessible_pks_stmt`, as scalars
-    for a surrogate PK and as tuples for a composite one."""
+    """Collect the primary keys of the rows returned by `inaccessible_pks_stmt`.
+
+    Parameters
+    ----------
+    rows : list of sqlalchemy.Row
+        The rows returned by `inaccessible_pks_stmt`.
+    pk_cols : list of sqlalchemy.Column
+        The primary key columns the rows were selected on.
+
+    Returns
+    -------
+    set
+        The primary keys, scalars for a single column and tuples for several.
+    """
     return {row[0] if len(pk_cols) == 1 else tuple(row) for row in rows}
 
 
