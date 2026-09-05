@@ -50,10 +50,10 @@ def _token_select_stmt(token_id):
 def _token_id_from_header(handler):
     """Return the token id in the `Authorization` header, or None if the
     request does not present one."""
-    token_header = handler.request.headers.get("Authorization", None)
-    if token_header is None or not token_header.startswith("token "):
+    header = handler.request.headers.get("Authorization") or ""
+    if not header.startswith("token "):
         return None
-    return token_header.replace("token", "").strip()
+    return header.removeprefix("token").strip()
 
 
 def _authorize_token(handler, token):
