@@ -48,11 +48,13 @@ class PSABaseHandler(RequestHandler):
     Mixin used by Python Social Auth
     """
 
+    # Read by `access.auth_or_token`; the token path never calls get_current_user.
+    is_anonymous_user = False
+
     def user_id(self):
         return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
-        self.is_anonymous_user = False
         user = self._signed_in_user()
         if user is not None:
             return user
@@ -63,10 +65,11 @@ class PSABaseHandler(RequestHandler):
         if not cfg.get("app.anonymous_access", False):
             return None
         username = cfg.get("app.anonymous_user") or "anonymous"
-        with DBSession() as session:
-            user = session.scalars(
-                sqlalchemy.select(User).where(User.username == username)
-            ).first()
+        with db_error_503(self.request.path):
+            with DBSession() as session:
+                user = session.scalars(
+                    sqlalchemy.select(User).where(User.username == username)
+                ).first()
         self.is_anonymous_user = user is not None
         return user
 
@@ -142,6 +145,7 @@ class PSABaseHandler(RequestHandler):
             "Credentials malformed",
             "Method Not Allowed",
             "Unauthorized",
+            "read-only access",
         ]
         v_str = str(value)
         if any(exception in v_str for exception in expected_exceptions):
