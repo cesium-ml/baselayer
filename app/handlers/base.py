@@ -145,7 +145,7 @@ class PSABaseHandler(RequestHandler):
             "Unauthorized",
         ]
         v_str = str(value)
-        # A 4xx is the caller's fault; scanner traffic would otherwise be
+        # HTTP 4xx is for client error. Do not log these.
         # reported as application errors.
         is_client_error = (
             isinstance(value, HTTPError) and 400 <= value.status_code < 500
