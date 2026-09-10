@@ -8,6 +8,7 @@ import asyncio
 
 import pytest
 import sqlalchemy as sa
+from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
@@ -112,3 +113,34 @@ def test_upsert_without_values_leaves_an_existing_row_alone(session_factory):
             return again.value
 
     assert asyncio.run(scenario()) == 7
+
+
+def test_upsert_twice_in_one_session_touches_one_row(session_factory):
+    """The pending insert is flushed before the second lookup, so it is found."""
+
+    async def scenario():
+        async with session_factory() as session:
+            first = await session.upsert(Widget, by={"name": "widget"})
+            second = await session.upsert(Widget, by={"name": "widget"})
+            await session.commit()
+
+            rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
+            return first is second, rows
+
+    same, rows = asyncio.run(scenario())
+
+    assert same
+    assert rows == 1
+
+
+def test_upsert_refuses_a_key_matching_several_rows(session_factory):
+    """A `by` that is not unique is an error, not an arbitrary choice of row."""
+
+    async def scenario():
+        async with session_factory() as session:
+            session.add_all([Widget(name="a", value=1), Widget(name="b", value=1)])
+            await session.commit()
+            await session.upsert(Widget, by={"value": 1}, values={"value": 2})
+
+    with pytest.raises(MultipleResultsFound):
+        asyncio.run(scenario())

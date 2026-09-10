@@ -225,9 +225,22 @@ class _AsyncUpsertMixin:
             The row that was updated, or the one added to the session. The insert
             stays pending until the caller flushes or commits.
 
+        Raises
+        ------
+        sqlalchemy.exc.MultipleResultsFound
+            If ``by`` matches more than one row, so that a key which is not
+            unique fails here rather than updating an arbitrary one of them.
+
         Notes
         -----
-        Both dicts may name relationship attributes as well as columns.
+        ``values`` may name any mapped attribute, relationships included. ``by``
+        is compared with ``==``, so it takes columns and many-to-one
+        relationships; naming a collection raises ``InvalidRequestError``.
+
+        The row is selected and then inserted, rather than through ``INSERT ...
+        ON CONFLICT``, so of two sessions that both miss, both insert and the
+        second to commit fails on the unique index. Callers racing for the same
+        key have to handle that.
 
         A surrogate primary key the database fills in belongs in neither dict.
         Values in ``by`` are passed to the constructor on the insert path, so
@@ -235,9 +248,11 @@ class _AsyncUpsertMixin:
         was, and the next insert to reach that value fails on the unique index.
         """
         values = values or {}
-        instance = await self.scalar(
-            sa.select(model).where(*(getattr(model, k) == v for k, v in by.items()))
-        )
+        instance = (
+            await self.scalars(
+                sa.select(model).where(*(getattr(model, k) == v for k, v in by.items()))
+            )
+        ).one_or_none()
         if instance is None:
             instance = model(**{**by, **values})
             self.add(instance)
@@ -248,7 +263,7 @@ class _AsyncUpsertMixin:
 
 
 class _AsyncPlainSession(_AsyncUpsertMixin, SAAsyncSession):
-    """Plain async session (no RLS check) carrying the `upsert` shorthand."""
+    """Plain async session (no access-control check) carrying `upsert`."""
 
 
 class _AsyncVerifiedSession(_AsyncUpsertMixin, SAAsyncSession):
