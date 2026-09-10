@@ -36,7 +36,6 @@ def migrated_db(migration_manager_port):
         r = requests.get(f"http://localhost:{port}")
         status = r.json()
     except requests.exceptions.RequestException:
-        log(f"Could not connect to migration manager on port [{port}]")
         return None
 
     return status["migrated"]
@@ -47,7 +46,11 @@ log("Verifying database migration status")
 port = cfg["ports.migration_manager"]
 timeout = 1
 while not migrated_db(port):
-    log(f"Database not migrated, or could not verify; trying again in {timeout}s")
+    if timeout in (1, 30):
+        log(
+            "Database not migrated, or could not verify "
+            f"(migration manager port [{port}]); still trying"
+        )
     time.sleep(timeout)
     timeout = min(timeout * 2, 30)
 
