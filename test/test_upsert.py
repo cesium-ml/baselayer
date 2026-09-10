@@ -1,0 +1,114 @@
+"""Tests for `AsyncSession.upsert`, against the configured database.
+
+Run from the directory holding `baselayer`, e.g.
+``pytest baselayer/test --config=test_config.yaml``.
+"""
+
+import asyncio
+
+import pytest
+import sqlalchemy as sa
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.orm import declarative_base
+
+from baselayer.app.models import _AsyncPlainSession, cfg
+
+Base = declarative_base()
+
+
+class Widget(Base):
+    __tablename__ = "baselayer_test_widget"
+
+    id = sa.Column(sa.Integer, primary_key=True)
+    name = sa.Column(sa.String, unique=True, nullable=False)
+    value = sa.Column(sa.Integer)
+
+
+def database_url():
+    db = cfg["database"]
+    return "postgresql+psycopg://{}:{}@{}:{}/{}".format(
+        db["user"],
+        db.get("password") or "",
+        db.get("host") or "",
+        db.get("port") or "",
+        db["database"],
+    )
+
+
+@pytest.fixture
+def session_factory():
+    """A plain async session factory over a table created for the test."""
+
+    async def setup():
+        engine = create_async_engine(database_url())
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        return engine
+
+    async def teardown(engine):
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
+
+    engine = asyncio.run(setup())
+    yield async_sessionmaker(
+        bind=engine, class_=_AsyncPlainSession, expire_on_commit=False
+    )
+    asyncio.run(teardown(engine))
+
+
+def test_upsert_updates_the_row_it_already_inserted(session_factory):
+    """Upserting twice on the same key keeps one row, carrying the new values."""
+
+    async def scenario():
+        async with session_factory() as session:
+            first = await session.upsert(
+                Widget, by={"name": "widget"}, values={"value": 1}
+            )
+            await session.commit()
+
+            second = await session.upsert(
+                Widget, by={"name": "widget"}, values={"value": 2}
+            )
+            await session.commit()
+
+            rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
+            return first.id, second.id, second.value, rows
+
+    first_id, second_id, value, rows = asyncio.run(scenario())
+
+    assert rows == 1
+    assert second_id == first_id
+    assert value == 2
+
+
+def test_upsert_leaves_an_implicit_key_to_the_database(session_factory):
+    """`by` holds a natural key, so the database still assigns the surrogate id."""
+
+    async def scenario():
+        async with session_factory() as session:
+            first = await session.upsert(Widget, by={"name": "one"})
+            second = await session.upsert(Widget, by={"name": "two"})
+            await session.commit()
+            return first.id, second.id
+
+    first_id, second_id = asyncio.run(scenario())
+
+    assert first_id is not None and second_id is not None
+    assert first_id != second_id
+
+
+def test_upsert_without_values_leaves_an_existing_row_alone(session_factory):
+    """A `by`-only upsert is a get-or-create; it does not blank the other columns."""
+
+    async def scenario():
+        async with session_factory() as session:
+            await session.upsert(Widget, by={"name": "widget"}, values={"value": 7})
+            await session.commit()
+
+            again = await session.upsert(Widget, by={"name": "widget"})
+            await session.commit()
+            return again.value
+
+    assert asyncio.run(scenario()) == 7

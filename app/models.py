@@ -207,10 +207,32 @@ class _AsyncUpsertMixin:
     async def upsert(self, model, *, by, values=None):
         """Update the single ``model`` row matching ``by``, or insert a new one.
 
-        ``by`` maps attribute -> value identifying the row (typically a unique
-        key). If a row matches, each of ``values`` is assigned onto it; otherwise
-        ``model(**by, **values)`` is added. Both dicts may include relationship
-        attributes. Returns the instance and does not commit.
+        Parameters
+        ----------
+        model : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        by : dict of str to object
+            Attribute name to value, identifying at most one row: a natural key,
+            such as a unique column or a set of columns unique together. These
+            become attributes of the record on the insert path.
+        values : dict of str to object, optional
+            Attribute name to value, assigned to the row whether it was found or
+            created. Defaults to none, which makes the call a get-or-create.
+
+        Returns
+        -------
+        instance : `model`
+            The row that was updated, or the one added to the session. The insert
+            stays pending until the caller flushes or commits.
+
+        Notes
+        -----
+        Both dicts may name relationship attributes as well as columns.
+
+        A surrogate primary key the database fills in belongs in neither dict.
+        Values in ``by`` are passed to the constructor on the insert path, so
+        naming such a key writes it explicitly while its sequence stays where it
+        was, and the next insert to reach that value fails on the unique index.
         """
         values = values or {}
         instance = await self.scalar(
