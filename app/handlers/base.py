@@ -136,17 +136,13 @@ class PSABaseHandler(RequestHandler):
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
-        # Expected conditions raised as plain exceptions, with no status to test.
+        # The PSA onboarding pipeline rejects a bad invite token with a bare
+        # Exception, so there is no status code to test; match on the message.
         expected_exceptions = [
             "Authentication Error:",
-            "User account expired",
-            "Credentials malformed",
-            "Method Not Allowed",
-            "Unauthorized",
         ]
         v_str = str(value)
-        # HTTP 4xx is for client error. Do not log these.
-        # reported as application errors.
+        # 4xx is the client's fault; only 5xx and uncaught exceptions are ours.
         is_client_error = (
             isinstance(value, HTTPError) and 400 <= value.status_code < 500
         )
