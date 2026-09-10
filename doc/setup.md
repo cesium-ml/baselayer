@@ -145,6 +145,17 @@ Leave it off for anything else. There is also `use_unique_user_id`, on by
 default, which keeps accounts tied to the provider's own id for the user rather
 than to their email address; there is rarely a reason to change it.
 
+GitHub needs neither: it verifies addresses but python-social-auth drops the
+flag, so `trust_email` there would trust something nobody checked. Use the
+backend below instead, which reports the flag GitHub actually returned:
+
+```yaml
+- name: github
+  class: baselayer.app.backends.github.VerifiedEmailGithubOAuth2
+  key: ...
+  secret: ...
+```
+
 ### Username generation
 
 When `server.auth.username_is_email` is set to `True` (the default), the user's email address is used as their username.
