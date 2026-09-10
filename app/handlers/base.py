@@ -12,7 +12,7 @@ from json.decoder import JSONDecodeError
 import sqlalchemy
 import tornado.escape
 from tornado.log import app_log
-from tornado.web import RequestHandler
+from tornado.web import HTTPError, RequestHandler
 
 from ...log import make_log
 
@@ -139,6 +139,8 @@ class PSABaseHandler(RequestHandler):
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
+        # The PSA onboarding pipeline rejects a bad invite token with a bare
+        # Exception, so there is no status code to test; match on the message.
         expected_exceptions = [
             "Authentication Error:",
             "User account expired",
@@ -148,7 +150,13 @@ class PSABaseHandler(RequestHandler):
             "read-only access",
         ]
         v_str = str(value)
-        if any(exception in v_str for exception in expected_exceptions):
+        # 4xx is the client's fault; only 5xx and uncaught exceptions are ours.
+        is_client_error = (
+            isinstance(value, HTTPError) and 400 <= value.status_code < 500
+        )
+        if is_client_error or any(
+            exception in v_str for exception in expected_exceptions
+        ):
             log(f"Error response returned by [{self.request.path}]: [{v_str}]")
         else:
             app_log.error(
