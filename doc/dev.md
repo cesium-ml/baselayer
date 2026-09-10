@@ -159,34 +159,39 @@ each request works against its own session.
 Outside a request that context variable keeps its default of `None`, so every
 `DBSession()` call in the process resolves to one shared session; in a microservice, a
 script, or work handed off to a thread, that sharing means one caller's `rollback()`
-discards another caller's pending work. Use `plain_session_factory()` there, which builds
-an independent session on each call:
+discards another caller's pending work. Use `new_session()` there, which builds an
+independent session on each call:
+
+```
+from baselayer.app.models import new_session
+
+session = new_session()
+try:
+    session.add(record)
+    session.commit()
+finally:
+    session.close()
+```
+
+`new_session()` applies no access-control check, so it suits code acting on its own
+behalf; where a write has to be checked against a user's permissions, use
+`VerifiedSession(user_or_token)`.
+
+The async factories are the counterparts of `DBSession` and `VerifiedSession`, opt-in per
+handler, with the sync engine and session remaining authoritative for the rest of the
+codebase: `async_session_factory()` verifies on commit, and
+`async_plain_session_factory()` skips that check. `app/access.py` uses the plain one:
 
 ```
 from baselayer.app import models
 
-with models.plain_session_factory() as session:
-    session.add(record)
-    session.commit()
-```
-
-Reach these factories through the module rather than importing their names directly:
-`init_db()` rebinds the globals, so `from baselayer.app.models import
-plain_session_factory` captures the `None` they hold before that call.
-
-`plain_session_factory` applies no access-control check, so it suits code acting on its
-own behalf; where a write has to be checked against a user's permissions, use
-`VerifiedSession(user_or_token)`.
-
-The async factories are the counterparts of these two, opt-in per handler, with the sync
-engine and session remaining authoritative for the rest of the codebase:
-`async_session_factory()` verifies on commit, and `async_plain_session_factory()` skips
-that check. `app/access.py` uses the plain one:
-
-```
 async with models.async_plain_session_factory() as session:
     ...
 ```
+
+Reach the async factories through the module rather than importing their names directly:
+`init_db()` rebinds those globals, so `from baselayer.app.models import
+async_plain_session_factory` captures the `None` they hold before that call.
 
 ## Standards
 

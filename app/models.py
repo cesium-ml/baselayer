@@ -139,6 +139,16 @@ def VerifiedSession(user_or_token):
     )()
 
 
+def new_session():
+    """A session of its own, independent of the request-scoped `DBSession`.
+
+    For work running outside a web request, where sharing one session between
+    callers would let one caller's rollback discard another's pending work.
+    Applies no access-control check; close it when the work is done.
+    """
+    return DBSession.session_factory()
+
+
 def bulk_verify(mode, collection, accessor):
     """Vectorized permission check for a heterogeneous set of records. If an
     access leak is detected, it will be handled according to the `security`
@@ -200,10 +210,6 @@ async_engine = None
 async_session_factory = None
 # Plain factory (no access-control check), parallel to DBSession.
 async_plain_session_factory = None
-# Sync analog: a fresh unscoped Session bound to the engine, for work that must
-# not share the request-scoped DBSession. Reach it as ``models.plain_session_factory()``;
-# init_db() rebinds these globals, so a direct name import captures None.
-plain_session_factory = None
 
 
 class _AsyncVerifiedSession(SAAsyncSession):
@@ -429,9 +435,6 @@ def init_db(
 
     DBSession.configure(bind=conn, autoflush=autoflush, future=True)
     Base.metadata.bind = conn
-
-    global plain_session_factory
-    plain_session_factory = sessionmaker(bind=conn, autoflush=autoflush, future=True)
 
     global async_engine, async_session_factory, async_plain_session_factory
     async_engine = create_async_engine(
