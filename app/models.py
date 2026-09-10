@@ -195,19 +195,20 @@ def bulk_verify(mode, collection, accessor):
 # Configured by init_db(). Sync engine/session remain authoritative for the
 # rest of the codebase; async path is opt-in per handler.
 async_engine = None
-# Verified factory: runs the row-level access-control (RLS) check on commit,
+# Verified factory: runs the access-control check on commit,
 # parallel to VerifiedSession.
 async_session_factory = None
 # Plain factory (no access-control check), parallel to DBSession.
 async_plain_session_factory = None
 # Sync analog: a fresh unscoped Session bound to the engine, for work that must
-# not share the request-scoped DBSession. Use ``with plain_session_factory() as s:``.
+# not share the request-scoped DBSession. Reach it as ``models.plain_session_factory()``;
+# init_db() rebinds these globals, so a direct name import captures None.
 plain_session_factory = None
 
 
 class _AsyncVerifiedSession(SAAsyncSession):
-    """Async counterpart of `_VerifiedSession`. Runs RLS verification on
-    flush/commit using `async_bulk_verify`.
+    """Async counterpart of `_VerifiedSession`. Runs access-control verification
+    on flush/commit using `async_bulk_verify`.
 
     The `user_or_token` attribute is attached by `AsyncVerifiedSession()`
     after instantiation; the session is otherwise a plain SQLAlchemy
@@ -258,7 +259,7 @@ async def AsyncVerifiedSession(user_or_token):
 
 
 async def async_bulk_verify(session, mode, collection, accessor):
-    """Async counterpart of `bulk_verify`. Runs the RLS leak check inside
+    """Async counterpart of `bulk_verify`. Runs the access-control leak check inside
     the supplied async session rather than the global sync `DBSession`.
     """
     grouped_collection = defaultdict(list)
