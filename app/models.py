@@ -1586,7 +1586,7 @@ class BaseMixin:
 
         # TODO: vectorize this
         for pk in standardized:
-            instance = DBSession().query(cls).options(options).get(pk.item())
+            instance = DBSession().get(cls, pk.item(), options=options)
             if instance is None or not instance.is_accessible_by(
                 user_or_token, mode=mode
             ):
@@ -1873,7 +1873,7 @@ class BaseMixin:
         obj : baselayer.app.models.Base
            The requested entity.
         """
-        obj = DBSession().query(cls).options(options).get(ident)
+        obj = DBSession().get(cls, ident, options=options)
 
         if obj is not None and not obj.is_readable_by(user_or_token):
             raise AccessError("Insufficient permissions.")
@@ -1900,7 +1900,7 @@ class BaseMixin:
     def create_or_get(cls, id):
         """Return a new `cls` if an instance with the specified primary key
         does not exist, else return the existing instance."""
-        obj = DBSession().query(cls).get(id)
+        obj = DBSession().get(cls, id)
         if obj is not None:
             return obj
         else:
