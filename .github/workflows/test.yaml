@@ -130,7 +130,7 @@ jobs:
       - name: Test baselayer
         run: |
           cd baselayer_template_app
-          uv run pytest baselayer/test -v --config=test_config.yaml
+          uv run python -m pytest baselayer/test -v --config=test_config.yaml
 
       - name: Test template app
         run: |
