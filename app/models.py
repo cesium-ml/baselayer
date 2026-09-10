@@ -217,7 +217,7 @@ class _AsyncUpsertMixin:
             become attributes of the record on the insert path.
         values : dict of str to object, optional
             Attribute name to value, assigned to the row whether it was found or
-            created. Defaults to none, which makes the call a get-or-create.
+            created. Defaults to None, which makes the call a get-or-create.
 
         Returns
         -------
