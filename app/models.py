@@ -345,9 +345,8 @@ def handle_inaccessible(mode, row_ids, row_type, accessor):
         raise AccessError(err_msg)
 
 
-# Parameter sets per INSERT, from the docs' recommendation and profiling tests:
-# https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#psycopg2-fast-execution-helpers
-EXECUTEMANY_PAGESIZE = 50000
+# Above PostgreSQL's 32700-parameter budget, so that budget alone caps a batch.
+INSERTMANYVALUES_PAGE_SIZE = 50000
 
 
 utcnow = func.timezone("UTC", func.current_timestamp())
@@ -418,7 +417,7 @@ def init_db(
 
     url = f"postgresql+psycopg://{user}:{password or ''}@{host or ''}:{port or ''}/{database}"
     common_args = {
-        "insertmanyvalues_page_size": EXECUTEMANY_PAGESIZE,
+        "insertmanyvalues_page_size": INSERTMANYVALUES_PAGE_SIZE,
         "echo": log_database,
         "echo_pool": log_database_pool,
         **pool_args,
