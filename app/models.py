@@ -352,7 +352,7 @@ INSERTMANYVALUES_PAGE_SIZE = 50000
 utcnow = func.timezone("UTC", func.current_timestamp())
 
 
-def _resolve_pooler(host, port, engine_args, pooler):
+def resolve_pooler(host, port, engine_args, pooler):
     """Route the connection through a transaction pooler (pgbouncer/pgcat) when
     enabled, so backend connections stay bounded across all processes. Returns
     adjusted ``(host, port, engine_args)``."""
@@ -403,7 +403,7 @@ def init_db(
            Default 3600.
 
     """
-    host, port, engine_args = _resolve_pooler(host, port, engine_args, pooler)
+    host, port, engine_args = resolve_pooler(host, port, engine_args, pooler)
     if pooler and pooler.get("enabled"):
         # Let the pooler own pooling; a QueuePool on top double-pools.
         pool_args = {"poolclass": sa.NullPool}
