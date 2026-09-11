@@ -84,7 +84,7 @@ def _authorize_user(handler):
 def _authorize_acls(handler, acl_list):
     granted = handler.current_user.permissions
     if not (set(acl_list).issubset(granted) or "System admin" in granted):
-        raise tornado.web.HTTPError(401)
+        raise tornado.web.HTTPError(403)
 
 
 def auth_or_token(method):
