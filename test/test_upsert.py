@@ -12,7 +12,7 @@ from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.orm import declarative_base
 
 from baselayer.app import models
-from baselayer.app.models import _AsyncVerifiedSession, cfg, init_db
+from baselayer.app.models import cfg, init_db
 
 Base = declarative_base()
 
@@ -160,20 +160,28 @@ def test_upsert_refuses_an_empty_key(run_scenario):
         run_scenario(scenario)
 
 
-def test_the_verified_session_looks_up_only_accessible_rows():
-    """The verified session builds its lookup from `model.select`, so `upsert`
-    never finds a row the accessor cannot read."""
+def test_the_verified_session_looks_up_only_accessible_rows(run_scenario, monkeypatch):
+    """The verified session looks the row up through `model.select`, so a row the
+    accessor cannot read is not found and a new one is added instead."""
 
-    asked = []
+    monkeypatch.setattr(
+        Widget,
+        "select",
+        staticmethod(lambda user_or_token: sa.select(Widget).where(sa.false())),
+        raising=False,
+    )
 
-    class Model:
-        @staticmethod
-        def select(user_or_token):
-            asked.append(user_or_token)
-            return sa.select(Widget)
+    async def scenario(session_factory):
+        async with session_factory() as session:
+            await session.upsert(Widget, by={"name": "widget"}, values={"value": 1})
+            await session.commit()
 
-    session = _AsyncVerifiedSession()
-    session.user_or_token = "user"
-    session._upsert_select(Model)
+        verified = models.async_session_factory()
+        verified.user_or_token = "user"
+        async with verified:
+            found = await verified.upsert(Widget, by={"name": "widget"})
+            found_id = found.id
+            await verified.rollback()
+        return found_id
 
-    assert asked == ["user"]
+    assert run_scenario(scenario) is None
