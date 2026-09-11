@@ -150,17 +150,16 @@ can be replaced with `DBSession()` with no arguments.
 Which session to use depends on two things: whether the code runs inside a web request,
 and whether its writes have to be checked against a user's permissions.
 
-Inside a handler, use `self.Session()`, which stands in for
-`VerifiedSession(self.current_user)` and checks write permissions on commit, or
+Inside a handler, use `self.Session()`. It stands in for
+`VerifiedSession(self.current_user)` and checks write permissions on commit. Use
 `DBSession()` where that check is unwanted. Both are scoped on `session_context_id`, a
 context variable that `BaseHandler.prepare()` sets to a fresh value on every request, so
 each request works against its own session.
 
-Outside a request that context variable keeps its default of `None`, so every
-`DBSession()` call in the process resolves to one shared session; in a microservice, a
-script, or work handed off to a thread, that sharing means one caller's `rollback()`
-discards another caller's pending work. Use `new_session()` there, which builds an
-independent session on each call:
+Outside a request that variable keeps its default of `None`, so every `DBSession()` call
+in the process returns the same shared session. In a microservice, a script, or work
+handed to a thread, one caller's `rollback()` then discards another caller's pending
+work. Use `new_session()` there: it builds an independent session on each call.
 
 ```
 from baselayer.app.models import new_session
@@ -170,14 +169,14 @@ with new_session() as session:
     session.commit()
 ```
 
-`new_session()` applies no access-control check, so it suits code acting on its own
-behalf; where a write has to be checked against a user's permissions, use
+`new_session()` runs no access-control check, so it suits code acting on its own behalf.
+Where a write has to be checked against a user's permissions, use
 `VerifiedSession(user_or_token)`.
 
 The async factories are the counterparts of `DBSession` and `VerifiedSession`, opt-in per
-handler, with the sync engine and session remaining authoritative for the rest of the
-codebase: `async_session_factory()` verifies on commit, and
-`async_plain_session_factory()` skips that check. `app/access.py` uses the plain one:
+handler; the sync engine and session stay authoritative for the rest of the codebase.
+`async_session_factory()` verifies on commit, `async_plain_session_factory()` skips that
+check. `app/access.py` uses the plain one:
 
 ```
 from baselayer.app import models
@@ -186,9 +185,9 @@ async with models.async_plain_session_factory() as session:
     ...
 ```
 
-Reach the async factories through the module rather than importing their names directly:
-`init_db()` rebinds those globals, so `from baselayer.app.models import
-async_plain_session_factory` captures the `None` they hold before that call.
+Reach these factories through the module, not by importing their names: `init_db()`
+rebinds the globals, so `from baselayer.app.models import async_plain_session_factory`
+captures the `None` they hold before that call.
 
 ## Standards
 
