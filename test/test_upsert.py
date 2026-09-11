@@ -171,3 +171,21 @@ def test_upsert_inserts_a_row_its_own_key_finds_again(session_factory):
             return await session.scalar(sa.select(sa.func.count()).select_from(Widget))
 
     assert asyncio.run(scenario()) == 1
+
+
+def test_upsert_finds_its_pending_row_without_autoflush(session_factory):
+    """The app runs the session with autoflush off; upserting twice still adds one row."""
+
+    async def scenario():
+        async with session_factory(autoflush=False) as session:
+            first = await session.upsert(Widget, by={"name": "widget"})
+            second = await session.upsert(Widget, by={"name": "widget"})
+            await session.commit()
+
+            rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
+            return first is second, rows
+
+    same, rows = asyncio.run(scenario())
+
+    assert same
+    assert rows == 1

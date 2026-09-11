@@ -255,6 +255,18 @@ class _AsyncUpsertMixin:
             )
         ).one_or_none()
         if instance is None:
+            # With autoflush off, a row a previous call added is still pending,
+            # so the select above cannot see it.
+            instance = next(
+                (
+                    row
+                    for row in self.new
+                    if isinstance(row, model)
+                    and all(getattr(row, key) == value for key, value in by.items())
+                ),
+                None,
+            )
+        if instance is None:
             instance = model(**{**values, **by})
             self.add(instance)
         else:
