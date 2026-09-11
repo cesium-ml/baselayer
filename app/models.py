@@ -93,14 +93,7 @@ class _VerifiedSession(sa.orm.session.Session):
 
 
 def VerifiedSession(user_or_token):
-    return scoped_session(
-        sessionmaker(
-            class_=_VerifiedSession,
-            user_or_token=user_or_token,
-            bind=db_engine(),
-        ),
-        scopefunc=session_context_id.get,
-    )()
+    return _VerifiedSession(user_or_token, bind=db_engine())
 
 
 def db_engine():
