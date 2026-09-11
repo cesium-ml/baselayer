@@ -9,10 +9,10 @@ import asyncio
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.exc import MultipleResultsFound
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
-from baselayer.app.models import _AsyncPlainSession, cfg
+from baselayer.app import models
+from baselayer.app.models import cfg, init_db
 
 Base = declarative_base()
 
@@ -25,44 +25,46 @@ class Widget(Base):
     value = sa.Column(sa.Integer)
 
 
-def database_url():
-    db = cfg["database"]
-    return "postgresql+psycopg://{}:{}@{}:{}/{}".format(
-        db["user"],
-        db.get("password") or "",
-        db.get("host") or "",
-        db.get("port") or "",
-        db["database"],
-    )
-
-
 @pytest.fixture
-def session_factory():
-    """A plain async session factory over a table created for the test."""
+def run_scenario():
+    """Run ``scenario(session_factory)`` over a table of its own, on one event loop."""
+    database = cfg["database"]["database"]
+    if not str(database).endswith("_test"):
+        pytest.fail(
+            f"Refusing to create tables in {database!r}; "
+            "run with --config=test_config.yaml"
+        )
 
-    async def setup():
-        engine = create_async_engine(database_url())
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-            await conn.run_sync(Base.metadata.create_all)
-        return engine
+    def run(scenario):
+        async def main():
+            db = cfg["database"]
+            init_db(
+                user=db["user"],
+                database=db["database"],
+                password=db.get("password"),
+                host=db.get("host"),
+                port=db.get("port"),
+                pooler=db.get("pooler"),
+            )
+            try:
+                async with models.async_engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.drop_all)
+                    await conn.run_sync(Base.metadata.create_all)
+                return await scenario(models.async_plain_session_factory)
+            finally:
+                async with models.async_engine.begin() as conn:
+                    await conn.run_sync(Base.metadata.drop_all)
+                await models.async_engine.dispose()
 
-    async def teardown(engine):
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
+        return asyncio.run(main())
 
-    engine = asyncio.run(setup())
-    yield async_sessionmaker(
-        bind=engine, class_=_AsyncPlainSession, expire_on_commit=False
-    )
-    asyncio.run(teardown(engine))
+    return run
 
 
-def test_upsert_updates_the_row_it_already_inserted(session_factory):
+def test_upsert_updates_the_row_it_already_inserted(run_scenario):
     """Upserting twice on the same key keeps one row, carrying the new values."""
 
-    async def scenario():
+    async def scenario(session_factory):
         async with session_factory() as session:
             first = await session.upsert(
                 Widget, by={"name": "widget"}, values={"value": 1}
@@ -77,31 +79,31 @@ def test_upsert_updates_the_row_it_already_inserted(session_factory):
             stored = (await session.execute(sa.select(Widget.id, Widget.value))).all()
             return first_id, stored
 
-    first_id, stored = asyncio.run(scenario())
+    first_id, stored = run_scenario(scenario)
 
     assert stored == [(first_id, 2)]
 
 
-def test_upsert_leaves_an_implicit_key_to_the_database(session_factory):
+def test_upsert_leaves_an_implicit_key_to_the_database(run_scenario):
     """`by` holds a natural key, so the database still assigns the surrogate id."""
 
-    async def scenario():
+    async def scenario(session_factory):
         async with session_factory() as session:
             first = await session.upsert(Widget, by={"name": "one"})
             second = await session.upsert(Widget, by={"name": "two"})
             await session.commit()
             return first.id, second.id
 
-    first_id, second_id = asyncio.run(scenario())
+    first_id, second_id = run_scenario(scenario)
 
     assert first_id is not None and second_id is not None
     assert first_id != second_id
 
 
-def test_upsert_without_values_leaves_an_existing_row_alone(session_factory):
+def test_upsert_without_values_leaves_an_existing_row_alone(run_scenario):
     """A `by`-only upsert is a get-or-create; it does not blank the other columns."""
 
-    async def scenario():
+    async def scenario(session_factory):
         async with session_factory() as session:
             await session.upsert(Widget, by={"name": "widget"}, values={"value": 7})
             await session.commit()
@@ -114,13 +116,13 @@ def test_upsert_without_values_leaves_an_existing_row_alone(session_factory):
                 sa.select(Widget.value).where(Widget.name == "widget")
             )
 
-    assert asyncio.run(scenario()) == 7
+    assert run_scenario(scenario) == 7
 
 
-def test_upsert_twice_in_one_session_touches_one_row(session_factory):
+def test_upsert_twice_in_one_session_touches_one_row(run_scenario):
     """The pending insert is flushed before the second lookup, so it is found."""
 
-    async def scenario():
+    async def scenario(session_factory):
         async with session_factory() as session:
             first = await session.upsert(Widget, by={"name": "widget"})
             second = await session.upsert(Widget, by={"name": "widget"})
@@ -129,40 +131,34 @@ def test_upsert_twice_in_one_session_touches_one_row(session_factory):
             rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
             return first is second, rows
 
-    same, rows = asyncio.run(scenario())
+    same, rows = run_scenario(scenario)
 
     assert same
     assert rows == 1
 
 
-def test_upsert_refuses_a_key_matching_several_rows(session_factory):
-    """A `by` that is not unique is an error, not an arbitrary choice of row."""
+def test_upsert_finds_its_pending_row_without_autoflush(run_scenario):
+    """The app runs its session with autoflush off; upserting twice still adds one row."""
 
-    async def scenario():
-        async with session_factory() as session:
-            session.add_all([Widget(name="a", value=1), Widget(name="b", value=1)])
+    async def scenario(session_factory):
+        async with session_factory(autoflush=False) as session:
+            first = await session.upsert(Widget, by={"name": "widget"})
+            second = await session.upsert(Widget, by={"name": "widget"})
             await session.commit()
-            await session.upsert(Widget, by={"value": 1}, values={"value": 2})
 
-    with pytest.raises(MultipleResultsFound):
-        asyncio.run(scenario())
+            rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
+            return first is second, rows
 
+    same, rows = run_scenario(scenario)
 
-def test_upsert_refuses_an_empty_key(session_factory):
-    """An empty `by` would match every row, so it is an error."""
-
-    async def scenario():
-        async with session_factory() as session:
-            await session.upsert(Widget, by={}, values={"value": 1})
-
-    with pytest.raises(ValueError):
-        asyncio.run(scenario())
+    assert same
+    assert rows == 1
 
 
-def test_upsert_inserts_a_row_its_own_key_finds_again(session_factory):
+def test_upsert_inserts_a_row_its_own_key_finds_again(run_scenario):
     """`by` wins over `values`, so a second identical call finds the first row."""
 
-    async def scenario():
+    async def scenario(session_factory):
         async with session_factory() as session:
             await session.upsert(Widget, by={"name": "old"}, values={"name": "new"})
             await session.commit()
@@ -172,22 +168,28 @@ def test_upsert_inserts_a_row_its_own_key_finds_again(session_factory):
 
             return await session.scalar(sa.select(sa.func.count()).select_from(Widget))
 
-    assert asyncio.run(scenario()) == 1
+    assert run_scenario(scenario) == 1
 
 
-def test_upsert_finds_its_pending_row_without_autoflush(session_factory):
-    """The app runs the session with autoflush off; upserting twice still adds one row."""
+def test_upsert_refuses_a_key_matching_several_rows(run_scenario):
+    """A `by` that is not unique is an error, not an arbitrary choice of row."""
 
-    async def scenario():
-        async with session_factory(autoflush=False) as session:
-            first = await session.upsert(Widget, by={"name": "widget"})
-            second = await session.upsert(Widget, by={"name": "widget"})
+    async def scenario(session_factory):
+        async with session_factory() as session:
+            session.add_all([Widget(name="a", value=1), Widget(name="b", value=1)])
             await session.commit()
+            await session.upsert(Widget, by={"value": 1}, values={"value": 2})
 
-            rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
-            return first is second, rows
+    with pytest.raises(MultipleResultsFound):
+        run_scenario(scenario)
 
-    same, rows = asyncio.run(scenario())
 
-    assert same
-    assert rows == 1
+def test_upsert_refuses_an_empty_key(run_scenario):
+    """An empty `by` would match every row, so it is an error."""
+
+    async def scenario(session_factory):
+        async with session_factory() as session:
+            await session.upsert(Widget, by={}, values={"value": 1})
+
+    with pytest.raises(ValueError):
+        run_scenario(scenario)
