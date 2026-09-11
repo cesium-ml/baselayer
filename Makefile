@@ -127,7 +127,7 @@ clean:
 
 # `stop all` leaves supervisord holding its socket, blocking the next `make run`.
 stop: ## Stop all running services and the supervisor itself.
-	$(SUPERVISORCTL) shutdown
+	@$(SUPERVISORCTL) shutdown
 
 status:
 	@$(PYTHON) ./baselayer/tools/supervisor_status.py
