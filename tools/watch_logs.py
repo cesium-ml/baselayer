@@ -76,7 +76,7 @@ def log_watcher(printers: list | None = None):
         watched = all_logs
 
         time.sleep(interval)
-        interval = max(interval * 2, 60)
+        interval = min(interval * 2, 60)
 
 
 if __name__ == "__main__":
