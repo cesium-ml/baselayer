@@ -29,6 +29,7 @@ from ..models import (
     User,
     VerifiedSession,
     bulk_verify,
+    db_engine,
     session_context_id,
 )
 
@@ -279,7 +280,7 @@ class BaseHandler(PSABaseHandler):
         N = 5
         for i in range(1, N + 1):
             try:
-                assert DBSession.session_factory.kw["bind"] is not None
+                assert db_engine() is not None
             except Exception as e:
                 if i == N:
                     raise e
