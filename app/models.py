@@ -86,7 +86,7 @@ class _VerifiedSession(sa.orm.session.Session):
 
         """
         self.user_or_token = user_or_token
-        super().__init__()
+        super().__init__(**kwargs)
 
     def verify(self):
         """Check that the current user has permission to create, read,
@@ -134,7 +134,11 @@ class _VerifiedSession(sa.orm.session.Session):
 
 def VerifiedSession(user_or_token):
     return scoped_session(
-        sessionmaker(class_=_VerifiedSession, user_or_token=user_or_token),
+        sessionmaker(
+            class_=_VerifiedSession,
+            user_or_token=user_or_token,
+            bind=db_engine(),
+        ),
         scopefunc=session_context_id.get,
     )()
 

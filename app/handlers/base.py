@@ -188,7 +188,6 @@ class BaseHandler(PSABaseHandler):
             # must merge the user object with the current session
             # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
             session.add(self.current_user)
-            session.bind = DBSession.session_factory.kw["bind"]
             yield session
 
     @asynccontextmanager
