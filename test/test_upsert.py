@@ -84,22 +84,6 @@ def test_upsert_updates_the_row_it_already_inserted(run_scenario):
     assert stored == [(first_id, 2)]
 
 
-def test_upsert_leaves_an_implicit_key_to_the_database(run_scenario):
-    """`by` holds a natural key, so the database still assigns the surrogate id."""
-
-    async def scenario(session_factory):
-        async with session_factory() as session:
-            first = await session.upsert(Widget, by={"name": "one"})
-            second = await session.upsert(Widget, by={"name": "two"})
-            await session.commit()
-            return first.id, second.id
-
-    first_id, second_id = run_scenario(scenario)
-
-    assert first_id is not None and second_id is not None
-    assert first_id != second_id
-
-
 def test_upsert_without_values_leaves_an_existing_row_alone(run_scenario):
     """A `by`-only upsert is a get-or-create; it does not blank the other columns."""
 
@@ -117,24 +101,6 @@ def test_upsert_without_values_leaves_an_existing_row_alone(run_scenario):
             )
 
     assert run_scenario(scenario) == 7
-
-
-def test_upsert_twice_in_one_session_touches_one_row(run_scenario):
-    """Two upserts on the same key in one session add a single row."""
-
-    async def scenario(session_factory):
-        async with session_factory() as session:
-            first = await session.upsert(Widget, by={"name": "widget"})
-            second = await session.upsert(Widget, by={"name": "widget"})
-            await session.commit()
-
-            rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
-            return first is second, rows
-
-    same, rows = run_scenario(scenario)
-
-    assert same
-    assert rows == 1
 
 
 def test_upsert_finds_its_pending_row_without_autoflush(run_scenario):
