@@ -147,47 +147,33 @@ can be replaced with `DBSession()` with no arguments.
 
 ## Choosing a session
 
-Which session to use depends on two things: whether the code runs inside a web request,
-and whether its writes have to be checked against a user's permissions.
+Two questions decide which session to open: does the code run inside a web request, and
+do its writes have to be checked against the user's permissions?
 
-Inside a handler, use `self.Session()`. It stands in for
-`VerifiedSession(self.current_user)` and checks write permissions on commit. Use
-`DBSession()` where that check is unwanted. Both are scoped on `session_context_id`, a
-context variable that `BaseHandler.prepare()` sets to a fresh value on every request, so
-each request works against its own session.
+|       | checks permissions on commit          | no check              |
+| ----- | ------------------------------------- | --------------------- |
+| sync  | `VerifiedSession(user_or_token)`      | `new_session()`       |
+| async | `AsyncVerifiedSession(user_or_token)` | `new_async_session()` |
 
-Outside a request that variable keeps its default of `None`, so every `DBSession()` call
-in the process returns the same shared session. In a microservice, a script, or work
-handed to a thread, one caller's `rollback()` then discards another caller's pending
-work. Use `new_session()` there: it builds an independent session on each call.
+Inside a handler, `self.Session()` and `self.AsyncSession()` are the same two verified
+sessions with the user filled in from `self.current_user`. Each of these four calls opens
+a session of its own, so two `with` blocks are two separate transactions.
 
 ```
-from baselayer.app.models import new_session
-
 with new_session() as session:
     session.add(record)
     session.commit()
 ```
 
-`new_session()` runs no access-control check, so it suits code acting on its own behalf.
-Where a write has to be checked against a user's permissions, use
-`VerifiedSession(user_or_token)`.
+`DBSession()` is the exception. It is scoped on `session_context_id`, a context variable
+that `BaseHandler.prepare()` sets to a fresh value on every request, so inside a request
+every call returns that request's one session. Outside a request the variable keeps its
+default of `None` and every call in the process returns a single shared session: in a
+microservice, a script, or work handed to a thread, one caller's `rollback()` then
+discards another caller's pending work. Use `new_session()` there.
 
-The async factories are the counterparts of `DBSession` and `VerifiedSession`, opt-in per
-handler; the sync engine and session stay authoritative for the rest of the codebase.
-`async_session_factory()` verifies on commit, `async_plain_session_factory()` skips that
-check. `app/access.py` uses the plain one:
-
-```
-from baselayer.app import models
-
-async with models.async_plain_session_factory() as session:
-    ...
-```
-
-Reach these factories through the module, not by importing their names: `init_db()`
-rebinds the globals, so `from baselayer.app.models import async_plain_session_factory`
-captures the `None` they hold before that call.
+The async sessions are opt-in per handler. The sync engine and session stay authoritative
+for the rest of the codebase.
 
 ## Standards
 
