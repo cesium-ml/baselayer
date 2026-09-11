@@ -214,7 +214,8 @@ class _AsyncUpsertMixin:
         by : dict of str to object
             Attribute name to value, identifying at most one row: a natural key,
             such as a unique column or a set of columns unique together. These
-            become attributes of the record on the insert path.
+            become attributes of the record on the insert path, and win over
+            ``values`` where the two name the same attribute.
         values : dict of str to object, optional
             Attribute name to value, assigned to the row whether it was found or
             created. Defaults to None, which makes the call a get-or-create.
@@ -254,7 +255,7 @@ class _AsyncUpsertMixin:
             )
         ).one_or_none()
         if instance is None:
-            instance = model(**{**by, **values})
+            instance = model(**{**values, **by})
             self.add(instance)
         else:
             for key, value in values.items():

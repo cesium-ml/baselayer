@@ -155,3 +155,19 @@ def test_upsert_refuses_an_empty_key(session_factory):
 
     with pytest.raises(ValueError):
         asyncio.run(scenario())
+
+
+def test_upsert_inserts_a_row_its_own_key_finds_again(session_factory):
+    """`by` wins over `values`, so a second identical call finds the first row."""
+
+    async def scenario():
+        async with session_factory() as session:
+            await session.upsert(Widget, by={"name": "old"}, values={"name": "new"})
+            await session.commit()
+
+            await session.upsert(Widget, by={"name": "old"}, values={"name": "new"})
+            await session.commit()
+
+            return await session.scalar(sa.select(sa.func.count()).select_from(Widget))
+
+    assert asyncio.run(scenario()) == 1
