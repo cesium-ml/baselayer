@@ -68,20 +68,18 @@ def test_upsert_updates_the_row_it_already_inserted(session_factory):
                 Widget, by={"name": "widget"}, values={"value": 1}
             )
             await session.commit()
+            first_id = first.id
 
-            second = await session.upsert(
-                Widget, by={"name": "widget"}, values={"value": 2}
-            )
+            await session.upsert(Widget, by={"name": "widget"}, values={"value": 2})
             await session.commit()
 
-            rows = await session.scalar(sa.select(sa.func.count()).select_from(Widget))
-            return first.id, second.id, second.value, rows
+        async with session_factory() as session:
+            stored = (await session.execute(sa.select(Widget.id, Widget.value))).all()
+            return first_id, stored
 
-    first_id, second_id, value, rows = asyncio.run(scenario())
+    first_id, stored = asyncio.run(scenario())
 
-    assert rows == 1
-    assert second_id == first_id
-    assert value == 2
+    assert stored == [(first_id, 2)]
 
 
 def test_upsert_leaves_an_implicit_key_to_the_database(session_factory):
@@ -108,9 +106,13 @@ def test_upsert_without_values_leaves_an_existing_row_alone(session_factory):
             await session.upsert(Widget, by={"name": "widget"}, values={"value": 7})
             await session.commit()
 
-            again = await session.upsert(Widget, by={"name": "widget"})
+            await session.upsert(Widget, by={"name": "widget"})
             await session.commit()
-            return again.value
+
+        async with session_factory() as session:
+            return await session.scalar(
+                sa.select(Widget.value).where(Widget.name == "widget")
+            )
 
     assert asyncio.run(scenario()) == 7
 
