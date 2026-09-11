@@ -114,14 +114,16 @@ def test_upsert_finds_its_pending_row_without_autoflush(run_scenario):
     assert rows == 1
 
 
-def test_upsert_inserts_a_row_its_own_key_finds_again(run_scenario):
-    """`by` wins over `values` on both paths, so every later call finds that row."""
+def test_upsert_refuses_values_that_contradict_the_key(run_scenario):
+    """`values` may repeat what `by` says, but not rename the row out of its key."""
 
     async def scenario(session_factory):
         async with session_factory() as session:
-            for _ in range(3):
+            with pytest.raises(ValueError):
                 await session.upsert(Widget, by={"name": "old"}, values={"name": "new"})
-                await session.commit()
+
+            await session.upsert(Widget, by={"name": "old"}, values={"name": "old"})
+            await session.commit()
 
         async with session_factory() as session:
             return (await session.scalars(sa.select(Widget.name))).all()
@@ -137,12 +139,12 @@ def test_upsert_refuses_a_key_matching_several_rows(run_scenario):
             session.add_all([Widget(name="a", value=1), Widget(name="b", value=1)])
 
             with pytest.raises(MultipleResultsFound):
-                await session.upsert(Widget, by={"value": 1}, values={"value": 2})
+                await session.upsert(Widget, by={"value": 1}, values={"name": "c"})
 
             await session.commit()
 
             with pytest.raises(MultipleResultsFound):
-                await session.upsert(Widget, by={"value": 1}, values={"value": 2})
+                await session.upsert(Widget, by={"value": 1}, values={"name": "c"})
 
     run_scenario(scenario)
 

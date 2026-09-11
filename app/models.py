@@ -231,8 +231,7 @@ class _AsyncUpsertMixin:
         by : dict of str to object
             Attribute name to value, identifying at most one row: a natural key,
             such as a unique column or a set of columns unique together. These
-            become attributes of the record, and win over ``values`` where the
-            two name the same attribute.
+            become attributes of the record.
         values : dict of str to object, optional
             Attribute name to value, assigned to the row whether it was found or
             created. Defaults to None, which makes the call a get-or-create.
@@ -246,7 +245,8 @@ class _AsyncUpsertMixin:
         Raises
         ------
         ValueError
-            If ``by`` is empty, which would otherwise match every row.
+            If ``by`` is empty, which would otherwise match every row, or if
+            ``values`` gives one of its attributes a different value.
         sqlalchemy.exc.MultipleResultsFound
             If ``by`` matches more than one row, stored or still pending, so that
             a key which is not unique fails here rather than updating an
@@ -268,7 +268,12 @@ class _AsyncUpsertMixin:
         if not by:
             raise ValueError("`by` must name at least one attribute.")
 
-        values = {**(values or {}), **by}
+        values = values or {}
+        contradicted = sorted(k for k, v in by.items() if values.get(k, v) != v)
+        if contradicted:
+            raise ValueError(f"`values` contradicts `by` for {contradicted}.")
+
+        values = {**values, **by}
         instance = (
             (
                 await self.scalars(
