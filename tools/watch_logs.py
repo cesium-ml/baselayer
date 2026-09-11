@@ -11,7 +11,7 @@ from baselayer.log import colorize
 
 basedir = pjoin(os.path.dirname(__file__), "..")
 
-_write_lock = threading.Lock()
+_print_lock = threading.Lock()
 
 
 def tail_f(filename, interval=1.0):
@@ -36,7 +36,7 @@ def tail_f(filename, interval=1.0):
 
 def print_log(filename, color="default"):
     def print_col(line):
-        with _write_lock:
+        with _print_lock:
             print(colorize(line, fg=color))
 
     print_col(f"-> {filename}")
