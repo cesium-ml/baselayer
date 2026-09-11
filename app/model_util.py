@@ -23,6 +23,8 @@ def create_tables(retry=5, add=True):
 
     Parameters
     ----------
+    retry : int
+        Number of times to try creating the tables.
     add : bool
         Whether to add tables if some tables already exist.  This is
         convenient during development, but will cause problems
