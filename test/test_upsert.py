@@ -122,19 +122,18 @@ def test_upsert_finds_its_pending_row_without_autoflush(run_scenario):
 
 
 def test_upsert_inserts_a_row_its_own_key_finds_again(run_scenario):
-    """`by` wins over `values`, so a second identical call finds the first row."""
+    """`by` wins over `values` on both paths, so every later call finds that row."""
 
     async def scenario(session_factory):
         async with session_factory() as session:
-            await session.upsert(Widget, by={"name": "old"}, values={"name": "new"})
-            await session.commit()
+            for _ in range(3):
+                await session.upsert(Widget, by={"name": "old"}, values={"name": "new"})
+                await session.commit()
 
-            await session.upsert(Widget, by={"name": "old"}, values={"name": "new"})
-            await session.commit()
+        async with session_factory() as session:
+            return (await session.scalars(sa.select(Widget.name))).all()
 
-            return await session.scalar(sa.select(sa.func.count()).select_from(Widget))
-
-    assert run_scenario(scenario) == 1
+    assert run_scenario(scenario) == ["old"]
 
 
 def test_upsert_refuses_a_key_matching_several_rows(run_scenario):
