@@ -28,6 +28,7 @@ from tornado.template import Loader, Template
 
 from baselayer.app.models import Base, DBSession, User
 
+from .auth_backends import configured_backends
 from .env import load_env
 
 NO_ASCII_REGEX = re.compile(r"[^\x00-\x7F]+")
@@ -724,7 +725,11 @@ def init_social():
     TornadoStorage.partial = Partial
 
 
-class FakeGoogleOAuth2(GoogleOAuth2):
+class FakeOAuth2(GoogleOAuth2):
+    # Impersonates whichever backend is configured first, so that /login/<name>
+    # and the login button are the same under debug_login as in production.
+    name = configured_backends()[0]["name"]
+
     @property
     def AUTHORIZATION_URL(self):
         return self.strategy.absolute_uri("/fakeoauth2/auth")
@@ -756,6 +761,9 @@ class FakeGoogleOAuth2(GoogleOAuth2):
 
     def get_user_id(self, *args, **kwargs):
         return "testuser@cesium-ml.org"
+
+
+FakeGoogleOAuth2 = FakeOAuth2  # pre-rename alias
 
 
 # Set up TornadoStorage

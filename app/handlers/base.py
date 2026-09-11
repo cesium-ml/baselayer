@@ -12,7 +12,7 @@ from json.decoder import JSONDecodeError
 import sqlalchemy
 import tornado.escape
 from tornado.log import app_log
-from tornado.web import RequestHandler
+from tornado.web import HTTPError, RequestHandler
 
 from ...log import make_log
 
@@ -29,6 +29,7 @@ from ..models import (
     User,
     VerifiedSession,
     bulk_verify,
+    db_engine,
     session_context_id,
 )
 
@@ -48,11 +49,13 @@ class PSABaseHandler(RequestHandler):
     Mixin used by Python Social Auth
     """
 
+    # Read by `access.auth_or_token`; the token path never calls get_current_user.
+    is_anonymous_user = False
+
     def user_id(self):
         return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
-        self.is_anonymous_user = False
         user = self._signed_in_user()
         if user is not None:
             return user
@@ -63,10 +66,11 @@ class PSABaseHandler(RequestHandler):
         if not cfg.get("app.anonymous_access", False):
             return None
         username = cfg.get("app.anonymous_user") or "anonymous"
-        with DBSession() as session:
-            user = session.scalars(
-                sqlalchemy.select(User).where(User.username == username)
-            ).first()
+        with db_error_503(self.request.path):
+            with DBSession() as session:
+                user = session.scalars(
+                    sqlalchemy.select(User).where(User.username == username)
+                ).first()
         self.is_anonymous_user = user is not None
         return user
 
@@ -136,15 +140,24 @@ class PSABaseHandler(RequestHandler):
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
+        # The PSA onboarding pipeline rejects a bad invite token with a bare
+        # Exception, so there is no status code to test; match on the message.
         expected_exceptions = [
             "Authentication Error:",
             "User account expired",
             "Credentials malformed",
             "Method Not Allowed",
             "Unauthorized",
+            "read-only access",
         ]
         v_str = str(value)
-        if any(exception in v_str for exception in expected_exceptions):
+        # 4xx is the client's fault; only 5xx and uncaught exceptions are ours.
+        is_client_error = (
+            isinstance(value, HTTPError) and 400 <= value.status_code < 500
+        )
+        if is_client_error or any(
+            exception in v_str for exception in expected_exceptions
+        ):
             log(f"Error response returned by [{self.request.path}]: [{v_str}]")
         else:
             app_log.error(
@@ -155,7 +168,17 @@ class PSABaseHandler(RequestHandler):
             )
 
     def on_finish(self):
-        DBSession.remove()
+        try:
+            DBSession.remove()
+        except Exception as e:
+            # The rollback in remove() fails if pgbouncer already closed the
+            # connection. The response is sent, so drop the session rather than
+            # raising into Tornado's error handling.
+            log(f"Session cleanup failed, discarding it: {e}")
+            try:
+                DBSession.registry.clear()
+            except Exception:
+                pass
 
 
 class BaseHandler(PSABaseHandler):
@@ -188,7 +211,6 @@ class BaseHandler(PSABaseHandler):
             # must merge the user object with the current session
             # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
             session.add(self.current_user)
-            session.bind = DBSession.session_factory.kw["bind"]
             yield session
 
     @asynccontextmanager
@@ -280,7 +302,7 @@ class BaseHandler(PSABaseHandler):
         N = 5
         for i in range(1, N + 1):
             try:
-                assert DBSession.session_factory.kw["bind"] is not None
+                assert db_engine() is not None
             except Exception as e:
                 if i == N:
                     raise e

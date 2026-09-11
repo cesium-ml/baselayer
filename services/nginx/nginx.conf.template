@@ -167,6 +167,11 @@ http {
       proxy_buffers 32 8k;
 
       # Serve static files directly
+      location /static/build/ {
+        root .;
+        include mime.types;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+      }
       location /static/ {
         root .;
         include mime.types;

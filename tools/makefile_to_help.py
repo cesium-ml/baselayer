@@ -9,32 +9,36 @@ The Makefile can also be preceded by a category, e.g.
 
 in which case the category names are printed as a heading before the targets.
 
+A target described in several makefiles is listed once, under the last category
+that defines it.
+
 """
 
 import re
 import sys
 
-if not sys.argv:
-    print("Usage: makefile_to_help.py <MAKEFILE0> <MAKEFILE1> ...")
-    sys.exit(0)
+
+def parse_targets(fname):
+    with open(fname) as f:
+        matches = (re.match(r"^([\w-]+): +##(.*)", line) for line in f)
+        return {m[1]: m[2] for m in matches if m}
 
 
-def describe_targets(lines):
-    matches = [re.match(r"^([\w-]+): +##(.*)", line) for line in lines]
-    groups = [m.groups(0) for m in matches if m]
-    targets = {target: desc for (target, desc) in groups}
-
-    N = max(len(target) for (target, desc) in targets.items())
-
-    for target, desc in targets.items():
-        print(f"{target:{N}} {desc}")
-
-
+sections = []
 for source in sys.argv[1:]:
-    if ":" in source:
-        category, fname = source.split(":")
-        print(f"\n{category}\n{'-' * len(category)}")
-    else:
-        fname = source
+    category, fname = source.split(":") if ":" in source else (None, source)
+    sections.append((category, parse_targets(fname)))
 
-    describe_targets(open(fname).readlines())
+seen = set()
+for _, targets in reversed(sections):
+    for target in seen.intersection(targets):
+        del targets[target]
+    seen.update(targets)
+
+width = max((len(target) for _, targets in sections for target in targets), default=0)
+
+for category, targets in sections:
+    if category:
+        print(f"\n{category}\n{'-' * len(category)}")
+    for target, desc in targets.items():
+        print(f"{target:{width}} {desc}")

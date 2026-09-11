@@ -10,7 +10,7 @@ from . import psa  # noqa: F401
 
 
 def drop_tables():
-    conn = models.DBSession.session_factory.kw["bind"]
+    conn = models.db_engine()
     print(f"Dropping tables on database {conn.url.database}")
     meta = sa.MetaData()
     meta.reflect(bind=conn)
@@ -30,7 +30,7 @@ def create_tables(retry=5, add=True):
         tables.
 
     """
-    conn = models.DBSession.session_factory.kw["bind"]
+    conn = models.db_engine()
     tables = models.Base.metadata.sorted_tables
     if tables and not add:
         print("Existing tables found; not creating additional tables")
@@ -38,7 +38,7 @@ def create_tables(retry=5, add=True):
 
     for i in range(1, retry + 1):
         try:
-            conn = models.DBSession.session_factory.kw["bind"]
+            conn = models.db_engine()
             print(f"Creating tables on database {conn.url.database}")
             models.Base.metadata.create_all(conn)
 

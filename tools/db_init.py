@@ -49,7 +49,9 @@ if host:
 if port:
     flags += f" -p {port}"
 
-admin_flags = flags.replace(f"-U {user}", "-U postgres")
+# Superuser for creating the role/databases; not every install uses "postgres".
+admin_user = cfg.get("database.admin_user") or "postgres"
+admin_flags = flags.replace(f"-U {user}", f"-U {admin_user}")
 
 test_cmd = f"{psql_cmd} {flags} -c 'SELECT 0;' "
 
