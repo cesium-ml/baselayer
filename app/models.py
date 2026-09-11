@@ -239,17 +239,15 @@ class _AsyncUpsertMixin:
 
         Notes
         -----
-        ``values`` may name any mapped attribute, relationships included. ``by``
-        is compared with ``==``, so it takes columns and many-to-one
-        relationships; naming a collection raises ``InvalidRequestError``.
+        ``values`` takes any mapped attribute; ``by`` is compared with ``==``, so
+        it takes columns and many-to-one relationships, and a collection raises
+        ``InvalidRequestError``. On a verified session the lookup runs through
+        ``model.select``, so a row the accessor cannot read is neither found nor
+        updated.
 
-        On a verified session the lookup runs through ``model.select``, so a row
-        the accessor cannot read is not found and is not updated.
-
-        The row is selected and then inserted, rather than through ``INSERT ...
-        ON CONFLICT``, so of two sessions that both miss, both insert and the
-        second to commit fails on the unique index. Callers racing for the same
-        key have to handle that.
+        The row is selected and then inserted, not ``INSERT ... ON CONFLICT``,
+        so two sessions racing for the same key both insert and the second to
+        commit fails on the unique index.
         """
         if not by:
             raise ValueError("`by` must name at least one attribute.")
@@ -267,8 +265,7 @@ class _AsyncUpsertMixin:
             .one_or_none()
         )
         if instance is None:
-            # With autoflush off, a row a previous call added is still pending,
-            # so the select above cannot see it.
+            # With autoflush off, a row an earlier call added is still pending.
             instance = next(
                 (
                     row

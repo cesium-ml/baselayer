@@ -120,7 +120,7 @@ def test_upsert_without_values_leaves_an_existing_row_alone(run_scenario):
 
 
 def test_upsert_twice_in_one_session_touches_one_row(run_scenario):
-    """The pending insert is flushed before the second lookup, so it is found."""
+    """Two upserts on the same key in one session add a single row."""
 
     async def scenario(session_factory):
         async with session_factory() as session:
