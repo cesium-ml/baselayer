@@ -6,9 +6,8 @@ import sqlalchemy as sa
 import tornado.web
 from sqlalchemy.orm import joinedload
 
-from baselayer.app import models
 from baselayer.app.custom_exceptions import AccessError  # noqa: F401
-from baselayer.app.models import DBSession, Token, User
+from baselayer.app.models import DBSession, Token, User, new_async_session
 from baselayer.log import make_log
 
 log = make_log("access")
@@ -55,7 +54,7 @@ def _lookup_token(handler, token_id):
 
 async def _lookup_token_async(handler, token_id):
     with db_error_503(handler.request.path):
-        async with models.async_plain_session_factory() as session:
+        async with new_async_session() as session:
             result = await session.scalars(_token_select_stmt(token_id))
             return result.first()
 

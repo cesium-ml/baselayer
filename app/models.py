@@ -218,6 +218,17 @@ async def AsyncVerifiedSession(user_or_token):
         await session.close()
 
 
+def new_async_session():
+    """The async counterpart of `new_session()`: a session of its own, with no
+    access-control check. Close it when the work is done.
+    """
+    if async_plain_session_factory is None:
+        raise RuntimeError(
+            "Async DB session not initialized. init_db() must run first."
+        )
+    return async_plain_session_factory()
+
+
 async def async_bulk_verify(session, mode, collection, accessor):
     """Async counterpart of `bulk_verify`. Runs the access-control leak check inside
     the supplied async session rather than the global sync `DBSession`.
