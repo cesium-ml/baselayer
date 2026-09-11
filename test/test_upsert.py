@@ -37,15 +37,7 @@ def run_scenario():
 
     def run(scenario):
         async def main():
-            db = cfg["database"]
-            engine = init_db(
-                user=db["user"],
-                database=db["database"],
-                password=db.get("password"),
-                host=db.get("host"),
-                port=db.get("port"),
-                pooler=db.get("pooler"),
-            )
+            engine = init_db(**cfg["database"])
             try:
                 async with models.async_engine.begin() as conn:
                     await conn.run_sync(Base.metadata.drop_all)
