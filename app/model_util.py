@@ -32,21 +32,22 @@ def create_tables(retry=5, add=True):
         tables.
 
     """
-    if not add and models.Base.metadata.tables:
+    metadata = models.Base.metadata
+    if not add and metadata.tables:
         print("Existing tables found; not creating additional tables")
         return
 
-    for i in range(1, retry + 1):
+    for attempt in range(1, retry + 1):
         try:
             conn = models.DBSession.session_factory.kw["bind"]
             print(f"Creating tables on database {conn.url.database}")
-            models.Base.metadata.create_all(conn)
-            print(f"Refreshed {len(models.Base.metadata.tables)} tables")
+            metadata.create_all(conn)
+            print(f"Refreshed {len(metadata.tables)} tables")
             return
         except Exception as e:
-            if i == retry:
+            if attempt == retry:
                 raise
-            print("Could not connect to database...sleeping 3")
+            print(f"Could not connect to database (attempt {attempt}/{retry})")
             print(f"  > {e}")
             time.sleep(3)
 
