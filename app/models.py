@@ -234,8 +234,9 @@ class _AsyncUpsertMixin:
         ValueError
             If ``by`` is empty, which would otherwise match every row.
         sqlalchemy.exc.MultipleResultsFound
-            If ``by`` matches more than one row, so that a key which is not
-            unique fails here rather than updating an arbitrary one of them.
+            If ``by`` matches more than one row, stored or still pending, so that
+            a key which is not unique fails here rather than updating an
+            arbitrary one of them.
 
         Notes
         -----
@@ -266,15 +267,17 @@ class _AsyncUpsertMixin:
         )
         if instance is None:
             # With autoflush off, a row an earlier call added is still pending.
-            instance = next(
-                (
-                    row
-                    for row in self.new
-                    if isinstance(row, model)
-                    and all(getattr(row, key) == value for key, value in by.items())
-                ),
-                None,
-            )
+            pending = [
+                row
+                for row in self.new
+                if isinstance(row, model)
+                and all(getattr(row, key) == value for key, value in by.items())
+            ]
+            if len(pending) > 1:
+                raise sa.exc.MultipleResultsFound(
+                    f"`by` matches {len(pending)} pending {model.__name__} rows."
+                )
+            instance = pending[0] if pending else None
         if instance is None:
             instance = model(**values)
             self.add(instance)

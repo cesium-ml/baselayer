@@ -140,13 +140,18 @@ def test_upsert_refuses_a_key_matching_several_rows(run_scenario):
     """A `by` that is not unique is an error, not an arbitrary choice of row."""
 
     async def scenario(session_factory):
-        async with session_factory() as session:
+        async with session_factory(autoflush=False) as session:
             session.add_all([Widget(name="a", value=1), Widget(name="b", value=1)])
-            await session.commit()
-            await session.upsert(Widget, by={"value": 1}, values={"value": 2})
 
-    with pytest.raises(MultipleResultsFound):
-        run_scenario(scenario)
+            with pytest.raises(MultipleResultsFound):
+                await session.upsert(Widget, by={"value": 1}, values={"value": 2})
+
+            await session.commit()
+
+            with pytest.raises(MultipleResultsFound):
+                await session.upsert(Widget, by={"value": 1}, values={"value": 2})
+
+    run_scenario(scenario)
 
 
 def test_upsert_refuses_an_empty_key(run_scenario):
