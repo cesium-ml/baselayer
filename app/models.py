@@ -204,6 +204,9 @@ async_plain_session_factory = None
 class _AsyncUpsertMixin:
     """`upsert` shorthand for async sessions: update-or-insert by a natural key."""
 
+    def _upsert_select(self, model):
+        return sa.select(model)
+
     async def upsert(self, model, *, by, values=None):
         """Update the single ``model`` row matching ``by``, or insert a new one.
 
@@ -240,6 +243,9 @@ class _AsyncUpsertMixin:
         is compared with ``==``, so it takes columns and many-to-one
         relationships; naming a collection raises ``InvalidRequestError``.
 
+        On a verified session the lookup runs through ``model.select``, so a row
+        the accessor cannot read is not found and is not updated.
+
         The row is selected and then inserted, rather than through ``INSERT ...
         ON CONFLICT``, so of two sessions that both miss, both insert and the
         second to commit fails on the unique index. Callers racing for the same
@@ -250,10 +256,16 @@ class _AsyncUpsertMixin:
 
         values = values or {}
         instance = (
-            await self.scalars(
-                sa.select(model).where(*(getattr(model, k) == v for k, v in by.items()))
+            (
+                await self.scalars(
+                    self._upsert_select(model).where(
+                        *(getattr(model, k) == v for k, v in by.items())
+                    )
+                )
             )
-        ).one_or_none()
+            .unique()
+            .one_or_none()
+        )
         if instance is None:
             # With autoflush off, a row a previous call added is still pending,
             # so the select above cannot see it.
@@ -289,6 +301,9 @@ class _AsyncVerifiedSession(_AsyncUpsertMixin, SAAsyncSession):
     """
 
     user_or_token = None
+
+    def _upsert_select(self, model):
+        return model.select(self.user_or_token)
 
     async def verify(self):
         new_rows = list(self.new)

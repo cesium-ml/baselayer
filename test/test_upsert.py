@@ -12,7 +12,7 @@ from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.orm import declarative_base
 
 from baselayer.app import models
-from baselayer.app.models import cfg, init_db
+from baselayer.app.models import _AsyncVerifiedSession, cfg, init_db
 
 Base = declarative_base()
 
@@ -193,3 +193,22 @@ def test_upsert_refuses_an_empty_key(run_scenario):
 
     with pytest.raises(ValueError):
         run_scenario(scenario)
+
+
+def test_the_verified_session_looks_up_only_accessible_rows():
+    """The verified session builds its lookup from `model.select`, so `upsert`
+    never finds a row the accessor cannot read."""
+
+    asked = []
+
+    class Model:
+        @staticmethod
+        def select(user_or_token):
+            asked.append(user_or_token)
+            return sa.select(Widget)
+
+    session = _AsyncVerifiedSession()
+    session.user_or_token = "user"
+    session._upsert_select(Model)
+
+    assert asked == ["user"]
