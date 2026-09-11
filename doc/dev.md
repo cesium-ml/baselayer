@@ -165,12 +165,9 @@ independent session on each call:
 ```
 from baselayer.app.models import new_session
 
-session = new_session()
-try:
+with new_session() as session:
     session.add(record)
     session.commit()
-finally:
-    session.close()
 ```
 
 `new_session()` applies no access-control check, so it suits code acting on its own
