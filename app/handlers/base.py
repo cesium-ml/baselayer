@@ -11,7 +11,6 @@ from tornado.web import HTTPError, RequestHandler
 from ...log import make_log
 from .. import psa
 from ..access import db_error_503
-from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
@@ -371,13 +370,7 @@ class BaseHandler(PSABaseHandler):
         self.write(to_json({"status": "success", "data": data, **extra}))
 
     def write_error(self, status_code, exc_info=None):
-        if exc_info is None:
-            self.error("An unknown error occurred", status=status_code)
-            return
-
-        err_cls, err, _ = exc_info
-        if isinstance(err_cls, AccessError):
-            status_code = 401
+        err = exc_info[1] if exc_info is not None else "An unknown error occurred"
         self.error(str(err), status=status_code)
 
     def push_notification(self, note, notification_type="info"):

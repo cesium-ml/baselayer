@@ -71,7 +71,7 @@ class _VerifiedSession(sa.orm.session.Session):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
         raise an AccessError (causing the transaction to fail and the API to
-        respond with 401).
+        respond with 400).
 
         """
         read_rows, updated_rows, deleted_rows, new_rows = pending_rows(self)
