@@ -42,8 +42,7 @@ def create_tables(retry=5, add=True):
             print(f"Creating tables on database {conn.url.database}")
             models.Base.metadata.create_all(conn)
 
-            table_list = ", ".join(list(models.Base.metadata.tables.keys()))
-            print(f"Refreshed tables: {table_list}")
+            print(f"Refreshed {len(models.Base.metadata.tables)} tables")
             # for m in models.Base.metadata.tables:
             #     print(f" - {m}")
 

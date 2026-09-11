@@ -2,6 +2,7 @@
 
 import glob
 import os
+import sys
 import threading
 import time
 from os.path import join as pjoin
@@ -10,6 +11,9 @@ from baselayer.log import colorize
 
 basedir = pjoin(os.path.dirname(__file__), "..")
 logdir = "../log"
+
+# One writer at a time, otherwise lines from different logs cut into each other.
+_write_lock = threading.Lock()
 
 
 def tail_f(filename, interval=1.0):
@@ -43,7 +47,8 @@ def print_log(filename, color="default", stream=None):
     """
 
     def print_col(line):
-        print(colorize(line, fg=color))
+        with _write_lock:
+            sys.stdout.write(colorize(line, fg=color) + "\n")
 
     print_col(f"-> {filename}")
 
