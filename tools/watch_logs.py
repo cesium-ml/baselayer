@@ -2,34 +2,27 @@
 
 import glob
 import os
-import sys
 import threading
 import time
+from itertools import cycle
 from os.path import join as pjoin
 
 from baselayer.log import colorize
 
 basedir = pjoin(os.path.dirname(__file__), "..")
-logdir = "../log"
 
-# One writer at a time, otherwise lines from different logs cut into each other.
 _write_lock = threading.Lock()
 
 
 def tail_f(filename, interval=1.0):
-    f = None
-
-    while not f:
+    while True:
         try:
             f = open(filename)
             break
         except OSError:
             time.sleep(1)
 
-    # Find the size of the file and move to the end
-    st_results = os.stat(filename)
-    st_size = st_results[6]
-    f.seek(st_size)
+    f.seek(0, os.SEEK_END)
 
     while True:
         where = f.tell()
@@ -41,14 +34,10 @@ def tail_f(filename, interval=1.0):
             yield line.rstrip("\n")
 
 
-def print_log(filename, color="default", stream=None):
-    """
-    Print log to stdout; stream is ignored.
-    """
-
+def print_log(filename, color="default"):
     def print_col(line):
         with _write_lock:
-            sys.stdout.write(colorize(line, fg=color) + "\n")
+            print(colorize(line, fg=color))
 
     print_col(f"-> {filename}")
 
@@ -56,7 +45,7 @@ def print_log(filename, color="default", stream=None):
         print_col(line)
 
 
-def log_watcher(printers=None):
+def log_watcher(printers: list | None = None):
     """Watch for new logs, and start following them.
 
     Parameters
@@ -72,28 +61,22 @@ def log_watcher(printers=None):
     print_log : the default stdout printer
 
     """
-    # Start with a short discovery interval, then back off
-    # until that interval is 60s
-    interval = 1
-
     if printers is None:
         printers = [print_log]
 
-    colors = ["default", "green", "yellow", "blue", "magenta", "cyan", "red"]
+    colors = cycle(["green", "yellow", "blue", "magenta", "cyan", "red", "default"])
     watched = set()
+    interval = 1
 
-    color = 0
     while True:
         all_logs = set(glob.glob("log/*.log"))
-        new_logs = all_logs - watched
 
-        for logfile in sorted(new_logs):
-            color = (color + 1) % len(colors)
+        for logfile in sorted(all_logs - watched):
+            color = next(colors)
             for printer in printers:
-                thread = threading.Thread(
-                    target=printer, args=(logfile,), kwargs={"color": colors[color]}
-                )
-                thread.start()
+                threading.Thread(
+                    target=printer, args=(logfile,), kwargs={"color": color}
+                ).start()
 
         watched = all_logs
 

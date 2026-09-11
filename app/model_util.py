@@ -18,7 +18,7 @@ def drop_tables():
 
 
 def create_tables(retry=5, add=True):
-    """Create tables for all models, retrying 5 times at intervals of 3
+    """Create tables for all models, retrying `retry` times at intervals of 3
     seconds if the database is not reachable.
 
     Parameters
@@ -30,9 +30,7 @@ def create_tables(retry=5, add=True):
         tables.
 
     """
-    conn = models.DBSession.session_factory.kw["bind"]
-    tables = models.Base.metadata.sorted_tables
-    if tables and not add:
+    if not add and models.Base.metadata.tables:
         print("Existing tables found; not creating additional tables")
         return
 
@@ -41,20 +39,14 @@ def create_tables(retry=5, add=True):
             conn = models.DBSession.session_factory.kw["bind"]
             print(f"Creating tables on database {conn.url.database}")
             models.Base.metadata.create_all(conn)
-
             print(f"Refreshed {len(models.Base.metadata.tables)} tables")
-            # for m in models.Base.metadata.tables:
-            #     print(f" - {m}")
-
             return
-
         except Exception as e:
             if i == retry:
-                raise e
-            else:
-                print("Could not connect to database...sleeping 3")
-                print(f"  > {e}")
-                time.sleep(3)
+                raise
+            print("Could not connect to database...sleeping 3")
+            print(f"  > {e}")
+            time.sleep(3)
 
 
 def clear_tables():
@@ -67,6 +59,6 @@ def recursive_to_dict(obj):
         return {k: recursive_to_dict(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [recursive_to_dict(el) for el in obj]
-    if hasattr(obj, "__table__"):  # SQLAlchemy model
+    if hasattr(obj, "__table__"):
         return recursive_to_dict(obj.to_dict())
     return obj
