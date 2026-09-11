@@ -29,6 +29,7 @@ from ..models import (
     User,
     VerifiedSession,
     bulk_verify,
+    db_engine,
     session_context_id,
 )
 
@@ -210,7 +211,6 @@ class BaseHandler(PSABaseHandler):
             # must merge the user object with the current session
             # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
             session.add(self.current_user)
-            session.bind = DBSession.session_factory.kw["bind"]
             yield session
 
     @asynccontextmanager
@@ -302,7 +302,7 @@ class BaseHandler(PSABaseHandler):
         N = 5
         for i in range(1, N + 1):
             try:
-                assert DBSession.session_factory.kw["bind"] is not None
+                assert db_engine() is not None
             except Exception as e:
                 if i == N:
                     raise e
