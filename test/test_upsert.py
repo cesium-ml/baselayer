@@ -38,7 +38,7 @@ def run_scenario():
     def run(scenario):
         async def main():
             db = cfg["database"]
-            init_db(
+            engine = init_db(
                 user=db["user"],
                 database=db["database"],
                 password=db.get("password"),
@@ -55,6 +55,7 @@ def run_scenario():
                 async with models.async_engine.begin() as conn:
                     await conn.run_sync(Base.metadata.drop_all)
                 await models.async_engine.dispose()
+                engine.dispose()
 
         return asyncio.run(main())
 
