@@ -243,8 +243,9 @@ class _AsyncUpsertMixin:
         ``values`` takes any mapped attribute; ``by`` is compared with ``==``, so
         it takes columns and many-to-one relationships, and a collection raises
         ``InvalidRequestError``. On a verified session the lookup runs through
-        ``model.select``, so a row the accessor cannot read is neither found nor
-        updated.
+        ``model.select``, so a row the accessor cannot read is not found: the
+        call inserts instead and fails on the unique index rather than raising
+        ``AccessError``.
 
         The row is selected and then inserted, not ``INSERT ... ON CONFLICT``,
         so two sessions racing for the same key both insert and the second to
