@@ -241,11 +241,6 @@ class _AsyncUpsertMixin:
         ON CONFLICT``, so of two sessions that both miss, both insert and the
         second to commit fails on the unique index. Callers racing for the same
         key have to handle that.
-
-        A surrogate primary key the database fills in belongs in neither dict.
-        Values in ``by`` are passed to the constructor on the insert path, so
-        naming such a key writes it explicitly while its sequence stays where it
-        was, and the next insert to reach that value fails on the unique index.
         """
         values = values or {}
         instance = (
