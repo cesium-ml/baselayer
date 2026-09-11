@@ -139,6 +139,11 @@ def VerifiedSession(user_or_token):
     )()
 
 
+def db_engine():
+    """The engine that `init_db()` bound `DBSession` to, or None before it runs."""
+    return DBSession.session_factory.kw["bind"]
+
+
 def new_session():
     """A session of its own, independent of the request-scoped `DBSession`.
 
@@ -146,7 +151,7 @@ def new_session():
     callers would let one caller's rollback discard another's pending work.
     Applies no access-control check; close it when the work is done.
     """
-    if DBSession.session_factory.kw.get("bind") is None:
+    if db_engine() is None:
         raise RuntimeError("DB session not initialized. init_db() must run first.")
     return DBSession.session_factory()
 
