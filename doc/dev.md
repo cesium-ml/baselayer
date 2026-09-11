@@ -83,7 +83,7 @@ with VerifiedSession(user_or_token) as session:
   session.commit()
 ```
 
-This does the same checks that are performed when calling `self.verify_and_commit()` inside of any handler.
+Inside a handler, `self.Session()` does the same, taking the user from `self.current_user`.
 
 ---
 

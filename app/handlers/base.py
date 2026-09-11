@@ -19,9 +19,7 @@ from ..models import (
     DBSession,
     User,
     VerifiedSession,
-    bulk_verify,
     db_engine,
-    pending_rows,
     session_context_id,
 )
 
@@ -186,32 +184,6 @@ class BaseHandler(PSABaseHandler):
             # load=False: the user comes from the auth lookup's session, so merging issues no SQL.
             session.user_or_token = await session.merge(self.current_user, load=False)
             yield session
-
-    def verify_permissions(self):
-        """Check that the current user has permission to create, read,
-        update, or delete rows that are present in the session. If not,
-        raise an AccessError (causing the transaction to fail and the API to
-        respond with 401).
-        """
-        read_rows, updated_rows, deleted_rows, new_rows = pending_rows(DBSession())
-
-        # deleted rows are gone from the transaction once flushed, so check them first
-        for mode, collection in zip(
-            ["read", "update", "delete"],
-            [read_rows, updated_rows, deleted_rows],
-        ):
-            bulk_verify(mode, collection, self.current_user)
-
-        # flush so that new rows can be joined against while checking them
-        DBSession().flush()
-        bulk_verify("create", new_rows, self.current_user)
-
-    def verify_and_commit(self):
-        """Verify permissions on the current database session and commit if
-        successful, otherwise raise an AccessError.
-        """
-        self.verify_permissions()
-        DBSession().commit()
 
     def prepare(self):
         self.cfg = self.application.cfg
