@@ -144,3 +144,14 @@ def test_upsert_refuses_a_key_matching_several_rows(session_factory):
 
     with pytest.raises(MultipleResultsFound):
         asyncio.run(scenario())
+
+
+def test_upsert_refuses_an_empty_key(session_factory):
+    """An empty `by` would match every row, so it is an error."""
+
+    async def scenario():
+        async with session_factory() as session:
+            await session.upsert(Widget, by={}, values={"value": 1})
+
+    with pytest.raises(ValueError):
+        asyncio.run(scenario())

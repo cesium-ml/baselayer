@@ -227,6 +227,8 @@ class _AsyncUpsertMixin:
 
         Raises
         ------
+        ValueError
+            If ``by`` is empty, which would otherwise match every row.
         sqlalchemy.exc.MultipleResultsFound
             If ``by`` matches more than one row, so that a key which is not
             unique fails here rather than updating an arbitrary one of them.
@@ -242,6 +244,9 @@ class _AsyncUpsertMixin:
         second to commit fails on the unique index. Callers racing for the same
         key have to handle that.
         """
+        if not by:
+            raise ValueError("`by` must name at least one attribute.")
+
         values = values or {}
         instance = (
             await self.scalars(
