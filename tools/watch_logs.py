@@ -17,21 +17,16 @@ _print_lock = threading.Lock()
 def tail_f(filename, interval=1.0):
     while True:
         try:
-            f = open(filename)
-            break
+            with open(filename) as f:
+                f.seek(0, os.SEEK_END)
+                while True:
+                    line = f.readline()
+                    if line:
+                        yield line.rstrip("\n")
+                    else:
+                        time.sleep(interval)
         except OSError:
-            time.sleep(1)
-
-    f.seek(0, os.SEEK_END)
-
-    while True:
-        where = f.tell()
-        line = f.readline()
-        if not line:
             time.sleep(interval)
-            f.seek(where)
-        else:
-            yield line.rstrip("\n")
 
 
 def print_log(filename, color="default"):
