@@ -261,9 +261,10 @@ class _AsyncUpsertMixin:
         call inserts instead and fails on the unique index rather than raising
         ``AccessError``.
 
-        The row is selected and then inserted, not ``INSERT ... ON CONFLICT``,
-        so two sessions racing for the same key both insert and the second to
-        commit fails on the unique index.
+        The row is selected and then inserted, not ``INSERT ... ON CONFLICT``, so
+        two sessions racing for the same key both insert: the second to commit
+        fails if a unique constraint covers ``by``, and silently duplicates the
+        row if none does.
         """
         if not by:
             raise ValueError("`by` must name at least one attribute.")
