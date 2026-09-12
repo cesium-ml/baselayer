@@ -83,7 +83,7 @@ with VerifiedSession(user_or_token) as session:
   session.commit()
 ```
 
-This does the same checks that are performed when calling `self.verify_and_commit()` inside of any handler.
+Inside a handler, `self.Session()` does the same, taking the user from `self.current_user`.
 
 ---
 
@@ -147,20 +147,17 @@ can be replaced with `DBSession()` with no arguments.
 
 ## Choosing a session
 
-Which session to use depends on two things: whether the code runs inside a web request,
-and whether its writes have to be checked against a user's permissions.
+Two questions decide which session to open: does the code run inside a web request, and
+do its writes have to be checked against the user's permissions?
 
-Inside a handler, use `self.Session()`, which stands in for
-`VerifiedSession(self.current_user)` and checks write permissions on commit, or
-`DBSession()` where that check is unwanted. Both are scoped on `session_context_id`, a
-context variable that `BaseHandler.prepare()` sets to a fresh value on every request, so
-each request works against its own session.
+|       | checks permissions on commit          | no check              |
+| ----- | ------------------------------------- | --------------------- |
+| sync  | `VerifiedSession(user_or_token)`      | `new_session()`       |
+| async | `AsyncVerifiedSession(user_or_token)` | `new_async_session()` |
 
-Outside a request that context variable keeps its default of `None`, so every
-`DBSession()` call in the process resolves to one shared session; in a microservice, a
-script, or work handed off to a thread, that sharing means one caller's `rollback()`
-discards another caller's pending work. Use `new_session()` there, which builds an
-independent session on each call:
+Inside a handler, `self.Session()` and `self.AsyncSession()` are the same two verified
+sessions with the user filled in from `self.current_user`. Each of these four calls opens
+a session of its own, so two `with` blocks are two separate transactions.
 
 ```
 from baselayer.app.models import new_session
@@ -170,25 +167,27 @@ with new_session() as session:
     session.commit()
 ```
 
-`new_session()` applies no access-control check, so it suits code acting on its own
-behalf; where a write has to be checked against a user's permissions, use
-`VerifiedSession(user_or_token)`.
-
-The async factories are the counterparts of `DBSession` and `VerifiedSession`, opt-in per
-handler, with the sync engine and session remaining authoritative for the rest of the
-codebase: `async_session_factory()` verifies on commit, and
-`async_plain_session_factory()` skips that check. `app/access.py` uses the plain one:
-
 ```
-from baselayer.app import models
+from baselayer.app.models import new_async_session
 
-async with models.async_plain_session_factory() as session:
-    ...
+async with new_async_session() as session:
+    session.add(record)
+    await session.commit()
 ```
 
-Reach the async factories through the module rather than importing their names directly:
-`init_db()` rebinds those globals, so `from baselayer.app.models import
-async_plain_session_factory` captures the `None` they hold before that call.
+The async sessions are opt-in per handler. The sync engine and session stay authoritative
+for the rest of the codebase.
+
+`DBSession()` is the odd one out. Use it where there is no user to check against: the
+lookup that resolves who the caller is runs before `current_user` exists, and
+`app/psa.py` stores login records the same way.
+
+It opens no session of its own. It is scoped on `session_context_id`, a context variable
+that `BaseHandler.prepare()` sets to a fresh value on every request, so inside a request
+every call returns that request's one session. Outside a request the variable keeps its
+default of `None` and every call in the process returns one single shared session, where
+one caller's `rollback()` discards another caller's pending work. Use `new_session()`
+there.
 
 ## Standards
 

@@ -169,7 +169,7 @@ have include:</p>
   <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>This does the same checks that are performed when calling <code class="docutils literal notranslate"><span class="pre">self.verify_and_commit()</span></code> inside of any handler.</p>
+<p>Inside a handler, <code class="docutils literal notranslate"><span class="pre">self.Session()</span></code> does the same, taking the user from <code class="docutils literal notranslate"><span class="pre">self.current_user</span></code>.</p>
 <hr class="docutils" />
 <p><strong>TODO:</strong> Update write access enforcement documentation.</p>
 <p>We have fairly sophisticated access control, but this requires further documentation.
@@ -220,18 +220,15 @@ can be replaced with <code class="docutils literal notranslate"><span class="pre
 </section>
 <section id="choosing-a-session">
 <h2>Choosing a session<a class="headerlink" href="#choosing-a-session" title="Link to this heading"></a></h2>
-<p>Which session to use depends on two things: whether the code runs inside a web request,
-and whether its writes have to be checked against a user’s permissions.</p>
-<p>Inside a handler, use <code class="docutils literal notranslate"><span class="pre">self.Session()</span></code>, which stands in for
-<code class="docutils literal notranslate"><span class="pre">VerifiedSession(self.current_user)</span></code> and checks write permissions on commit, or
-<code class="docutils literal notranslate"><span class="pre">DBSession()</span></code> where that check is unwanted. Both are scoped on <code class="docutils literal notranslate"><span class="pre">session_context_id</span></code>, a
-context variable that <code class="docutils literal notranslate"><span class="pre">BaseHandler.prepare()</span></code> sets to a fresh value on every request, so
-each request works against its own session.</p>
-<p>Outside a request that context variable keeps its default of <code class="docutils literal notranslate"><span class="pre">None</span></code>, so every
-<code class="docutils literal notranslate"><span class="pre">DBSession()</span></code> call in the process resolves to one shared session; in a microservice, a
-script, or work handed off to a thread, that sharing means one caller’s <code class="docutils literal notranslate"><span class="pre">rollback()</span></code>
-discards another caller’s pending work. Use <code class="docutils literal notranslate"><span class="pre">new_session()</span></code> there, which builds an
-independent session on each call:</p>
+<p>Two questions decide which session to open: does the code run inside a web request, and
+do its writes have to be checked against the user’s permissions?</p>
+<p>|       | checks permissions on commit          | no check              |
+| —– | ————————————- | ——————— |
+| sync  | <code class="docutils literal notranslate"><span class="pre">VerifiedSession(user_or_token)</span></code>      | <code class="docutils literal notranslate"><span class="pre">new_session()</span></code>       |
+| async | <code class="docutils literal notranslate"><span class="pre">AsyncVerifiedSession(user_or_token)</span></code> | <code class="docutils literal notranslate"><span class="pre">new_async_session()</span></code> |</p>
+<p>Inside a handler, <code class="docutils literal notranslate"><span class="pre">self.Session()</span></code> and <code class="docutils literal notranslate"><span class="pre">self.AsyncSession()</span></code> are the same two verified
+sessions with the user filled in from <code class="docutils literal notranslate"><span class="pre">self.current_user</span></code>. Each of these four calls opens
+a session of its own, so two <code class="docutils literal notranslate"><span class="pre">with</span></code> blocks are two separate transactions.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">baselayer.app.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">new_session</span>
 
 <span class="k">with</span> <span class="n">new_session</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
@@ -239,21 +236,24 @@ independent session on each call:</p>
     <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">new_session()</span></code> applies no access-control check, so it suits code acting on its own
-behalf; where a write has to be checked against a user’s permissions, use
-<code class="docutils literal notranslate"><span class="pre">VerifiedSession(user_or_token)</span></code>.</p>
-<p>The async factories are the counterparts of <code class="docutils literal notranslate"><span class="pre">DBSession</span></code> and <code class="docutils literal notranslate"><span class="pre">VerifiedSession</span></code>, opt-in per
-handler, with the sync engine and session remaining authoritative for the rest of the
-codebase: <code class="docutils literal notranslate"><span class="pre">async_session_factory()</span></code> verifies on commit, and
-<code class="docutils literal notranslate"><span class="pre">async_plain_session_factory()</span></code> skips that check. <code class="docutils literal notranslate"><span class="pre">app/access.py</span></code> uses the plain one:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">baselayer.app</span><span class="w"> </span><span class="kn">import</span> <span class="n">models</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">baselayer.app.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">new_async_session</span>
 
-<span class="k">async</span> <span class="k">with</span> <span class="n">models</span><span class="o">.</span><span class="n">async_plain_session_factory</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
-    <span class="o">...</span>
+<span class="k">async</span> <span class="k">with</span> <span class="n">new_async_session</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+    <span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>Reach the async factories through the module rather than importing their names directly:
-<code class="docutils literal notranslate"><span class="pre">init_db()</span></code> rebinds those globals, so <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">baselayer.app.models</span> <span class="pre">import</span> <span class="pre">async_plain_session_factory</span></code> captures the <code class="docutils literal notranslate"><span class="pre">None</span></code> they hold before that call.</p>
+<p>The async sessions are opt-in per handler. The sync engine and session stay authoritative
+for the rest of the codebase.</p>
+<p><code class="docutils literal notranslate"><span class="pre">DBSession()</span></code> is the odd one out. Use it where there is no user to check against: the
+lookup that resolves who the caller is runs before <code class="docutils literal notranslate"><span class="pre">current_user</span></code> exists, and
+<code class="docutils literal notranslate"><span class="pre">app/psa.py</span></code> stores login records the same way.</p>
+<p>It opens no session of its own. It is scoped on <code class="docutils literal notranslate"><span class="pre">session_context_id</span></code>, a context variable
+that <code class="docutils literal notranslate"><span class="pre">BaseHandler.prepare()</span></code> sets to a fresh value on every request, so inside a request
+every call returns that request’s one session. Outside a request the variable keeps its
+default of <code class="docutils literal notranslate"><span class="pre">None</span></code> and every call in the process returns one single shared session, where
+one caller’s <code class="docutils literal notranslate"><span class="pre">rollback()</span></code> discards another caller’s pending work. Use <code class="docutils literal notranslate"><span class="pre">new_session()</span></code>
+there.</p>
 </section>
 <section id="standards">
 <h2>Standards<a class="headerlink" href="#standards" title="Link to this heading"></a></h2>
