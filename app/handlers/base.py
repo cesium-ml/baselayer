@@ -3,23 +3,14 @@ import uuid
 from contextlib import asynccontextmanager, contextmanager
 from json.decoder import JSONDecodeError
 
-# The Python Social Auth base handler gives us:
-#   user_id, get_current_user, login_user
-#
-# `get_current_user` is needed by tornado.authentication,
-# and provides a cached version, `current_user`, that should
-# be used to look up the logged in user.
 import sqlalchemy
 import tornado.escape
 from tornado.log import app_log
 from tornado.web import HTTPError, RequestHandler
 
 from ...log import make_log
-
-# Initialize PSA tornado models
 from .. import psa
 from ..access import db_error_503
-from ..custom_exceptions import AccessError
 from ..env import load_env
 from ..flow import Flow
 from ..json_util import to_json
@@ -28,7 +19,6 @@ from ..models import (
     DBSession,
     User,
     VerifiedSession,
-    bulk_verify,
     db_engine,
     session_context_id,
 )
@@ -36,8 +26,15 @@ from ..models import (
 env, cfg = load_env()
 log = make_log("basehandler")
 
-# Python Social Auth documentation:
-# https://python-social-auth.readthedocs.io/en/latest/backends/implementation.html#auth-apis
+# The PSA onboarding pipeline raises a bare Exception, so there is no status to test.
+EXPECTED_EXCEPTIONS = [
+    "Authentication Error:",
+    "User account expired",
+    "Credentials malformed",
+    "Method Not Allowed",
+    "Unauthorized",
+    "read-only access",
+]
 
 
 class NoValue:
@@ -56,107 +53,88 @@ class PSABaseHandler(RequestHandler):
         return self.get_secure_cookie("user_id")
 
     def get_current_user(self):
+        # Tornado calls this once per request and caches it as `self.current_user`.
         user = self._signed_in_user()
         if user is not None:
             return user
-        # Anonymous read-only access (opt-in via app.anonymous_access): serve the
-        # configured "View only" account when nobody is signed in (or the
-        # user_id cookie is present but invalid).
+
         cfg = self.application.cfg
         if not cfg.get("app.anonymous_access", False):
             return None
         username = cfg.get("app.anonymous_user") or "anonymous"
-        with db_error_503(self.request.path):
-            with DBSession() as session:
-                user = session.scalars(
-                    sqlalchemy.select(User).where(User.username == username)
-                ).first()
+        with db_error_503(self.request.path), DBSession() as session:
+            user = session.scalars(
+                sqlalchemy.select(User).where(User.username == username)
+            ).first()
         self.is_anonymous_user = user is not None
         return user
 
     def _signed_in_user(self):
-        if self.user_id() is None:
-            return
-        user_id = int(self.user_id())
+        user_id = self.user_id()
         oauth_uid = self.get_secure_cookie("user_oauth_uid")
-        if user_id and oauth_uid:
-            with db_error_503(self.request.path):
-                with DBSession() as session:
-                    try:
-                        user = session.scalars(
-                            sqlalchemy.select(User).where(User.id == user_id)
-                        ).first()
-                        if user is None:
-                            return None
-                        sa = session.scalars(
-                            sqlalchemy.select(psa.TornadoStorage.user).where(
-                                psa.TornadoStorage.user.user_id == user_id
-                            )
-                        ).first()
-                        if sa is None:
-                            # No SocialAuth entry; probably machine generated user
-                            return user
-                        if sa.uid.encode("utf-8") == oauth_uid:
-                            return user
-                    except sqlalchemy.exc.SQLAlchemyError:
-                        # Let db_error_503 answer, not a misleading 401.
-                        raise
-                    except Exception as e:
-                        session.rollback()
-                        log(f"Could not get current user: {e}")
-                        return None
-        else:
+        if not user_id or not oauth_uid:
             return None
+        user_id = int(user_id)
+
+        with db_error_503(self.request.path), DBSession() as session:
+            try:
+                user = session.scalars(
+                    sqlalchemy.select(User).where(User.id == user_id)
+                ).first()
+                if user is None:
+                    return None
+                sa = session.scalars(
+                    sqlalchemy.select(psa.TornadoStorage.user).where(
+                        psa.TornadoStorage.user.user_id == user.id
+                    )
+                ).first()
+                # No SocialAuth entry; probably machine generated user
+                if sa is None or sa.uid.encode("utf-8") == oauth_uid:
+                    return user
+                return None
+            except sqlalchemy.exc.SQLAlchemyError:
+                # Let db_error_503 answer, not a misleading 401.
+                raise
+            except Exception as e:
+                session.rollback()
+                log(f"Could not get current user: {e}")
+                return None
 
     def login_user(self, user):
-        with db_error_503(self.request.path):
-            with DBSession() as session:
-                try:
-                    self.set_secure_cookie("user_id", str(user.id))
-                    user = session.scalars(
-                        sqlalchemy.select(User).where(User.id == user.id)
-                    ).first()
-                    if user is None:
-                        return
-                    sa = session.scalars(
-                        sqlalchemy.select(psa.TornadoStorage.user).where(
-                            psa.TornadoStorage.user.user_id == user.id
-                        )
-                    ).first()
-                    if sa is not None:
-                        self.set_secure_cookie("user_oauth_uid", sa.uid)
-                except sqlalchemy.exc.SQLAlchemyError:
-                    # Let db_error_503 answer, not a silent failed login.
-                    raise
-                except Exception as e:
-                    session.rollback()
-                    log(f"Could not login user: {e}")
+        with db_error_503(self.request.path), DBSession() as session:
+            try:
+                self.set_secure_cookie("user_id", str(user.id))
+                user = session.scalars(
+                    sqlalchemy.select(User).where(User.id == user.id)
+                ).first()
+                if user is None:
+                    return
+                sa = session.scalars(
+                    sqlalchemy.select(psa.TornadoStorage.user).where(
+                        psa.TornadoStorage.user.user_id == user.id
+                    )
+                ).first()
+                if sa is not None:
+                    self.set_secure_cookie("user_oauth_uid", sa.uid)
+            except sqlalchemy.exc.SQLAlchemyError:
+                # Let db_error_503 answer, not a silent failed login.
+                raise
+            except Exception as e:
+                session.rollback()
+                log(f"Could not login user: {e}")
 
     def write_error(self, status_code, exc_info=None):
-        if exc_info is not None:
-            err_cls, err, traceback = exc_info
-        else:
-            err = "An unknown error occurred"
+        err = exc_info[1] if exc_info is not None else "An unknown error occurred"
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
-        # The PSA onboarding pipeline rejects a bad invite token with a bare
-        # Exception, so there is no status code to test; match on the message.
-        expected_exceptions = [
-            "Authentication Error:",
-            "User account expired",
-            "Credentials malformed",
-            "Method Not Allowed",
-            "Unauthorized",
-            "read-only access",
-        ]
         v_str = str(value)
         # 4xx is the client's fault; only 5xx and uncaught exceptions are ours.
         is_client_error = (
             isinstance(value, HTTPError) and 400 <= value.status_code < 500
         )
         if is_client_error or any(
-            exception in v_str for exception in expected_exceptions
+            exception in v_str for exception in EXPECTED_EXCEPTIONS
         ):
             log(f"Error response returned by [{self.request.path}]: [{v_str}]")
         else:
@@ -171,9 +149,7 @@ class PSABaseHandler(RequestHandler):
         try:
             DBSession.remove()
         except Exception as e:
-            # The rollback in remove() fails if pgbouncer already closed the
-            # connection. The response is sent, so drop the session rather than
-            # raising into Tornado's error handling.
+            # remove() rolls back, which fails if pgbouncer already closed the connection.
             log(f"Session cleanup failed, discarding it: {e}")
             try:
                 DBSession.registry.clear()
@@ -184,32 +160,11 @@ class PSABaseHandler(RequestHandler):
 class BaseHandler(PSABaseHandler):
     @contextmanager
     def Session(self):
-        """
-        Generate a scoped session that also has knowledge
-        of the current user, so when commit() is called on it
-        it will also verify that all rows being committed
-        are accessible to the user.
-        The current user is taken from the handler's `current_user`.
-        This is a shortcut method to `models.Session`
-        that saves the need to manually input the user object.
-
-        Parameters
-        ----------
-        verify : boolean
-            if True (default), will call the functions
-            `verify()` and whenever `commit()` is called.
-
-        Returns
-        -------
-        A scoped session object that can be used in a context
-        manager to access the database. If auto verify is enabled,
-        will use the current user given to apply verification
-        before every commit.
-
+        """A session scoped to the request, that verifies on commit that every
+        row being written is accessible to the handler's `current_user`.
         """
         with VerifiedSession(self.current_user) as session:
-            # must merge the user object with the current session
-            # ref: https://docs.sqlalchemy.org/en/14/orm/session_basics.html#adding-new-or-existing-items
+            # re-attach current_user, the commit-time check uses it as the accessor
             session.add(self.current_user)
             yield session
 
@@ -217,7 +172,7 @@ class BaseHandler(PSABaseHandler):
     async def AsyncSession(self):
         """Async counterpart of `Session()`. Yields an `_AsyncVerifiedSession`
         bound to the async engine, with the handler's current user merged so
-        that commit-time RLS verification has the right accessor.
+        that the commit-time access-control check has the right accessor.
 
         Usage:
             async with self.AsyncSession() as session:
@@ -226,89 +181,32 @@ class BaseHandler(PSABaseHandler):
                 await session.commit()
         """
         async with AsyncVerifiedSession(self.current_user) as session:
-            # Attach the detached current_user (loaded by the auth lookup in
-            # a different session) without issuing SQL. Relationships that
-            # were already eager-loaded via `selectin` remain accessible.
-            merged_user = await session.merge(self.current_user, load=False)
-            session.user_or_token = merged_user
+            # load=False: the user comes from the auth lookup's session, so merging issues no SQL.
+            session.user_or_token = await session.merge(self.current_user, load=False)
             yield session
-
-    def verify_permissions(self):
-        """Check that the current user has permission to create, read,
-        update, or delete rows that are present in the session. If not,
-        raise an AccessError (causing the transaction to fail and the API to
-        respond with 401).
-        """
-
-        # get items to be inserted
-        new_rows = [row for row in DBSession().new]
-
-        # get items to be updated
-        updated_rows = [
-            row for row in DBSession().dirty if DBSession().is_modified(row)
-        ]
-
-        # get items to be deleted
-        deleted_rows = [row for row in DBSession().deleted]
-
-        # get items that were read
-        read_rows = [
-            row
-            for row in set(DBSession().identity_map.values())
-            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
-        ]
-
-        # need to check delete permissions before flushing, as deleted records
-        # are not present in the transaction after flush (thus can't be used in
-        # joins). Read permissions can be checked here or below as they do not
-        # change on flush.
-        for mode, collection in zip(
-            ["read", "update", "delete"],
-            [read_rows, updated_rows, deleted_rows],
-        ):
-            bulk_verify(mode, collection, self.current_user)
-
-        # update transaction state in DB, but don't commit yet. this updates
-        # or adds rows in the database and uses their new state in joins,
-        # for permissions checking purposes.
-        DBSession().flush()
-        bulk_verify("create", new_rows, self.current_user)
-
-    def verify_and_commit(self):
-        """Verify permissions on the current database session and commit if
-        successful, otherwise raise an AccessError.
-        """
-        self.verify_permissions()
-        DBSession().commit()
 
     def prepare(self):
         self.cfg = self.application.cfg
         self.flow = Flow()
         session_context_id.set(uuid.uuid4().hex)
 
-        # Remove slash prefixes from arguments
         if self.path_args:
             self.path_args = [
-                arg.lstrip("/") if arg is not None else None for arg in self.path_args
+                arg.lstrip("/") or None if arg is not None else None
+                for arg in self.path_args
             ]
-            self.path_args = [arg if (arg != "") else None for arg in self.path_args]
 
-        # If there are no arguments, make it explicit, otherwise
-        # get / post / put / delete all have to accept an optional kwd argument
+        # make "no argument" explicit, so get/post/put/delete need no optional kwarg
         if len(self.path_args) == 1 and self.path_args[0] is None:
             self.path_args = []
 
-        # TODO Refactor to be a context manager or utility function
-        N = 5
-        for i in range(1, N + 1):
-            try:
-                assert db_engine() is not None
-            except Exception as e:
-                if i == N:
-                    raise e
-                else:
-                    log("Error connecting to database, sleeping for a while")
-                    time.sleep(5)
+        for i in range(5):
+            if db_engine() is not None:
+                break
+            if i == 4:
+                raise RuntimeError("Could not connect to the database")
+            log("Error connecting to database, sleeping for a while")
+            time.sleep(5)
 
         return super().prepare()
 
@@ -444,26 +342,8 @@ class BaseHandler(PSABaseHandler):
         self.write(to_json({"status": "success", "data": data, **extra}))
 
     def write_error(self, status_code, exc_info=None):
-        if exc_info is not None:
-            err_cls, err, traceback = exc_info
-            if isinstance(err_cls, AccessError):
-                status_code = 401
-        else:
-            err = "An unknown error occurred"
-
+        err = exc_info[1] if exc_info is not None else "An unknown error occurred"
         self.error(str(err), status=status_code)
-
-    async def _get_client(self, timeout=5):
-        IP = "127.0.0.1"
-        PORT_SCHEDULER = self.cfg["ports.dask"]
-
-        from distributed import Client
-
-        client = await Client(
-            f"{IP}:{PORT_SCHEDULER}", asynchronous=True, timeout=timeout
-        )
-
-        return client
 
     def push_notification(self, note, notification_type="info"):
         self.push(
