@@ -160,20 +160,34 @@ sessions with the user filled in from `self.current_user`. Each of these four ca
 a session of its own, so two `with` blocks are two separate transactions.
 
 ```
+from baselayer.app.models import new_session
+
 with new_session() as session:
     session.add(record)
     session.commit()
 ```
 
-`DBSession()` is the exception. It is scoped on `session_context_id`, a context variable
-that `BaseHandler.prepare()` sets to a fresh value on every request, so inside a request
-every call returns that request's one session. Outside a request the variable keeps its
-default of `None` and every call in the process returns a single shared session: in a
-microservice, a script, or work handed to a thread, one caller's `rollback()` then
-discards another caller's pending work. Use `new_session()` there.
+```
+from baselayer.app.models import new_async_session
+
+async with new_async_session() as session:
+    session.add(record)
+    await session.commit()
+```
 
 The async sessions are opt-in per handler. The sync engine and session stay authoritative
 for the rest of the codebase.
+
+`DBSession()` is the odd one out. Use it where there is no user to check against: the
+lookup that resolves who the caller is runs before `current_user` exists, and
+`app/psa.py` stores login records the same way.
+
+It opens no session of its own. It is scoped on `session_context_id`, a context variable
+that `BaseHandler.prepare()` sets to a fresh value on every request, so inside a request
+every call returns that request's one session. Outside a request the variable keeps its
+default of `None` and every call in the process returns one single shared session, where
+one caller's `rollback()` discards another caller's pending work. Use `new_session()`
+there.
 
 ## Standards
 
