@@ -185,3 +185,18 @@ def test_the_verified_session_looks_up_only_accessible_rows(run_scenario, monkey
         return found_id
 
     assert run_scenario(scenario) is None
+
+
+def test_upsert_refuses_a_stored_row_and_a_pending_one(run_scenario):
+    """A stored row and a pending one both matching `by` is still not one row."""
+
+    async def scenario(session_factory):
+        async with session_factory(autoflush=False) as session:
+            await session.upsert(Widget, by={"name": "a"}, values={"value": 1})
+            await session.commit()
+
+            session.add(Widget(name="b", value=1))
+            with pytest.raises(MultipleResultsFound):
+                await session.upsert(Widget, by={"value": 1}, values={"name": "c"})
+
+    run_scenario(scenario)

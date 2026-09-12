@@ -233,7 +233,7 @@ class _AsyncUpsertMixin:
             raise ValueError(f"`values` contradicts `by` for {contradicted}.")
 
         values = {**values, **by}
-        instance = (
+        stored = (
             (
                 await self.scalars(
                     self._upsert_select(model).where(
@@ -244,25 +244,26 @@ class _AsyncUpsertMixin:
             .unique()
             .one_or_none()
         )
-        if instance is None:
-            # With autoflush off, a row an earlier call added is still pending.
-            pending = [
-                row
-                for row in self.new
-                if isinstance(row, model)
-                and all(getattr(row, key) == value for key, value in by.items())
-            ]
-            if len(pending) > 1:
-                raise sa.exc.MultipleResultsFound(
-                    f"`by` matches {len(pending)} pending {model.__name__} rows."
-                )
-            instance = pending[0] if pending else None
-        if instance is None:
-            instance = model(**values)
-            self.add(instance)
-        else:
+        # With autoflush off, a row an earlier call added is still pending.
+        matches = [
+            row
+            for row in self.new
+            if isinstance(row, model)
+            and all(getattr(row, key) == value for key, value in by.items())
+        ]
+        if stored is not None:
+            matches.insert(0, stored)
+        if len(matches) > 1:
+            raise sa.exc.MultipleResultsFound(
+                f"`by` matches {len(matches)} {model.__name__} rows."
+            )
+        if matches:
+            instance = matches[0]
             for key, value in values.items():
                 setattr(instance, key, value)
+        else:
+            instance = model(**values)
+            self.add(instance)
         return instance
 
 
