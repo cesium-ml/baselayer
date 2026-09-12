@@ -4,8 +4,7 @@ import sqlalchemy as sa
 
 from baselayer.app import models
 
-# Do not remove this "unused" import; it is required for
-# psa to initialize the Tornado models
+# Do not remove this "unused" import; psa initializes the Tornado models.
 from . import psa  # noqa: F401
 
 
@@ -30,9 +29,7 @@ def create_tables(retry=5, add=True):
         tables.
 
     """
-    conn = models.db_engine()
-    tables = models.Base.metadata.sorted_tables
-    if tables and not add:
+    if models.Base.metadata.sorted_tables and not add:
         print("Existing tables found; not creating additional tables")
         return
 
@@ -41,21 +38,14 @@ def create_tables(retry=5, add=True):
             conn = models.db_engine()
             print(f"Creating tables on database {conn.url.database}")
             models.Base.metadata.create_all(conn)
-
-            table_list = ", ".join(list(models.Base.metadata.tables.keys()))
-            print(f"Refreshed tables: {table_list}")
-            # for m in models.Base.metadata.tables:
-            #     print(f" - {m}")
-
+            print(f"Refreshed tables: {', '.join(models.Base.metadata.tables)}")
             return
-
         except Exception as e:
             if i == retry:
-                raise e
-            else:
-                print("Could not connect to database...sleeping 3")
-                print(f"  > {e}")
-                time.sleep(3)
+                raise
+            print("Could not connect to database...sleeping 3")
+            print(f"  > {e}")
+            time.sleep(3)
 
 
 def clear_tables():
