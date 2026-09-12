@@ -173,7 +173,105 @@ async_session_factory = None
 async_plain_session_factory = None
 
 
-class _AsyncVerifiedSession(SAAsyncSession):
+class _AsyncUpsertMixin:
+    """`upsert` shorthand for async sessions: update-or-insert by a natural key."""
+
+    def _upsert_select(self, model):
+        return sa.select(model)
+
+    async def upsert(self, model, *, by, values=None):
+        """Update the single ``model`` row matching ``by``, or insert a new one.
+
+        Parameters
+        ----------
+        model : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        by : dict of str to object
+            Attribute name to value, identifying at most one row: a natural key,
+            such as a unique column or a set of columns unique together. These
+            become attributes of the record.
+        values : dict of str to object, optional
+            Attribute name to value, assigned to the row whether it was found or
+            created. Defaults to None, which makes the call a get-or-create.
+
+        Returns
+        -------
+        instance : `model`
+            The row that was updated, or the one added to the session. The insert
+            stays pending until the caller flushes or commits.
+
+        Raises
+        ------
+        ValueError
+            If ``by`` is empty, which would otherwise match every row, or if
+            ``values`` gives one of its attributes a different value.
+        sqlalchemy.exc.MultipleResultsFound
+            If ``by`` matches more than one row, stored or still pending, so that
+            a key which is not unique fails here rather than updating an
+            arbitrary one of them.
+
+        Notes
+        -----
+        ``values`` takes any mapped attribute; ``by`` is compared with ``==``, so
+        it takes columns and many-to-one relationships, and a collection raises
+        ``InvalidRequestError``. On a verified session the lookup runs through
+        ``model.select``, so a row the accessor cannot read is not found: the
+        call inserts instead and fails on the unique index rather than raising
+        ``AccessError``.
+
+        The row is selected and then inserted, not ``INSERT ... ON CONFLICT``, so
+        two sessions racing for the same key both insert: the second to commit
+        fails if a unique constraint covers ``by``, and silently duplicates the
+        row if none does.
+        """
+        if not by:
+            raise ValueError("`by` must name at least one attribute.")
+
+        values = values or {}
+        contradicted = sorted(k for k, v in by.items() if values.get(k, v) != v)
+        if contradicted:
+            raise ValueError(f"`values` contradicts `by` for {contradicted}.")
+
+        values = {**values, **by}
+        stored = (
+            (
+                await self.scalars(
+                    self._upsert_select(model).where(
+                        *(getattr(model, k) == v for k, v in by.items())
+                    )
+                )
+            )
+            .unique()
+            .one_or_none()
+        )
+        # With autoflush off, a row an earlier call added is still pending.
+        matches = [
+            row
+            for row in self.new
+            if isinstance(row, model)
+            and all(getattr(row, key) == value for key, value in by.items())
+        ]
+        if stored is not None:
+            matches.insert(0, stored)
+        if len(matches) > 1:
+            raise sa.exc.MultipleResultsFound(
+                f"`by` matches {len(matches)} {model.__name__} rows."
+            )
+        if matches:
+            instance = matches[0]
+            for key, value in values.items():
+                setattr(instance, key, value)
+        else:
+            instance = model(**values)
+            self.add(instance)
+        return instance
+
+
+class _AsyncPlainSession(_AsyncUpsertMixin, SAAsyncSession):
+    """Plain async session (no access-control check) carrying `upsert`."""
+
+
+class _AsyncVerifiedSession(_AsyncUpsertMixin, SAAsyncSession):
     """Async counterpart of `_VerifiedSession`. Runs access-control verification
     on flush/commit using `async_bulk_verify`.
 
@@ -183,6 +281,9 @@ class _AsyncVerifiedSession(SAAsyncSession):
     """
 
     user_or_token = None
+
+    def _upsert_select(self, model):
+        return model.select(self.user_or_token)
 
     async def verify(self):
         read_rows, updated_rows, deleted_rows, new_rows = pending_rows(self)
@@ -441,6 +542,7 @@ def init_db(
     )
     async_plain_session_factory = async_sessionmaker(
         bind=async_engine,
+        class_=_AsyncPlainSession,
         autoflush=autoflush,
         expire_on_commit=False,
     )

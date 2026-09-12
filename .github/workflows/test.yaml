@@ -127,6 +127,11 @@ jobs:
 
           make db_init
 
+      - name: Test baselayer
+        run: |
+          cd baselayer_template_app
+          uv run python -m pytest baselayer/test -v --config=test_config.yaml
+
       - name: Test template app
         run: |
           cd baselayer_template_app
