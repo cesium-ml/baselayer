@@ -4,13 +4,12 @@ import sqlalchemy as sa
 
 from baselayer.app import models
 
-# Do not remove this "unused" import; it is required for
-# psa to initialize the Tornado models
+# Do not remove this "unused" import; psa initializes the Tornado models.
 from . import psa  # noqa: F401
 
 
 def drop_tables():
-    conn = models.DBSession.session_factory.kw["bind"]
+    conn = models.db_engine()
     print(f"Dropping tables on database {conn.url.database}")
     meta = sa.MetaData()
     meta.reflect(bind=conn)
@@ -39,7 +38,7 @@ def create_tables(retry=5, add=True):
 
     for attempt in range(1, retry + 1):
         try:
-            conn = models.DBSession.session_factory.kw["bind"]
+            conn = models.db_engine()
             print(f"Creating tables on database {conn.url.database}")
             metadata.create_all(conn)
             print(f"Refreshed {len(metadata.tables)} tables")

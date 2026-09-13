@@ -83,7 +83,7 @@ with VerifiedSession(user_or_token) as session:
   session.commit()
 ```
 
-This does the same checks that are performed when calling `self.verify_and_commit()` inside of any handler.
+Inside a handler, `self.Session()` does the same, taking the user from `self.current_user`.
 
 ---
 
@@ -144,6 +144,50 @@ with VerifiedSession(user_or_token) as session:
 
 If not using `commit()`, the call to `VerifiedSession(user_or_token)`
 can be replaced with `DBSession()` with no arguments.
+
+## Choosing a session
+
+Two questions decide which session to open: does the code run inside a web request, and
+do its writes have to be checked against the user's permissions?
+
+|       | checks permissions on commit          | no check              |
+| ----- | ------------------------------------- | --------------------- |
+| sync  | `VerifiedSession(user_or_token)`      | `new_session()`       |
+| async | `AsyncVerifiedSession(user_or_token)` | `new_async_session()` |
+
+Inside a handler, `self.Session()` and `self.AsyncSession()` are the same two verified
+sessions with the user filled in from `self.current_user`. Each of these four calls opens
+a session of its own, so two `with` blocks are two separate transactions.
+
+```
+from baselayer.app.models import new_session
+
+with new_session() as session:
+    session.add(record)
+    session.commit()
+```
+
+```
+from baselayer.app.models import new_async_session
+
+async with new_async_session() as session:
+    session.add(record)
+    await session.commit()
+```
+
+The async sessions are opt-in per handler. The sync engine and session stay authoritative
+for the rest of the codebase.
+
+`DBSession()` is the odd one out. Use it where there is no user to check against: the
+lookup that resolves who the caller is runs before `current_user` exists, and
+`app/psa.py` stores login records the same way.
+
+It opens no session of its own. It is scoped on `session_context_id`, a context variable
+that `BaseHandler.prepare()` sets to a fresh value on every request, so inside a request
+every call returns that request's one session. Outside a request the variable keeps its
+default of `None` and every call in the process returns one single shared session, where
+one caller's `rollback()` discards another caller's pending work. Use `new_session()`
+there.
 
 ## Standards
 

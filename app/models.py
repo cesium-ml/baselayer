@@ -40,89 +40,50 @@ log_database = cfg.get("log.database", False)
 log_database_pool = cfg.get("log.database_pool", False)
 
 session_context_id = contextvars.ContextVar("request_id", default=None)
-# left here for backward compatibility:
 DBSession = scoped_session(sessionmaker(), scopefunc=session_context_id.get)
 
 
 class _VerifiedSession(sa.orm.session.Session):
-    """
-    Create an instance of Session when you
-    want to apply a verification method on all added
-    or modified or deleted rows before committing them
-    to the database.
+    """A session that verifies every added, modified or deleted row against a
+    user or token before committing it.
 
-    This class overrides the commit() function
-    by adding a verify() function before it.
+    Use it in a context manager:
 
-    Use this in a context manager:
     with VerifiedSession(user_object) as session:
         ...
         session.commit()
-
-    This will make sure the changes to the DB
-    are verified, and will close the connection
-    when exiting of context.
-
     """
 
     def __init__(self, user_or_token, **kwargs):
         """
-        This session must be initialized with a user or token.
-        Get this token from the handler (`self.current_user`)
-        or be generating an unverified session to only query
-        the user with a certain id. Example:
-
-        with DBSession() as session:
-            user = session.scalars(
-                sa.select(User).where(User.id == user_id)
-            ).first()
-
         Parameters
         ----------
         user_or_token : baselayer.app.models.User object
             or baselayer.app.models.Token object.
-            The object representing the current user.
+            The object representing the current user. Handlers take it from
+            `self.current_user`.
 
         """
         self.user_or_token = user_or_token
-        super().__init__()
+        super().__init__(**kwargs)
 
     def verify(self):
         """Check that the current user has permission to create, read,
         update, or delete rows that are present in the session. If not,
         raise an AccessError (causing the transaction to fail and the API to
-        respond with 401).
+        respond with 403).
 
         """
-        # get items to be inserted
-        new_rows = [row for row in self.new]
+        read_rows, updated_rows, deleted_rows, new_rows = pending_rows(self)
 
-        # get items to be updated
-        updated_rows = [row for row in self.dirty if self.is_modified(row)]
-
-        # get items to be deleted
-        deleted_rows = [row for row in self.deleted]
-
-        # get items that were read
-        read_rows = [
-            row
-            for row in set(self.identity_map.values())
-            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
-        ]
-
-        # need to check delete permissions before flushing, as deleted records
-        # are not present in the transaction after flush (thus can't be used in
-        # joins). Read permissions can be checked here or below as they do not
-        # change on flush.
+        # deleted rows are gone from the transaction once flushed, so check them first
         for mode, collection in zip(
             ["read", "update", "delete"],
             [read_rows, updated_rows, deleted_rows],
         ):
             bulk_verify(mode, collection, self.user_or_token)
 
-        # update transaction state in DB, but don't commit yet. this updates
-        # or adds rows in the database and uses their new state in joins,
-        # for permissions checking purposes.
+        # flush so that new rows can be joined against while checking them
         self.flush()
         bulk_verify("create", new_rows, self.user_or_token)
 
@@ -132,10 +93,46 @@ class _VerifiedSession(sa.orm.session.Session):
 
 
 def VerifiedSession(user_or_token):
-    return scoped_session(
-        sessionmaker(class_=_VerifiedSession, user_or_token=user_or_token),
-        scopefunc=session_context_id.get,
-    )()
+    return _VerifiedSession(user_or_token, bind=db_engine())
+
+
+def db_engine():
+    """The engine that `init_db()` bound `DBSession` to, or None before it runs."""
+    return DBSession.session_factory.kw["bind"]
+
+
+def new_session():
+    """A session of its own, independent of the request-scoped `DBSession`.
+
+    For work running outside a web request, where sharing one session between
+    callers would let one caller's rollback discard another's pending work.
+    Applies no access-control check; close it when the work is done.
+    """
+    if db_engine() is None:
+        raise RuntimeError("DB session not initialized. init_db() must run first.")
+    return DBSession.session_factory()
+
+
+def pending_rows(session):
+    """The rows of `session` to check, as (read, updated, deleted, new)."""
+    new_rows = list(session.new)
+    updated_rows = [row for row in session.dirty if session.is_modified(row)]
+    deleted_rows = list(session.deleted)
+    read_rows = list(
+        set(session.identity_map.values())
+        - set(updated_rows)
+        - set(new_rows)
+        - set(deleted_rows)
+    )
+    return read_rows, updated_rows, deleted_rows, new_rows
+
+
+def group_by_type(collection):
+    """Group records by mapped class, so each class needs a single query."""
+    grouped = defaultdict(list)
+    for row in collection:
+        grouped[type(row)].append(row)
+    return grouped
 
 
 def bulk_verify(mode, collection, accessor):
@@ -154,48 +151,129 @@ def bulk_verify(mode, collection, accessor):
     accessor : baselayer.app.models.User or baselayer.app.models.Token
         The user or token to check.
     """
-
-    grouped_collection = defaultdict(list)
-    for row in collection:
-        grouped_collection[type(row)].append(row)
-
-    # check all rows of the same type with a single database query
-    for record_cls, collection in grouped_collection.items():
-        # rows are identified by their primary key, made of a single surrogate
-        # `id` for most models and of several columns for composite-key models
+    for record_cls, records in group_by_type(collection).items():
+        # a single surrogate `id` for most models, several columns for composite keys
         pk_cols = [getattr(record_cls, key) for key in primary_key_keys(record_cls)]
-
-        # vectorized query for the primary keys of the rows in the session
-        # that are accessible
         accessible_rows = record_cls.select(accessor, mode=mode, columns=pk_cols)
 
         rows = (
             DBSession()
-            .execute(inaccessible_pks_stmt(collection, accessible_rows, pk_cols))
+            .execute(inaccessible_pks_stmt(records, accessible_rows, pk_cols))
             .all()
         )
-
-        # compare the accessible primary keys with those in the session
         inaccessible_row_ids = pks_of(rows, pk_cols)
 
-        # if any of the rows in the session are inaccessible, handle
-        if len(inaccessible_row_ids) > 0:
+        if inaccessible_row_ids:
             handle_inaccessible(mode, inaccessible_row_ids, record_cls, accessor)
 
 
-# --- Async DB layer (parallel to the sync layer above) --------------------
-# Configured by init_db(). Sync engine/session remain authoritative for the
-# rest of the codebase; async path is opt-in per handler.
+# Configured by init_db(); the sync engine and session stay authoritative.
 async_engine = None
-# Verified factory (RLS check on commit), parallel to VerifiedSession.
 async_session_factory = None
-# Plain factory (no RLS check), parallel to DBSession.
 async_plain_session_factory = None
 
 
-class _AsyncVerifiedSession(SAAsyncSession):
-    """Async counterpart of `_VerifiedSession`. Runs RLS verification on
-    flush/commit using `async_bulk_verify`.
+class _AsyncUpsertMixin:
+    """`upsert` shorthand for async sessions: update-or-insert by a natural key."""
+
+    def _upsert_select(self, model):
+        return sa.select(model)
+
+    async def upsert(self, model, *, by, values=None):
+        """Update the single ``model`` row matching ``by``, or insert a new one.
+
+        Parameters
+        ----------
+        model : `baselayer.app.models.DeclarativeMeta`
+            The mapped class of the target table.
+        by : dict of str to object
+            Attribute name to value, identifying at most one row: a natural key,
+            such as a unique column or a set of columns unique together. These
+            become attributes of the record.
+        values : dict of str to object, optional
+            Attribute name to value, assigned to the row whether it was found or
+            created. Defaults to None, which makes the call a get-or-create.
+
+        Returns
+        -------
+        instance : `model`
+            The row that was updated, or the one added to the session. The insert
+            stays pending until the caller flushes or commits.
+
+        Raises
+        ------
+        ValueError
+            If ``by`` is empty, which would otherwise match every row, or if
+            ``values`` gives one of its attributes a different value.
+        sqlalchemy.exc.MultipleResultsFound
+            If ``by`` matches more than one row, stored or still pending, so that
+            a key which is not unique fails here rather than updating an
+            arbitrary one of them.
+
+        Notes
+        -----
+        ``values`` takes any mapped attribute; ``by`` is compared with ``==``, so
+        it takes columns and many-to-one relationships, and a collection raises
+        ``InvalidRequestError``. On a verified session the lookup runs through
+        ``model.select``, so a row the accessor cannot read is not found: the
+        call inserts instead and fails on the unique index rather than raising
+        ``AccessError``.
+
+        The row is selected and then inserted, not ``INSERT ... ON CONFLICT``, so
+        two sessions racing for the same key both insert: the second to commit
+        fails if a unique constraint covers ``by``, and silently duplicates the
+        row if none does.
+        """
+        if not by:
+            raise ValueError("`by` must name at least one attribute.")
+
+        values = values or {}
+        contradicted = sorted(k for k, v in by.items() if values.get(k, v) != v)
+        if contradicted:
+            raise ValueError(f"`values` contradicts `by` for {contradicted}.")
+
+        values = {**values, **by}
+        stored = (
+            (
+                await self.scalars(
+                    self._upsert_select(model).where(
+                        *(getattr(model, k) == v for k, v in by.items())
+                    )
+                )
+            )
+            .unique()
+            .one_or_none()
+        )
+        # With autoflush off, a row an earlier call added is still pending.
+        matches = [
+            row
+            for row in self.new
+            if isinstance(row, model)
+            and all(getattr(row, key) == value for key, value in by.items())
+        ]
+        if stored is not None:
+            matches.insert(0, stored)
+        if len(matches) > 1:
+            raise sa.exc.MultipleResultsFound(
+                f"`by` matches {len(matches)} {model.__name__} rows."
+            )
+        if matches:
+            instance = matches[0]
+            for key, value in values.items():
+                setattr(instance, key, value)
+        else:
+            instance = model(**values)
+            self.add(instance)
+        return instance
+
+
+class _AsyncPlainSession(_AsyncUpsertMixin, SAAsyncSession):
+    """Plain async session (no access-control check) carrying `upsert`."""
+
+
+class _AsyncVerifiedSession(_AsyncUpsertMixin, SAAsyncSession):
+    """Async counterpart of `_VerifiedSession`. Runs access-control verification
+    on flush/commit using `async_bulk_verify`.
 
     The `user_or_token` attribute is attached by `AsyncVerifiedSession()`
     after instantiation; the session is otherwise a plain SQLAlchemy
@@ -204,15 +282,11 @@ class _AsyncVerifiedSession(SAAsyncSession):
 
     user_or_token = None
 
+    def _upsert_select(self, model):
+        return model.select(self.user_or_token)
+
     async def verify(self):
-        new_rows = list(self.new)
-        updated_rows = [row for row in self.dirty if self.is_modified(row)]
-        deleted_rows = list(self.deleted)
-        read_rows = [
-            row
-            for row in set(self.identity_map.values())
-            - (set(updated_rows) | set(new_rows) | set(deleted_rows))
-        ]
+        read_rows, updated_rows, deleted_rows, new_rows = pending_rows(self)
 
         for mode, collection in zip(
             ["read", "update", "delete"],
@@ -245,23 +319,27 @@ async def AsyncVerifiedSession(user_or_token):
         await session.close()
 
 
+def new_async_session():
+    """The async counterpart of `new_session()`: a session of its own, with no
+    access-control check. Close it when the work is done.
+    """
+    if async_plain_session_factory is None:
+        raise RuntimeError(
+            "Async DB session not initialized. init_db() must run first."
+        )
+    return async_plain_session_factory()
+
+
 async def async_bulk_verify(session, mode, collection, accessor):
-    """Async counterpart of `bulk_verify`. Runs the RLS leak check inside
+    """Async counterpart of `bulk_verify`. Runs the access-control leak check inside
     the supplied async session rather than the global sync `DBSession`.
     """
-    grouped_collection = defaultdict(list)
-    for row in collection:
-        grouped_collection[type(row)].append(row)
-
-    for record_cls, collection in grouped_collection.items():
+    for record_cls, records in group_by_type(collection).items():
         pk_cols = [getattr(record_cls, key) for key in primary_key_keys(record_cls)]
-
-        # `cls.select(...)` returns a 2.0-style Select; `.subquery()` is
-        # statement-level (no I/O) and so works under either dialect.
         accessible_rows = record_cls.select(accessor, mode=mode, columns=pk_cols)
 
         result = await session.execute(
-            inaccessible_pks_stmt(collection, accessible_rows, pk_cols)
+            inaccessible_pks_stmt(records, accessible_rows, pk_cols)
         )
         inaccessible_row_ids = pks_of(result.all(), pk_cols)
 
@@ -347,66 +425,60 @@ def pks_of(rows, pk_cols):
 
 
 def handle_inaccessible(mode, row_ids, row_type, accessor):
-    tb = "".join(traceback.extract_stack().format())
-    tb = f"```{tb}```"
-
     err_msg = (
         f"Insufficient permissions for operation "
         f'"{type(accessor).__name__} {accessor.id} '
         f'{mode} {row_type.__name__} {row_ids}".'
     )
-    err_msg_w_traceback = err_msg + f"Original traceback: {tb}"
 
     if use_webhook:
+        tb = "".join(traceback.extract_stack().format())
         try:
-            requests.post(webhook_url, json={"text": err_msg_w_traceback})
+            requests.post(
+                webhook_url,
+                json={"text": f"{err_msg}Original traceback: ```{tb}```"},
+            )
         except requests.HTTPError as e:
-            post_fail_warn_msg = (
+            warnings.warn(
                 f'Encountered HTTPError "{e.args[0]}" '
                 f'attempting to post AccessError "{err_msg}"'
                 f"to {webhook_url}."
             )
-            warnings.warn(post_fail_warn_msg)
     else:
         warnings.warn(err_msg)
     if strict:
         raise AccessError(err_msg)
 
 
-# https://docs.sqlalchemy.org/en/13/dialects/postgresql.html#psycopg2-fast-execution-helpers
-# executemany_values_page_size arguments control how many parameter sets
-# should be represented in each execution of an INSERT
-# 50000 was chosen based on recommendations in the docs and on profiling tests
-EXECUTEMANY_PAGESIZE = 50000
+# Above PostgreSQL's 32700-parameter budget, so that budget alone caps a batch.
+INSERTMANYVALUES_PAGE_SIZE = 50000
 
 
 utcnow = func.timezone("UTC", func.current_timestamp())
 
 
-def _resolve_pooler(host, port, engine_args, pooler):
+def resolve_pooler(host, port, engine_args, pooler):
     """Route the connection through a transaction pooler (pgbouncer/pgcat) when
     enabled, so backend connections stay bounded across all processes. Returns
     adjusted ``(host, port, engine_args)``."""
     if not (pooler and pooler.get("enabled")):
         return host, port, engine_args
-    host = pooler.get("host") or host
-    port = pooler.get("port") or 6432
-    # Transaction pooling breaks psycopg3 server-side prepared statements
-    # (per-connection) and can hand out stale connections.
-    engine_args = {
-        "pool_pre_ping": True,
-        **engine_args,
-        "connect_args": {
-            **(engine_args.get("connect_args") or {}),
-            # Mandatory under transaction pooling; must override any caller value.
-            "prepare_threshold": None,
+    return (
+        pooler.get("host") or host,
+        pooler.get("port") or 6432,
+        {
+            # Transaction pooling can hand out stale connections.
+            "pool_pre_ping": True,
+            **engine_args,
+            "connect_args": {
+                **(engine_args.get("connect_args") or {}),
+                # Prepared statements are per-connection; mandatory under transaction pooling.
+                "prepare_threshold": None,
+            },
         },
-    }
-    return host, port, engine_args
+    )
 
 
-# The db has to be initialized later; this is done by the app itself
-# See `app_server.py`
 def init_db(
     user,
     database,
@@ -436,45 +508,32 @@ def init_db(
            Default 3600.
 
     """
-    host, port, engine_args = _resolve_pooler(host, port, engine_args, pooler)
-
-    url = "postgresql+psycopg://{}:{}@{}:{}/{}".format(
-        user, password or "", host or "", port or "", database
-    )
-
+    host, port, engine_args = resolve_pooler(host, port, engine_args, pooler)
     if pooler and pooler.get("enabled"):
         # Let the pooler own pooling; a QueuePool on top double-pools.
-        default_engine_args = {"poolclass": sa.NullPool}
+        pool_args = {"poolclass": sa.NullPool}
         engine_args = {
             k: v
             for k, v in engine_args.items()
             if k not in ("pool_size", "max_overflow", "pool_recycle")
         }
     else:
-        default_engine_args = {
-            "pool_size": 5,
-            "max_overflow": 10,
-            "pool_recycle": 3600,
-        }
-    conn = sa.create_engine(
-        url,
-        insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
-        echo=log_database,
-        echo_pool=log_database_pool,
-        **{**default_engine_args, **engine_args},
-    )
+        pool_args = {"pool_size": 5, "max_overflow": 10, "pool_recycle": 3600}
 
+    url = f"postgresql+psycopg://{user}:{password or ''}@{host or ''}:{port or ''}/{database}"
+    common_args = {
+        "insertmanyvalues_page_size": INSERTMANYVALUES_PAGE_SIZE,
+        "echo": log_database,
+        "echo_pool": log_database_pool,
+        **pool_args,
+        **engine_args,
+    }
+
+    conn = sa.create_engine(url, **common_args)
     DBSession.configure(bind=conn, autoflush=autoflush, future=True)
-    Base.metadata.bind = conn
 
     global async_engine, async_session_factory, async_plain_session_factory
-    async_engine = create_async_engine(
-        url,
-        insertmanyvalues_page_size=EXECUTEMANY_PAGESIZE,
-        echo=log_database,
-        echo_pool=log_database_pool,
-        **{**default_engine_args, **engine_args},
-    )
+    async_engine = create_async_engine(url, **common_args)
     async_session_factory = async_sessionmaker(
         bind=async_engine,
         class_=_AsyncVerifiedSession,
@@ -483,6 +542,7 @@ def init_db(
     )
     async_plain_session_factory = async_sessionmaker(
         bind=async_engine,
+        class_=_AsyncPlainSession,
         autoflush=autoflush,
         expire_on_commit=False,
     )
