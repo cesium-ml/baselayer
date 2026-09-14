@@ -1378,15 +1378,16 @@ class CustomUserAccessControl(UserAccessControl):
         else:
             stmt = self.query_generator(cls, user_or_token)
 
-        # retrieve specified columns if requested. Project the subquery's own
-        # columns rather than `columns` (which reference the outer mapped
-        # class/alias) -- otherwise SQLAlchemy re-adds that table to the FROM
-        # clause, producing a cross join that leaks every row. This matters when
-        # this control is composed under OR logic (ComposedAccessControl asks
-        # each sub-control for just the id column).
+        # project the subquery's own columns: selecting `columns` here would put
+        # their table back in the FROM clause and cross join, granting every row.
         if columns is not None:
             sub = stmt.subquery()
-            stmt = sa.select(*[sub.c[col.key] for col in columns]).select_from(sub)
+            stmt = sa.select(
+                *[
+                    sub.corresponding_column(col.__clause_element__()).label(col.key)
+                    for col in columns
+                ]
+            ).distinct()
 
         return stmt
 
