@@ -1211,9 +1211,16 @@ class CustomUserAccessControl(UserAccessControl):
         else:
             stmt = self.query_generator(cls, user_or_token)
 
-        # retrieve specified columns if requested
+        # project the subquery's own columns: selecting `columns` here would put
+        # their table back in the FROM clause and cross join, granting every row.
         if columns is not None:
-            stmt = sa.select(*columns).select_from(stmt.subquery())
+            sub = stmt.subquery()
+            stmt = sa.select(
+                *[
+                    sub.corresponding_column(col.__clause_element__()).label(col.key)
+                    for col in columns
+                ]
+            ).distinct()
 
         return stmt
 
