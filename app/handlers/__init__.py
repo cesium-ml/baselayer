@@ -3,6 +3,7 @@ __all__ = [
     "AuthHandler",
     "CompleteHandler",
     "DisconnectHandler",
+    "HealthHandler",
     "BaseHandler",
     "MainPageHandler",
     "LogoutHandler",
@@ -13,6 +14,7 @@ __all__ = [
 from ..custom_exceptions import AccessError
 from .auth import AuthHandler, CompleteHandler, DisconnectHandler
 from .base import BaseHandler
+from .health import HealthHandler
 from .mainpage import MainPageHandler
 from .profile import LogoutHandler, ProfileHandler
 from .socket_auth import SocketAuthTokenHandler

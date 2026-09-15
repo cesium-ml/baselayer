@@ -46,7 +46,22 @@ def all_services_running():
     return running if return_code in (0, 3) else False
 
 
-def verify_server_availability(url, timeout=180):
+def app_workers_listening(cfg):
+    """Return whether every app worker answers its health endpoint directly."""
+    for i in range(cfg["server.processes"]):
+        port = cfg["ports.app_internal"] + i
+        try:
+            response = requests.head(
+                f"http://localhost:{port}/baselayer/health", timeout=1
+            )
+        except requests.exceptions.RequestException:
+            return False
+        if response.status_code != 200:
+            return False
+    return True
+
+
+def verify_server_availability(url, cfg, timeout=180):
     """Raise exception if webservices fail to launch or connection to `url` is not
     available.
     """
@@ -59,6 +74,9 @@ def verify_server_availability(url, timeout=180):
             assert all_services_running(), (
                 "Webservice(s) failed to launch:\n" + "\n".join(statuses)
             )
+
+            # Probed before nginx: a refused upstream is banned for server.fail_timeout.
+            assert app_workers_listening(cfg), "App workers are not listening yet"
 
             response = requests.get(url)
             assert response.status_code == 200, (
@@ -137,7 +155,7 @@ if __name__ == "__main__":
     exit_status = (0, "OK")
     try:
         timeout = 180
-        if not verify_server_availability(server_url, timeout=timeout):
+        if not verify_server_availability(server_url, cfg, timeout=timeout):
             raise RuntimeError(f"Server still unavailable after {timeout}s")
 
         log(f"Launching pytest on {test_spec}...\n")
