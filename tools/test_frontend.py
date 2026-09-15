@@ -47,10 +47,16 @@ def all_services_running():
 
 
 def app_workers_listening(cfg):
+    """Return whether every app worker answers its health endpoint directly."""
     for i in range(cfg["server.processes"]):
+        port = cfg["ports.app_internal"] + i
         try:
-            requests.get(f"http://localhost:{cfg['ports.app_internal'] + i}", timeout=1)
-        except requests.exceptions.ConnectionError:
+            response = requests.head(
+                f"http://localhost:{port}/baselayer/health", timeout=1
+            )
+        except requests.exceptions.RequestException:
+            return False
+        if response.status_code != 200:
             return False
     return True
 

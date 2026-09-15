@@ -6,6 +6,7 @@ from .handlers import (
     AuthHandler,
     CompleteHandler,
     DisconnectHandler,
+    HealthHandler,
     LogoutHandler,
     MainPageHandler,
     ProfileHandler,
@@ -66,6 +67,7 @@ SOCIAL_AUTH_ROUTES = [
 ]
 
 handlers = SOCIAL_AUTH_ROUTES + [
+    (r"/baselayer/health", HealthHandler),
     (r"/baselayer/socket_auth_token", SocketAuthTokenHandler),
     (r"/baselayer/profile", ProfileHandler),
     (r"/baselayer/logout", LogoutHandler),
