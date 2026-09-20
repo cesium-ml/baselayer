@@ -26,9 +26,16 @@ def check_config(config, service):
         log(f"Logging service {service} disabled")
         return False
 
-    conditions = [(False, f"Unknown logging service: {service}")]
+    conditions = [(True, f"Unknown logging service: {service}")]
 
-    if service == "papertrail":
+    if service == "sentry":
+        conditions = [
+            (
+                not config.get("endpoint"),
+                "Warning: missing endpoint for sentry logging.",
+            ),
+        ]
+    elif service == "papertrail":
         conditions = [
             ("url" not in config, "Warning: missing URL for papertrail logging."),
             ("port" not in config, "Warning: missing port for papertrail logging."),
