@@ -1,3 +1,4 @@
+{% if env.debug %}
 ## For development only: do not run in production
 
 [program:rspack]
@@ -10,3 +11,4 @@ redirect_stderr=true
 stopasgroup=true
 # Start this before any other services; it takes a while to build the bundle
 priority=0
+{% endif %}
