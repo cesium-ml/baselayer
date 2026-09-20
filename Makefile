@@ -103,10 +103,10 @@ run_production:
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-run_testing: FLAGS=--config=test_config.yaml  # both this and the next FLAGS definition are needed
+run_testing: FLAGS=--config=test_config.yaml --debug  # both this and the next FLAGS definition are needed
 run_testing: system_setup
 	@echo -e "\n$(B)[baselayer] Launch app for testing$(N)"
-	@export FLAGS="$(FLAGS) --debug" && \
+	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
