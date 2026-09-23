@@ -137,7 +137,7 @@ all services. E.g., to only load the <code class="docutils literal notranslate">
 <p>Sometimes, the supervisor configuration needs information from the
 configuration file, therefore <code class="docutils literal notranslate"><span class="pre">supervisor.conf</span></code> can instead be
 provided as <code class="docutils literal notranslate"><span class="pre">supervisor.conf.template</span></code>, which will be compiled before
-launching. See, e.g., <code class="docutils literal notranslate"><span class="pre">services/dask</span></code>.</p>
+launching. See, e.g., <code class="docutils literal notranslate"><span class="pre">services/app</span></code>.</p>
 <p>“External” micro-services can be used to extend the capabilities of any application relying on <code class="docutils literal notranslate"><span class="pre">baselayer</span></code>.</p>
 <p>These are added to <code class="docutils literal notranslate"><span class="pre">services.external</span></code> section of the configuration, and need to provide: service name, GitHub repo URL, revision (branch, sha, or tag), along with optional service-specific parameters. For example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">services</span><span class="p">:</span>
