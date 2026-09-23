@@ -1,3 +1,4 @@
+import sys
 import uuid
 
 import tornado.ioloop
@@ -6,6 +7,7 @@ from tornado.httputil import url_concat
 from tornado.web import RequestHandler
 
 from baselayer.app.env import load_env
+from baselayer.log import make_log
 
 
 class FakeGoogleOAuth2AuthHandler(RequestHandler):
@@ -29,6 +31,13 @@ class FakeGoogleOAuth2TokenHandler(RequestHandler):
 
 
 env, cfg = load_env()
+log = make_log("fake_oauth2")
+
+DISABLED_EXIT_CODE = 3
+
+if not cfg["server.auth.debug_login"]:
+    log("server.auth.debug_login is false: not serving the fake OAuth2 endpoints")
+    sys.exit(DISABLED_EXIT_CODE)
 
 handlers = [
     ("/fakeoauth2/auth", FakeGoogleOAuth2AuthHandler),

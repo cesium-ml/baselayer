@@ -18,5 +18,7 @@ doc/_build
 conf/supervisor/supervisor.conf
 services/dask/supervisor.conf
 services/app/supervisor.conf
+services/fake_oauth2/supervisor.conf
+services/rspack/supervisor.conf
 services/nginx/nginx.conf
 conf/nginx.conf
