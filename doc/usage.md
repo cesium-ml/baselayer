@@ -61,7 +61,7 @@ services:
 Sometimes, the supervisor configuration needs information from the
 configuration file, therefore `supervisor.conf` can instead be
 provided as `supervisor.conf.template`, which will be compiled before
-launching. See, e.g., `services/dask`.
+launching. See, e.g., `services/app`.
 
 "External" micro-services can be used to extend the capabilities of any application relying on `baselayer`.
 

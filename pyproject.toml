@@ -4,7 +4,6 @@ version = '0.1'
 requires-python = '>=3.10'
 dependencies = [
     "arrow>=0.15.4",
-    "distributed>=2023.1.1",
     "jinja2>=2.11.2",
     "numpy>=1.21.4",
     "packaging>=23.0",
