@@ -18,7 +18,6 @@ Baselayer is a "batteries included" web application template that includes:
 - Process management via supervisord
 - Proxy configuration via nginx
 - Authentication (currently using Google) via Python Social Auth
-- Distributed task computation, via `dask` and `distributed`
 
 Please clone and try our example application at
 

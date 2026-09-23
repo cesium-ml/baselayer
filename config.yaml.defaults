@@ -1,197 +1,192 @@
 app:
-    title: Baselayer Example App
-    secret_key: abc01234  # This secret key can be any random string of
-                          # characters.
-                          #
-                          # You should re-generate this for your application
-                          # using:
-                          #
-                          # base64.b64encode(os.urandom(50)).decode('ascii')
+  title: Baselayer Example App
+  secret_key:
+    abc01234 # This secret key can be any random string of
+    # characters.
+    #
+    # You should re-generate this for your application
+    # using:
+    #
+    # base64.b64encode(os.urandom(50)).decode('ascii')
 
-    # If true, unauthenticated visitors get read-only access as the
-    # `anonymous_user` account (which must exist).
-    anonymous_access: false
-    anonymous_user: anonymous
+  # If true, unauthenticated visitors get read-only access as the
+  # `anonymous_user` account (which must exist).
+  anonymous_access: false
+  anonymous_user: anonymous
 
-    factory:
+  factory:
 
 database:
-    database:
-    host: localhost
-    port: 5432
-    user:
-    password:
-    # Superuser for `make db_init`; empty defaults to "postgres".
-    admin_user:
+  database:
+  host: localhost
+  port: 5432
+  user:
+  password:
+  # Superuser for `make db_init`; empty defaults to "postgres".
+  admin_user:
 
 paths:
-    downloads_folder: '/tmp'
+  downloads_folder: "/tmp"
 
 server:
-    # Set this to true if the URL of your server is expected to be secure, i.e.
-    # https://...
-    # E.g., if you are using an HTTPS load balancer, this value will likely be true.
+  # Set this to true if the URL of your server is expected to be secure, i.e.
+  # https://...
+  # E.g., if you are using an HTTPS load balancer, this value will likely be true.
+  #
+  # Also see `ssl_certificate` for running nginx in SSL mode.
+  ssl: False
+
+  # If you are using certificates, you can specify them here
+  # See http://nginx.org/en/docs/http/configuring_https_servers.html for details
+  ssl_certificate:
+  ssl_certificate_key:
+
+  # According to the Tornado docs at
+  # https://www.tornadoweb.org/en/stable/guide/running.html#processes-and-ports:
+  #
+  # Due to the Python GIL (Global Interpreter Lock), it is necessary
+  # to run multiple Python processes to take full advantage of
+  # multi-CPU machines. Typically it is best to run one process per
+  # CPU.
+  processes: 4
+
+  # How many of the above processes should be dedicated to
+  # frontend only (i.e., no token authorized API requests)
+  dedicated_frontend_processes: 2
+
+  # The max size of a request body in megabytes (M)
+  max_body_size: 10
+
+  # nginx parameter which sets both the time in seconds before which
+  # the server is considered unavailable and the subsequent period of
+  # time the server will be unavailable
+  fail_timeout: 20
+
+  # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)
+  rate_limit: 5
+
+  # Rate limit burst size (https://www.nginx.com/blog/rate-limiting-nginx/#bursts)
+  burst: 10
+
+  # In addition to the local network, specify any IP addresses that are to be
+  # exempt from API rate limiting
+  whitelisted_ips: []
+
+  # Specify IPs or address ranges (e.g., 130.211.0.0/22) that are associated
+  # with upstream load balancing.
+  # These trusted addresses are used to uncover the originating IP.
+  loadbalancer_ips: []
+
+  # From https://console.developers.google.com/
+  #
+  # - Create Client ID
+  # - Javascript origins: https://localhost:5000
+  # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
+  #
+  # You need to have Google+ API enabled; it takes a few minutes to activate.
+  auth:
+    debug_login: False
+    google_oauth2_key:
+    google_oauth2_secret:
+    google_oauth2_timeout: 15
+
+    # Sign-in providers, offered in the order listed. Leave empty to use
+    # Google, configured through the keys above. `name` must be the
+    # backend's own name: it is what appears in /login/<name>, and what
+    # its SOCIAL_AUTH_<NAME>_* settings are keyed on. Anything under
+    # `settings` is passed through to the backend, so providers such as
+    # OpenIdConnectAuth need no code, only configuration.
     #
-    # Also see `ssl_certificate` for running nginx in SSL mode.
-    ssl: False
-
-    # If you are using certificates, you can specify them here
-    # See http://nginx.org/en/docs/http/configuring_https_servers.html for details
-    ssl_certificate:
-    ssl_certificate_key:
-
-    # According to the Tornado docs at
-    # https://www.tornadoweb.org/en/stable/guide/running.html#processes-and-ports:
-    #
-    # Due to the Python GIL (Global Interpreter Lock), it is necessary
-    # to run multiple Python processes to take full advantage of
-    # multi-CPU machines. Typically it is best to run one process per
-    # CPU.
-    processes: 4
-
-    # How many of the above processes should be dedicated to
-    # frontend only (i.e., no token authorized API requests)
-    dedicated_frontend_processes: 2
-
-    # The max size of a request body in megabytes (M)
-    max_body_size: 10
-
-    # nginx parameter which sets both the time in seconds before which
-    # the server is considered unavailable and the subsequent period of
-    # time the server will be unavailable
-    fail_timeout: 20
-
-    # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)
-    rate_limit: 5
-
-    # Rate limit burst size (https://www.nginx.com/blog/rate-limiting-nginx/#bursts)
-    burst: 10
-
-    # In addition to the local network, specify any IP addresses that are to be
-    # exempt from API rate limiting
-    whitelisted_ips: []
-
-    # Specify IPs or address ranges (e.g., 130.211.0.0/22) that are associated
-    # with upstream load balancing.
-    # These trusted addresses are used to uncover the originating IP.
-    loadbalancer_ips: []
-
-    # From https://console.developers.google.com/
-    #
-    # - Create Client ID
-    # - Javascript origins: https://localhost:5000
-    # - Authorized redirect URLs: http://localhost:5000/complete/google-oauth2/
-    #
-    # You need to have Google+ API enabled; it takes a few minutes to activate.
-    auth:
-        debug_login: False
-        google_oauth2_key:
-        google_oauth2_secret:
-        google_oauth2_timeout: 15
-
-        # Sign-in providers, offered in the order listed. Leave empty to use
-        # Google, configured through the keys above. `name` must be the
-        # backend's own name: it is what appears in /login/<name>, and what
-        # its SOCIAL_AUTH_<NAME>_* settings are keyed on. Anything under
-        # `settings` is passed through to the backend, so providers such as
-        # OpenIdConnectAuth need no code, only configuration.
-        #
-        # backends:
-        #   - name: orcid
-        #     class: social_core.backends.orcid.ORCIDOAuth2
-        #     key:
-        #     secret:
-        #     label: Sign in with ORCID
-        #   - name: my-iam
-        #     class: social_core.backends.open_id_connect.OpenIdConnectAuth
-        #     key:
-        #     secret:
-        #     settings:
-        #       oidc_endpoint: https://iam.example.org
-        backends: []
-
+    # backends:
+    #   - name: orcid
+    #     class: social_core.backends.orcid.ORCIDOAuth2
+    #     key:
+    #     secret:
+    #     label: Sign in with ORCID
+    #   - name: my-iam
+    #     class: social_core.backends.open_id_connect.OpenIdConnectAuth
+    #     key:
+    #     secret:
+    #     settings:
+    #       oidc_endpoint: https://iam.example.org
+    backends: []
 
 services:
-    paths:
-      - ./baselayer/services
-      - ./services
+  paths:
+    - ./baselayer/services
+    - ./services
 
-    # By default, all services other than dask are enabled.
-    # Use this list to add services if 'disabled' is set to '*'
-    enabled:
+  # By default, all services are enabled.
+  # Use this list to add services if 'disabled' is set to '*'
+  enabled:
 
-    # A list of service names, or '*'
-    # You can use disabled to disable specific services, or '*' to disable them all
-    disabled:
-      - dask
+  # A list of service names, or '*'
+  # You can use disabled to disable specific services, or '*' to disable them all
+  disabled:
 
-    # Here you can add services that are not part of baselayer, and
-    # are pulled from another github repository. You need to specify the
-    # repo and a revision (SHA, tag, or branch).
-    #
-    # You can also configure optional configuration parameters used by
-    # the service.
-    #
-    # - my_service:
-    #     repo: https://...
-    #     rev: <SHA>
-    # - my_service:
-    #     repo: https://...
-    #     rev: <tagged_version>
-    #     params: {}
-    external: {}
-
+  # Here you can add services that are not part of baselayer, and
+  # are pulled from another github repository. You need to specify the
+  # repo and a revision (SHA, tag, or branch).
+  #
+  # You can also configure optional configuration parameters used by
+  # the service.
+  #
+  # - my_service:
+  #     repo: https://...
+  #     rev: <SHA>
+  # - my_service:
+  #     repo: https://...
+  #     rev: <tagged_version>
+  #     params: {}
+  external: {}
 
 log:
-    # if true, log all API calls, including successful ones, if false,
-    # log only those that trigger a warning / error
-    api_calls: False
+  # if true, log all API calls, including successful ones, if false,
+  # log only those that trigger a warning / error
+  api_calls: False
 
-    # SQL logging
-    # see e.g. https://docs.sqlalchemy.org/en/20/core/engines.html#configuring-logging
+  # SQL logging
+  # see e.g. https://docs.sqlalchemy.org/en/20/core/engines.html#configuring-logging
 
-    # if True, enable SQL echoing.
-    database: False
+  # if True, enable SQL echoing.
+  database: False
 
-    # if True, enable connection pool logging
-    database_pool: False
+  # if True, enable connection pool logging
+  database_pool: False
 
 ports:
-    websocket: 64000
-    fake_oauth: 63000
-    app: 5000
-    app_http_proxy: 5001
-    app_internal: 65000  # nginx forwards this port to ports:app
-    dask: 63500
-    message_bus_receive: 64002  # bus listens for incoming messages here; app/clients push to this port
-    message_bus_publish: 64003  # bus sends out messages here; websocket server reads from this port
-    status: 64500
-    migration_manager: 64501
+  websocket: 64000
+  fake_oauth: 63000
+  app: 5000
+  app_http_proxy: 5001
+  app_internal: 65000 # nginx forwards this port to ports:app
+  message_bus_receive: 64002 # bus listens for incoming messages here; app/clients push to this port
+  message_bus_publish: 64003 # bus sends out messages here; websocket server reads from this port
+  status: 64500
+  migration_manager: 64501
 
 hosts:
-    # Host running the message bus (message_proxy). The app, workers and the
-    # websocket server connect to it over TCP, so set this to a routable address
-    # (e.g. a k8s Service name) when running the bus on a separate host/pod.
-    message_bus: 127.0.0.1
+  # Host running the message bus (message_proxy). The app, workers and the
+  # websocket server connect to it over TCP, so set this to a routable address
+  # (e.g. a k8s Service name) when running the bus on a separate host/pod.
+  message_bus: 127.0.0.1
 
 external_logging:
-    papertrail:
-       # get an account at https://papertrailapp.com
-       enabled: False
-       # change url to the correct subdomain for your account
-       # and change the port as well
-       url:
-       port:
-       # which log files, if any do you not want to send over to the 3rd party?
-       excluded_log_files: [""]
+  papertrail:
+    # get an account at https://papertrailapp.com
+    enabled: False
+    # change url to the correct subdomain for your account
+    # and change the port as well
+    url:
+    port:
+    # which log files, if any do you not want to send over to the 3rd party?
+    excluded_log_files: [""]
 
 security:
   strict: true
   slack:
     enabled: false
     url: null
-
-
 # You can schedule jobs to run at a certain time interval (given in minutes).
 #
 # If baselayer is not running at the time the job is supposed to run,
