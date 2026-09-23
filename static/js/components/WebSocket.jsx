@@ -38,7 +38,8 @@ function getAuthToken(auth_url) {
         .then(parseJSON)
         .then((json) => {
           const { token } = json.data;
-          createCookie("auth_token", token);
+          // Expire the cookie just before the token itself does (15 min).
+          createCookie("auth_token", token, 14);
           resolve(token);
         })
         .catch(() => {
