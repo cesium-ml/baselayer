@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -51,7 +52,12 @@ if port:
 
 # Superuser for creating the role/databases; not every install uses "postgres".
 admin_user = cfg.get("database.admin_user") or "postgres"
-admin_flags = flags.replace(f"-U {user}", f"-U {admin_user}")
+admin_cmd = f"{psql_cmd} {flags.replace(f'-U {user}', f'-U {admin_user}')}"
+
+# Stock Linux installs only admit the superuser through peer auth on the socket.
+sudo_admin_cmd = f"sudo -n -u {admin_user} psql -X --no-password" + (
+    f" -p {port}" if port else ""
+)
 
 test_cmd = f"{psql_cmd} {flags} -c 'SELECT 0;' "
 
@@ -60,80 +66,170 @@ def run(cmd):
     return subprocess.run(cmd, capture_output=True, shell=True)
 
 
+def stderr(p):
+    return p.stderr.decode("utf-8").strip()
+
+
 def test_db(database):
-    p = run(test_cmd + database)
-    return p.returncode == 0
+    return run(test_cmd + database)
+
+
+def find_admin_cmd():
+    """Return a psql command that connects as the superuser, or None."""
+    p = run(f"{admin_cmd} -c 'SELECT 0;' postgres")
+    if p.returncode == 0:
+        return admin_cmd
+    if "authentication failed" not in stderr(p) and "pg_hba.conf" not in stderr(p):
+        return None
+    if not (sys.stdin.isatty() and shutil.which("sudo")):
+        return None
+
+    print(
+        f"Cannot connect as [{admin_user}] over {host or 'the socket'}; "
+        f"trying `sudo -u {admin_user} psql` instead."
+    )
+    if subprocess.run(["sudo", "-v"]).returncode != 0:
+        return None
+    if run(f"{sudo_admin_cmd} -c 'SELECT 0;' postgres").returncode != 0:
+        return None
+    return sudo_admin_cmd
+
+
+def show_hba_file(admin):
+    if admin is not None:
+        p = run(f"{admin} -t -P format=unaligned -c 'SHOW hba_file;' postgres")
+        if p.returncode == 0:
+            return p.stdout.decode("utf-8").strip()
+    return None
+
+
+def advice(error, admin):
+    """Return instructions that fix the connection error, if it is a known one."""
+    sudo_psql = f"sudo -u {admin_user} psql"
+
+    if "password authentication failed" in error:
+        return [
+            f"The password for [{user}] is wrong or not set. Set it with:",
+            "",
+            f"  {sudo_psql} -c \"ALTER USER {user} PASSWORD '<password>';\"",
+            "",
+            "and put the same password in `database.password` in your config.",
+        ]
+
+    if "authentication failed" in error or "no pg_hba.conf entry" in error:
+        method = "scram-sha-256" if password else "trust"
+        all_dbs = ",".join(dbs)
+        if host:
+            lines = [
+                f"  host    {all_dbs}  {user}  127.0.0.1/32  {method}",
+                f"  host    {all_dbs}  {user}  ::1/128       {method}",
+            ]
+        else:
+            lines = [f"  local   {all_dbs}  {user}  {method}"]
+
+        hba_file = show_hba_file(admin)
+        if hba_file:
+            where = ["Your `pg_hba.conf` is:", "", f"  {hba_file}"]
+        else:
+            where = [
+                "Find your `pg_hba.conf` with:",
+                "",
+                f"  {sudo_psql} -t -P format=unaligned -c 'SHOW hba_file;'",
+            ]
+        return [
+            f"PostgreSQL rejected the login method for [{user}].",
+            *where,
+            "",
+            "Add these lines above the first uncommented line of that file.",
+            "PostgreSQL uses the first line that matches, so they must come",
+            "before the default `ident` or `peer` lines:",
+            "",
+            *lines,
+            "",
+            "Then reload the configuration:",
+            "",
+            f"  {sudo_psql} -c 'SELECT pg_reload_conf();'",
+        ]
+
+    if "does not exist" in error:
+        return [
+            "The role or the database does not exist. Create them with:",
+            "",
+            f"  sudo -u {admin_user} createuser {user}",
+            *(f"  sudo -u {admin_user} createdb -O {user} {d}" for d in dbs),
+        ]
+
+    if "Connection refused" in error or "No such file or directory" in error:
+        return [
+            "The PostgreSQL server is not running. Start it with:",
+            "",
+            "  sudo systemctl enable --now postgresql",
+            "",
+            "On Fedora and RHEL, initialize the data directory first with:",
+            "",
+            "  sudo postgresql-setup --initdb",
+        ]
+
+    return []
 
 
 log("Initializing databases")
 
-with status(f"Creating user [{user}]"):
-    run(f'{psql_cmd} {admin_flags} -c "CREATE USER {user};"')
+admin = find_admin_cmd()
+if admin is None:
+    print(
+        f"Warning: cannot connect as the superuser [{admin_user}]. "
+        "The user and the databases must already exist."
+    )
+
+if admin is not None:
+    with status(f"Creating user [{user}]"):
+        p = run(f'{admin} -c "CREATE USER {user};" postgres')
+    if p.returncode != 0 and "already exists" not in stderr(p):
+        print(f"\nWarning: could not create user {user}\n\n{stderr(p)}\n")
 
 if args.force:
     try:
+        if admin is None:
+            raise RuntimeError(f"Dropping a database needs the [{admin_user}] role.")
         for current_db in dbs:
             with status(f"Removing database [{current_db}]"):
-                p = run(
-                    f'{psql_cmd} {admin_flags}\
-                          -c "DROP DATABASE IF EXISTS {current_db};"'
-                )
+                p = run(f'{admin} -c "DROP DATABASE IF EXISTS {current_db};" postgres')
                 if p.returncode != 0:
-                    raise RuntimeError()
-    except RuntimeError:
+                    raise RuntimeError(stderr(p))
+    except RuntimeError as e:
         print(
-            "Could not delete database: \n\n"
-            f"{textwrap.indent(p.stderr.decode('utf-8').strip(), prefix='  ')}\n"
+            f"Could not delete database: \n\n{textwrap.indent(str(e), prefix='  ')}\n"
         )
         sys.exit(1)
 
-for current_db in dbs:
+for current_db in dbs if admin is not None else ():
+    # We allow this to fail, because oftentimes because of complicated db setups
+    # users want to create their own databases
     with status(f"Creating database [{current_db}]"):
-        # We allow this to fail, because oftentimes because of complicated db setups
-        # users want to create their own databases
-
         # If database already exists, and we can connect to it, there's nothing to do
-        if test_db(current_db):
+        if test_db(current_db).returncode == 0:
             continue
 
-        p = run(
-            f'{psql_cmd} {admin_flags}\
-                  -c "CREATE DATABASE {current_db} OWNER {user};"'
-        )
-        if p.returncode == 0:
-            run(
-                f'{psql_cmd} {flags}\
-                 -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"\
-                 {current_db}'
-            )
-        else:
+        p = run(f'{admin} -c "CREATE DATABASE {current_db} OWNER {user};" postgres')
+        if p.returncode != 0 and "already exists" not in stderr(p):
             print()
             print(f"Warning: could not create db {current_db}")
             print()
-            print(
-                "\n".join(
-                    line
-                    for line in p.stderr.decode("utf-8").split("\n")
-                    if "ERROR" in line
-                )
-            )
+            print("\n".join(line for line in stderr(p).split("\n") if "ERROR" in line))
             print()
-            print("  You should create it manually by invoking `createdb`.")
-            print("  Then, execute:")
+            print("  Create it manually with:")
             print()
-            print(
-                f"    {psql_cmd} {flags}"
-                f' -c "GRANT ALL PRIVILEGES ON DATABASE {current_db} TO {user};"'
-                f" {current_db}"
-            )
+            print(f"    sudo -u {admin_user} createdb -O {user} {current_db}")
             print()
 
 # If test_only is false, we only test the connection to the main database,
 # since the test database may not exist in production
 db_to_check = db_test if args.test_only else db
+p = test_db(db_to_check)
 try:
     with status(f"Testing database connection to [{db_to_check}]"):
-        if not test_db(db_to_check):
+        if p.returncode != 0:
             raise RuntimeError()
 
 except RuntimeError:
@@ -141,9 +237,6 @@ except RuntimeError:
         textwrap.dedent(
             f"""
         !!! Error accessing database:
-
-        The most common cause of database connection errors is a
-        misconfigured `pg_hba.conf`.
 
         We tried to connect to the database with the following parameters:
 
@@ -155,16 +248,16 @@ except RuntimeError:
         The postgres client exited with the following error message:
 
         {"-" * 78}
-        {p.stderr.decode("utf-8").strip()}
+        {stderr(p)}
         {"-" * 78}
-
-        Please modify your `pg_hba.conf`, and use the following command to
-        check your connection:
-
-          {test_cmd + db_to_check}
         """
         )
     )
+    fix = advice(stderr(p), admin)
+    if fix:
+        print("\n".join(fix) + "\n")
+    print("Check your connection with:\n")
+    print(f"  {test_cmd + db_to_check}\n")
     sys.exit(1)
 
 print()
