@@ -74,6 +74,30 @@ def test_db(database):
     return run(test_cmd + database)
 
 
+def manual_commands():
+    """Commands that do the superuser part of this script by hand."""
+    errors = {d: stderr(test_db(d)) for d in dbs}
+    no_role = any(f'role "{user}" does not exist' in e for e in errors.values())
+    to_create = [
+        d
+        for d, e in errors.items()
+        if args.force or no_role or f'database "{d}" does not exist' in e
+    ]
+    return [
+        *(f"sudo -u {admin_user} dropdb --if-exists {d}" for d in dbs if args.force),
+        *([f"sudo -u {admin_user} createuser {user}"] if no_role else []),
+        *(f"sudo -u {admin_user} createdb -O {user} {d}" for d in to_create),
+    ]
+
+
+def ask(question):
+    try:
+        return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+
+
 def find_admin_cmd():
     """Return a psql command that connects as the superuser, or None."""
     p = run(f"{admin_cmd} -c 'SELECT 0;' postgres")
@@ -85,9 +109,16 @@ def find_admin_cmd():
         return None
 
     print(
-        f"Cannot connect as [{admin_user}] over {host or 'the socket'}; "
-        f"trying `sudo -u {admin_user} psql` instead."
+        f"\nCannot connect as the superuser [{admin_user}] over "
+        f"{host or 'the socket'}. Either:\n\n"
+        f"  1. Let this script run `sudo -u {admin_user} psql`. "
+        "sudo can ask for your password.\n"
+        "  2. Answer no, and run these commands yourself:\n"
     )
+    print("\n".join(f"       {cmd}" for cmd in manual_commands()) + "\n")
+    if not ask("Use sudo?"):
+        print("\nRun the commands above, then run this script again.\n")
+        sys.exit(1)
     if subprocess.run(["sudo", "-v"]).returncode != 0:
         return None
     if run(f"{sudo_admin_cmd} -c 'SELECT 0;' postgres").returncode != 0:
@@ -155,8 +186,7 @@ def advice(error, admin):
         return [
             "The role or the database does not exist. Create them with:",
             "",
-            f"  sudo -u {admin_user} createuser {user}",
-            *(f"  sudo -u {admin_user} createdb -O {user} {d}" for d in dbs),
+            *(f"  {cmd}" for cmd in manual_commands()),
         ]
 
     if "Connection refused" in error or "No such file or directory" in error:
@@ -175,12 +205,21 @@ def advice(error, admin):
 
 log("Initializing databases")
 
-admin = find_admin_cmd()
-if admin is None:
+# If test_only is false, we only test the connection to the main database,
+# since the test database may not exist in production
+db_to_check = db_test if args.test_only else db
+
+# Other connection errors, such as auth failures, are diagnosed below.
+missing = any("does not exist" in stderr(test_db(d)) for d in dbs)
+needs_admin = args.force or missing
+admin = find_admin_cmd() if needs_admin else None
+if needs_admin and admin is None:
     print(
-        f"Warning: cannot connect as the superuser [{admin_user}]. "
-        "The user and the databases must already exist."
+        f"\nCannot connect as the superuser [{admin_user}]. "
+        "Run these commands yourself, then run this script again:\n"
     )
+    print("\n".join(f"  {cmd}" for cmd in manual_commands()) + "\n")
+    sys.exit(1)
 
 if admin is not None:
     with status(f"Creating user [{user}]"):
@@ -188,10 +227,8 @@ if admin is not None:
     if p.returncode != 0 and "already exists" not in stderr(p):
         print(f"\nWarning: could not create user {user}\n\n{stderr(p)}\n")
 
-if args.force:
+if args.force and admin is not None:
     try:
-        if admin is None:
-            raise RuntimeError(f"Dropping a database needs the [{admin_user}] role.")
         for current_db in dbs:
             with status(f"Removing database [{current_db}]"):
                 p = run(f'{admin} -c "DROP DATABASE IF EXISTS {current_db};" postgres')
@@ -223,9 +260,6 @@ for current_db in dbs if admin is not None else ():
             print(f"    sudo -u {admin_user} createdb -O {user} {current_db}")
             print()
 
-# If test_only is false, we only test the connection to the main database,
-# since the test database may not exist in production
-db_to_check = db_test if args.test_only else db
 p = test_db(db_to_check)
 try:
     with status(f"Testing database connection to [{db_to_check}]"):
