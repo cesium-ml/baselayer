@@ -31,7 +31,7 @@ rspack = npx rspack
 
 .PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
-.PHONY: stop status test_headless test test_report check-js-updates lint-install
+.PHONY: stop status memory memory-watch test_headless test test_report check-js-updates lint-install
 .PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
 .PHONY: system_setup service_setup
 .PHONY: bundle bundle-watch
@@ -131,6 +131,12 @@ stop: ## Stop all running services and the supervisor itself.
 
 status:
 	@$(PYTHON) ./baselayer/tools/supervisor_status.py
+
+memory: ## Show memory used by each service.
+	@$(PYTHON) ./baselayer/tools/memory_usage.py
+
+memory-watch: ## Monitor memory used by each service.
+	@$(PYTHON) ./baselayer/tools/memory_usage.py --watch
 
 test: ## Run tests.
 test: system_setup
