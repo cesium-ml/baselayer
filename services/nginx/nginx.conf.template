@@ -145,6 +145,13 @@ http {
     ssl_certificate_key {{ server.ssl_certificate_key }};
     {% endif %}
 
+    # Up as long as nginx is, so a load balancer keeps showing the status page.
+    location = /healthz {
+      access_log off;
+      default_type text/plain;
+      return 200 "ok\n";
+    }
+
     location / {
       # API rate limiting
       limit_req zone=custom_rate_limit burst={{ server.burst }} nodelay;
