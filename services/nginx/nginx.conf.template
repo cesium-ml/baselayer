@@ -128,7 +128,7 @@ http {
   log_format elb_log '$remote_addr - $remote_user [$trunc_authorization] [$time_local] ' '"$request" $status $body_bytes_sent rl=$request_length rt=$request_time urt=$upstream_response_time "$http_referer" ' '"$http_user_agent"';
 
   server {
-    {% if env.debug %}
+    {% if env.debug and not env.testing %}
     listen 127.0.0.1:{{ ports.app }};
     {% else %}
     {% if server.ssl_certificate %}
