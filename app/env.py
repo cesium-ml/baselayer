@@ -13,6 +13,7 @@ _cache = {}
 parser = argparse.ArgumentParser(description="Launch web app")
 parser.add_argument("-C", "--config", action="append")
 parser.add_argument("--debug", action="store_true")
+parser.add_argument("--testing", action="store_true")
 
 
 def load_env(load_services_configs=True):
@@ -30,6 +31,9 @@ def load_env(load_services_configs=True):
     --debug   In Debug mode:
               a) Tornado reloads files automatically that change from disk.
               b) SQLAlchemy logs more verbosely to the logs.
+
+    --testing The app is run by the test suite, which needs the server to be
+              reachable from outside of localhost.
 
     """
     if not _cache:
