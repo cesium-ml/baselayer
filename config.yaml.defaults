@@ -54,6 +54,11 @@ server:
   # frontend only (i.e., no token authorized API requests)
   dedicated_frontend_processes: 2
 
+  # Import the application once and fork the processes above from it, so they
+  # share the imported modules. They are then supervised by their parent, so
+  # `supervisorctl` only sees a single `app` program.
+  prefork: false
+
   # The max size of a request body in megabytes (M)
   max_body_size: 10
 
