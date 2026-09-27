@@ -63,6 +63,9 @@ def fork_worker(process):
     if pid:
         return pid
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    # Autoreload re-runs sys.argv; --process makes it restart only this worker
+    sys.argv.append(f"--process={process}")
     logfile = os.open(
         f"log/app_{process:02d}.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644
     )
@@ -91,7 +94,8 @@ def supervise(n_processes):
         process = workers.pop(pid, None)
         if process is None:
             continue
-        log(f"Worker {process} exited with status {status}; restarting")
+        code = os.waitstatus_to_exitcode(status)
+        log(f"Worker {process} exited with code {code}; restarting")
         time.sleep(1)
         workers[fork_worker(process)] = process
 

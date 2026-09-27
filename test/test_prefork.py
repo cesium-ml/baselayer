@@ -33,7 +33,9 @@ class Pid(tornado.web.RequestHandler):
 
 
 def make_app(cfg, handlers, settings, process=None, env=None):
-    return tornado.web.Application([(r"/pid", Pid)])
+    return tornado.web.Application(
+        [(r"/pid", Pid)], autoreload=settings.get("autoreload", False)
+    )
 """
 
 MIGRATION_MANAGER = """
@@ -87,8 +89,7 @@ def worker_pid(port, timeout=60):
     return None
 
 
-@pytest.fixture
-def prefork(tmp_path):
+def run_prefork(tmp_path, *args):
     (tmp_path / "log").mkdir()
     (tmp_path / "stub_app.py").write_text(STUB_APP)
     (tmp_path / "migration_manager.py").write_text(MIGRATION_MANAGER)
@@ -120,6 +121,7 @@ def prefork(tmp_path):
             sys.executable,
             str(BASELAYER / "services/app/app.py"),
             "--config=config.yaml",
+            *args,
         ],
         cwd=tmp_path,
         env=env,
@@ -134,6 +136,16 @@ def prefork(tmp_path):
                 process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 process.kill()
+
+
+@pytest.fixture
+def prefork(tmp_path):
+    yield from run_prefork(tmp_path)
+
+
+@pytest.fixture
+def prefork_debug(tmp_path):
+    yield from run_prefork(tmp_path, "--debug")
 
 
 def test_every_worker_gets_its_own_port_and_log(prefork):
@@ -193,3 +205,40 @@ def _alive(pid):
     except OSError:
         return False
     return True
+
+
+def test_an_interrupted_replacement_worker_leaves_its_siblings(prefork):
+    _, app_port, _ = prefork
+
+    os.kill(worker_pid(app_port + 1), signal.SIGTERM)
+    deadline = time.monotonic() + 60
+    replacement = None
+    while replacement is None and time.monotonic() < deadline:
+        pid = worker_pid(app_port + 1, timeout=5)
+        replacement = pid if pid is not None and _alive(pid) else None
+    siblings = [worker_pid(app_port), worker_pid(app_port + 2)]
+
+    os.kill(replacement, signal.SIGINT)
+    time.sleep(3)
+
+    assert [worker_pid(app_port), worker_pid(app_port + 2)] == siblings
+
+
+def test_an_autoreloaded_worker_stays_a_worker(prefork_debug):
+    _, app_port, tmp_path = prefork_debug
+
+    before = worker_pid(app_port)
+    assert before is not None
+    log = tmp_path / "log/app_00.log"
+    listening = f"Listening on 127.0.0.1:{app_port}"
+
+    time.sleep(1)  # autoreload takes its first file times after startup
+    os.utime(tmp_path / "stub_app.py")
+    deadline = time.monotonic() + 60
+    while log.read_text().count(listening) < 2 and time.monotonic() < deadline:
+        time.sleep(0.2)
+    time.sleep(3)
+
+    assert log.read_text().count(listening) >= 2, "the worker did not reload"
+    assert worker_pid(app_port) == before
+    assert "restarting" not in log.read_text()
