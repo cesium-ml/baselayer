@@ -146,7 +146,7 @@ http {
     {% endif %}
 
     # Up as long as nginx is, so a load balancer keeps showing the status page.
-    location = /healthz {
+    location = /proxy-health {
       access_log off;
       default_type text/plain;
       return 200 "ok\n";
