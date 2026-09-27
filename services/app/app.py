@@ -40,8 +40,7 @@ def migrated_db(port):
 
 
 def serve(process):
-    module, factory = cfg["app.factory"].rsplit(".", 1)
-    app = getattr(importlib.import_module(module), factory)(
+    app = make_app(
         cfg,
         baselayer_handlers,
         baselayer_settings,
@@ -106,9 +105,12 @@ while not migrated_db(port):
     time.sleep(timeout)
     timeout = min(timeout * 2, 30)
 
+# Imported in the parent so the workers inherit it copy-on-write
+module, factory = cfg["app.factory"].rsplit(".", 1)
+make_app = getattr(importlib.import_module(module), factory)
 
 if env.process is None and cfg["server.prefork"]:
-    # The app is imported by now, so the workers inherit it copy-on-write.
+    gc.collect()
     gc.freeze()
     supervise(cfg["server.processes"])
 else:

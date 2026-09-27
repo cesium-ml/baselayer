@@ -23,6 +23,9 @@ import os
 
 import tornado.web
 
+with open("imported_by", "w") as f:
+    f.write(str(os.getpid()))
+
 
 class Pid(tornado.web.RequestHandler):
     def get(self):
@@ -143,6 +146,13 @@ def test_every_worker_gets_its_own_port_and_log(prefork):
     for process in range(PROCESSES):
         logged = (tmp_path / f"log/app_{process:02d}.log").read_text()
         assert f"Listening on 127.0.0.1:{app_port + process}" in logged
+
+
+def test_the_app_is_imported_by_the_parent(prefork):
+    parent, app_port, tmp_path = prefork
+
+    assert worker_pid(app_port) is not None
+    assert int((tmp_path / "imported_by").read_text()) == parent.pid
 
 
 def test_a_dead_worker_is_replaced(prefork):
