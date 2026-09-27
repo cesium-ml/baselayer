@@ -84,6 +84,7 @@ run: system_setup
 	@echo
 	@echo " - Run \`make log\` in another terminal to view logs"
 	@echo " - Run \`make monitor\` in another terminal to restart services"
+	@echo " - If the app does not come up, check \`log/app*.log\`"
 	@echo
 	@echo "The server is in debug mode:"
 	@echo
@@ -98,6 +99,7 @@ run: system_setup
 run_production: ## Run the web application in production mode (no dependency checking).
 run_production:
 	@echo "[!] Production run: not automatically installing dependencies."
+	@echo "    If the app does not come up, check \`log/app*.log\`"
 	@echo
 	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
