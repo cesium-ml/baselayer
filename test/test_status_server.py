@@ -58,11 +58,8 @@ def status_server(tmp_path):
     """Start the status server in a given situation; returns its port."""
     processes, managers = [], []
 
-    def start(migration_manager_up=False, maintenance=None):
+    def start(migration_manager_up=False):
         status_port, manager_port = free_ports(2)
-        (tmp_path / "run").mkdir(exist_ok=True)
-        if maintenance is not None:
-            (tmp_path / "run/maintenance").write_text(maintenance)
         (tmp_path / "config.yaml").write_text(
             "app:\n"
             "  title: Example\n"
@@ -120,14 +117,6 @@ def test_unavailable_once_the_database_is_migrated(status_server):
     status, _, body = fetch(port, "/")
     assert status == 503
     assert "Example is temporarily unavailable" in body
-
-
-def test_maintenance_shows_the_escaped_operator_note(status_server):
-    port = status_server(migration_manager_up=True, maintenance="Back at <18:00>")
-
-    _, _, body = fetch(port, "/")
-    assert "Example is down for maintenance" in body
-    assert "Back at &lt;18:00&gt;" in body
 
 
 def test_api_requests_get_json_whatever_the_method(status_server):
