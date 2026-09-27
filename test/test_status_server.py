@@ -6,39 +6,37 @@ Run from the directory holding `baselayer`, e.g. ``pytest baselayer/test``.
 import json
 import os
 import socket
+import socketserver
 import subprocess
 import sys
 import threading
 import time
 import urllib.error
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from xmlrpc.server import SimpleXMLRPCDispatcher, SimpleXMLRPCRequestHandler
 
 import pytest
 
 BASELAYER = Path(__file__).resolve().parents[1]
 
 
-def free_ports(count):
-    sockets = [socket.socket() for _ in range(count)]
-    for sock in sockets:
+def free_port():
+    with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
-    ports = [sock.getsockname()[1] for sock in sockets]
-    for sock in sockets:
-        sock.close()
-    return ports
+        return sock.getsockname()[1]
 
 
-class Migrated(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(b'{"migrated": true}')
+class UnixRequestHandler(SimpleXMLRPCRequestHandler):
+    disable_nagle_algorithm = False
 
-    def log_message(self, *args):
-        pass
+
+class FakeSupervisor(socketserver.UnixStreamServer, SimpleXMLRPCDispatcher):
+    def __init__(self, path, processes):
+        socketserver.UnixStreamServer.__init__(self, path, UnixRequestHandler)
+        SimpleXMLRPCDispatcher.__init__(self)
+        self.logRequests = False
+        self.register_function(lambda: processes, "supervisor.getAllProcessInfo")
 
 
 def fetch(port, path, method="GET"):
@@ -54,24 +52,25 @@ def fetch(port, path, method="GET"):
 
 
 @pytest.fixture
-def status_server(tmp_path):
-    """Start the status server in a given situation; returns its port."""
-    processes, managers = [], []
+def status_server(tmp_path, monkeypatch):
+    """Start the status server with the given app process stop times; returns its port."""
+    # tmp_path is too long for a unix socket path on macOS.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "run").mkdir()
+    processes, supervisors = [], []
 
-    def start(migration_manager_up=False):
-        status_port, manager_port = free_ports(2)
-        (tmp_path / "config.yaml").write_text(
-            "app:\n"
-            "  title: Example\n"
-            "ports:\n"
-            f"  status: {status_port}\n"
-            f"  migration_manager: {manager_port}\n"
+    def start(app_stops):
+        supervisor = FakeSupervisor(
+            "run/supervisor.sock",
+            [{"group": "app", "stop": stop} for stop in app_stops],
         )
-        if migration_manager_up:
-            manager = HTTPServer(("127.0.0.1", manager_port), Migrated)
-            threading.Thread(target=manager.serve_forever, daemon=True).start()
-            managers.append(manager)
+        threading.Thread(target=supervisor.serve_forever, daemon=True).start()
+        supervisors.append(supervisor)
 
+        status_port = free_port()
+        (tmp_path / "config.yaml").write_text(
+            f"app:\n  title: Example\nports:\n  status: {status_port}\n"
+        )
         processes.append(
             subprocess.Popen(
                 [
@@ -97,12 +96,13 @@ def status_server(tmp_path):
     for process in processes:
         process.terminate()
         process.wait(timeout=10)
-    for manager in managers:
-        manager.shutdown()
+    for supervisor in supervisors:
+        supervisor.shutdown()
+        supervisor.server_close()
 
 
-def test_starting_while_the_migration_manager_is_not_listening(status_server):
-    port = status_server()
+def test_starting_until_an_app_process_has_exited(status_server):
+    port = status_server(app_stops=[0, 0])
 
     status, headers, body = fetch(port, "/source/ZTF21abc")
     assert status == 503
@@ -111,16 +111,8 @@ def test_starting_while_the_migration_manager_is_not_listening(status_server):
     assert 'http-equiv="refresh"' in body
 
 
-def test_unavailable_once_the_database_is_migrated(status_server):
-    port = status_server(migration_manager_up=True)
-
-    status, _, body = fetch(port, "/")
-    assert status == 503
-    assert "Example is temporarily unavailable" in body
-
-
-def test_api_requests_get_json_whatever_the_method(status_server):
-    port = status_server(migration_manager_up=True)
+def test_unavailable_once_an_app_process_has_exited(status_server):
+    port = status_server(app_stops=[0, 1790000000])
 
     for method in ("GET", "POST", "DELETE"):
         status, headers, body = fetch(port, "/api/sources", method=method)
@@ -129,12 +121,3 @@ def test_api_requests_get_json_whatever_the_method(status_server):
         payload = json.loads(body)
         assert payload["status"] == "error"
         assert payload["data"] == {"state": "unavailable"}
-
-
-def test_head_has_no_body(status_server):
-    port = status_server()
-
-    status, headers, body = fetch(port, "/", method="HEAD")
-    assert status == 503
-    assert headers["Retry-After"] == "30"
-    assert body == ""

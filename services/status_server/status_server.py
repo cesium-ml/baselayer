@@ -1,9 +1,10 @@
 import html
 import time
+import xmlrpc.client
 
 import tornado.ioloop
 import tornado.web
-from tornado.httpclient import AsyncHTTPClient
+from supervisor.xmlrpc import SupervisorTransport
 
 from baselayer.app.env import load_env
 
@@ -48,29 +49,31 @@ p {{ color: #555; }}
 _state = {"checked_at": float("-inf"), "value": None}
 
 
-async def current_state():
+def current_state():
     """Why the app is not answering."""
     if time.monotonic() - _state["checked_at"] < STATE_CACHE_SECONDS:
         return _state["value"]
 
-    # The migration manager only starts listening once migrations are done.
+    supervisor = xmlrpc.client.ServerProxy(
+        "http://127.0.0.1",
+        SupervisorTransport("dummy", "dummy", "unix://run/supervisor.sock"),
+    ).supervisor
     try:
-        await AsyncHTTPClient().fetch(
-            f"http://localhost:{cfg['ports.migration_manager']}",
-            request_timeout=1,
-            raise_error=False,
-        )
-        value = "unavailable"
+        processes = supervisor.getAllProcessInfo()
     except Exception:
-        value = "starting"
+        value = "unavailable"
+    else:
+        # `stop` stays 0 until the process has exited once.
+        died = any(p["stop"] for p in processes if p["group"] == "app")
+        value = "unavailable" if died else "starting"
 
     _state.update(checked_at=time.monotonic(), value=value)
     return value
 
 
 class StatusHandler(tornado.web.RequestHandler):
-    async def prepare(self):
-        state = await current_state()
+    def prepare(self):
+        state = current_state()
         title = cfg["app.title"]
 
         self.set_status(503)
