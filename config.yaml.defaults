@@ -144,6 +144,8 @@ zygote:
   # Services (directory names, or '*') whose Python processes are forked from
   # the zygote, which imports `preload` once so they share those modules
   services: []
+  # Services to leave out, e.g. when `services` is '*'
+  exclude: []
   # Modules the zygote imports; empty means the module of `app.factory`.
   # Restart the zygote to pick up changes to them.
   preload: []

@@ -433,6 +433,14 @@ def fork_from_zygote(supervisor_conf: str) -> str:
     )
 
 
+def zygote_services(cfg, services_to_run) -> set:
+    """`zygote.services` (or all services, for '*') less `zygote.exclude`."""
+    selected = cfg["zygote.services"] or []
+    if selected == "*":
+        selected = services_to_run
+    return set(selected) - set(cfg["zygote.exclude"] or []) - {"zygote"}
+
+
 def copy_supervisor_configs(external_services=[]):
     """
     Copy supervisor configurations from all services to the main supervisor.conf file.
@@ -496,9 +504,7 @@ def copy_supervisor_configs(external_services=[]):
 
     log(f"Enabling {len(services_to_run)} services")
 
-    zygote_services = cfg["zygote.services"] or []
-    if zygote_services == "*":
-        zygote_services = services_to_run - {"zygote"}
+    forked = zygote_services(cfg, services_to_run)
 
     supervisor_configs = []
     for service in services_to_run:
@@ -517,7 +523,7 @@ def copy_supervisor_configs(external_services=[]):
             conf = generate_supervisor_config(service, path)
             supervisor_configs.append(conf)
 
-        if service in zygote_services:
+        if service in forked:
             supervisor_configs[-1] = fork_from_zygote(supervisor_configs[-1])
 
     with open("baselayer/conf/supervisor/supervisor.conf", "a") as f:

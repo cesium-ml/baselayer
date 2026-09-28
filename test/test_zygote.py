@@ -207,3 +207,48 @@ def test_only_python_commands_are_sent_through_the_zygote():
     )
     assert "command=nginx -c" in forked
     assert fork_from_zygote(forked) == forked
+
+
+def test_an_autoreloaded_service_keeps_its_process_and_arguments(zygote):
+    _, tmp_path, _ = zygote
+    script = (
+        "import os, sys, tornado.autoreload, tornado.ioloop\n"
+        "with open('starts', 'a') as f:\n"
+        "    f.write(f\"{os.getpid()} {' '.join(sys.argv[1:])}\\n\")\n"
+        "tornado.autoreload.start()\n"
+        "tornado.ioloop.IOLoop.current().start()\n"
+    )
+    launcher = launch(zygote, script, "--process=3")
+    starts = tmp_path / "starts"
+    wait_for_file(starts)
+
+    time.sleep(1)  # autoreload takes its first file times after startup
+    os.utime(tmp_path / "service.py")
+    deadline = time.monotonic() + 30
+    while len(starts.read_text().splitlines()) < 2 and time.monotonic() < deadline:
+        time.sleep(0.1)
+
+    first, second = starts.read_text().splitlines()[:2]
+    assert first == second
+    assert first.endswith(" --process=3")
+    assert launcher.poll() is None
+
+    launcher.send_signal(signal.SIGTERM)
+    assert launcher.wait(timeout=30) == -signal.SIGTERM
+
+
+def test_services_are_selected_by_name_or_all_but_excluded():
+    from baselayer.tools.setup_services import zygote_services
+
+    running = {"app", "zygote", "thumbnail_queue", "sn_analysis_service"}
+
+    assert zygote_services(
+        {"zygote.services": ["app"], "zygote.exclude": []}, running
+    ) == {"app"}
+    assert zygote_services(
+        {"zygote.services": "*", "zygote.exclude": ["sn_analysis_service"]}, running
+    ) == {"app", "thumbnail_queue"}
+    assert (
+        zygote_services({"zygote.services": [], "zygote.exclude": None}, running)
+        == set()
+    )
