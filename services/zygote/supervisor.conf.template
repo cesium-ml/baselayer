@@ -1,0 +1,8 @@
+{%- if zygote.services %}
+[program:zygote]
+command=/usr/bin/env python baselayer/services/zygote/zygote.py %(ENV_FLAGS)s
+environment=PYTHONPATH=".",PYTHONUNBUFFERED=1
+stdout_logfile=log/zygote.log
+redirect_stderr=true
+priority=10
+{%- endif %}

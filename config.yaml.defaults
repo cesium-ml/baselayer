@@ -140,6 +140,13 @@ services:
   #     params: {}
   external: {}
 
+zygote:
+  # Services (directory names, or '*') whose Python processes are forked from
+  # the zygote, which imports `preload` once so they share those modules
+  services: []
+  # Modules the zygote imports; empty means the module of `app.factory`
+  preload: []
+
 log:
   # if true, log all API calls, including successful ones, if false,
   # log only those that trigger a warning / error
