@@ -22,6 +22,7 @@ from baselayer.app.env import load_env
 from baselayer.log import make_log
 
 SOCKET = "run/zygote.sock"
+PR_SET_NAME = 15
 PR_SET_PDEATHSIG = 1
 
 env, cfg = load_env()
@@ -49,12 +50,15 @@ def receive_request(conn):
     return json.loads(data), fds
 
 
-def die_with_parent(parent):
+def prctl(option, arg):
     try:
-        libc = ctypes.CDLL(None, use_errno=True)
-        libc.prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
+        ctypes.CDLL(None, use_errno=True).prctl(option, arg)
     except (OSError, AttributeError):
         pass  # not Linux
+
+
+def die_with_parent(parent):
+    prctl(PR_SET_PDEATHSIG, signal.SIGTERM)
     if os.getppid() != parent:
         os._exit(1)
 
@@ -75,6 +79,11 @@ def run_service(request, fds):
         os.environ.clear()
         os.environ.update(request["env"])
         sys.argv = request["argv"]
+        # Shown by top and `ps -o comm`, which otherwise show the zygote
+        name = os.environ.get("SUPERVISOR_PROCESS_NAME") or os.path.basename(
+            sys.argv[0]
+        )
+        prctl(PR_SET_NAME, ctypes.create_string_buffer(name.encode()[:15]))
         sys.path[0] = os.path.dirname(os.path.abspath(sys.argv[0]))
         for path in reversed(os.environ.get("PYTHONPATH", "").split(os.pathsep)):
             if path and os.path.abspath(path) not in map(os.path.abspath, sys.path):

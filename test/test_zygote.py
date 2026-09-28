@@ -159,6 +159,24 @@ def test_the_service_stops_when_its_launcher_is_killed(zygote):
     assert wait_until_dead(service)
 
 
+@pytest.mark.skipif(sys.platform != "linux", reason="needs PR_SET_NAME")
+def test_a_service_is_named_after_its_program(zygote):
+    _, tmp_path, env = zygote
+    script = "print(open('/proc/self/comm').read().strip())\n"
+    (tmp_path / "service.py").write_text(script)
+
+    out = subprocess.run(
+        [sys.executable, str(BASELAYER / "tools/zygote_launch.py"), "service.py"],
+        cwd=tmp_path,
+        env=env | {"SUPERVISOR_PROCESS_NAME": "thumbnail_queue_extra"},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    ).stdout
+
+    assert out.strip() == "thumbnail_queue"
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="needs PR_SET_PDEATHSIG")
 def test_services_stop_when_the_zygote_dies(zygote):
     process, tmp_path, _ = zygote
