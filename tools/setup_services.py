@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 from collections import Counter
 from importlib import import_module
@@ -422,6 +423,24 @@ def initialize_external_services() -> list:
     return external_services
 
 
+def fork_from_zygote(supervisor_conf: str) -> str:
+    """Start the Python scripts in a supervisor config through the zygote launcher."""
+    return re.sub(
+        r"^command=/usr/bin/env python (?!baselayer/tools/zygote_launch.py)",
+        "command=/usr/bin/env python baselayer/tools/zygote_launch.py ",
+        supervisor_conf,
+        flags=re.MULTILINE,
+    )
+
+
+def zygote_services(cfg, services_to_run) -> set:
+    """`zygote.services` (or all services, for '*') less `zygote.exclude`."""
+    selected = cfg["zygote.services"] or []
+    if selected == "*":
+        selected = services_to_run
+    return set(selected) - set(cfg["zygote.exclude"] or []) - {"zygote"}
+
+
 def copy_supervisor_configs(external_services=[]):
     """
     Copy supervisor configurations from all services to the main supervisor.conf file.
@@ -485,6 +504,8 @@ def copy_supervisor_configs(external_services=[]):
 
     log(f"Enabling {len(services_to_run)} services")
 
+    forked = zygote_services(cfg, services_to_run)
+
     supervisor_configs = []
     for service in services_to_run:
         path = services[service]
@@ -501,6 +522,9 @@ def copy_supervisor_configs(external_services=[]):
         else:
             conf = generate_supervisor_config(service, path)
             supervisor_configs.append(conf)
+
+        if service in forked:
+            supervisor_configs[-1] = fork_from_zygote(supervisor_configs[-1])
 
     with open("baselayer/conf/supervisor/supervisor.conf", "a") as f:
         f.write("\n\n".join(supervisor_configs))
