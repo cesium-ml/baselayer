@@ -149,6 +149,19 @@ def test_a_signal_to_the_launcher_reaches_the_service(zygote):
     assert wait_until_dead(service)
 
 
+def test_the_launcher_records_the_pid_of_its_service(zygote):
+    _, tmp_path, _ = zygote
+    launcher = launch(zygote, SLEEPER)
+    service = wait_for_file(tmp_path / "service_pid")
+    pidfile = tmp_path / f"run/zygote/{launcher.pid}.pid"
+
+    assert wait_for_file(pidfile) == service
+
+    launcher.send_signal(signal.SIGTERM)
+    launcher.wait(timeout=30)
+    assert not pidfile.exists()
+
+
 def test_the_service_stops_when_its_launcher_is_killed(zygote):
     _, tmp_path, _ = zygote
     launcher = launch(zygote, SLEEPER)

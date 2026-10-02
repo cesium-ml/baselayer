@@ -5,8 +5,10 @@ Usage: zygote_launch.py SCRIPT [ARGS...]
 supervisord runs this in place of `python SCRIPT ARGS...`. The zygote forks
 the service with this process's stdio, argv, working directory and
 environment; signals sent here are forwarded to the service, and this
-process exits as the service did. Only the standard library is imported, so
-that each launcher stays small.
+process exits as the service did. While the service runs,
+`run/zygote/<launcher pid>.pid` holds the service's pid, so that the pid
+supervisord reports can be mapped to the service. Only the standard library
+is imported, so that each launcher stays small.
 """
 
 import json
@@ -17,6 +19,7 @@ import sys
 import time
 
 SOCKET = "run/zygote.sock"
+PIDS = "run/zygote"
 CONNECT_TIMEOUT = 300
 FORWARDED = (
     signal.SIGTERM,
@@ -51,6 +54,10 @@ def main():
 
     replies = sock.makefile("r")
     pid = json.loads(replies.readline())["pid"]
+    os.makedirs(PIDS, exist_ok=True)
+    pidfile = os.path.join(PIDS, f"{os.getpid()}.pid")
+    with open(pidfile, "w") as f:
+        f.write(str(pid))
 
     def forward(signum, frame):
         try:
@@ -61,7 +68,10 @@ def main():
     for signum in FORWARDED:
         signal.signal(signum, forward)
 
-    line = replies.readline()
+    try:
+        line = replies.readline()
+    finally:
+        os.unlink(pidfile)
     if not line:
         sys.exit("zygote_launch: lost the zygote")
     code = json.loads(line)["exit"]
