@@ -67,8 +67,10 @@ def main():
     for signum in FORWARDED:
         signal.signal(signum, forward)
 
-    line = replies.readline()
-    os.unlink(pidfile)
+    try:
+        line = replies.readline()
+    finally:
+        os.unlink(pidfile)
     if not line:
         sys.exit("zygote_launch: lost the zygote")
     code = json.loads(line)["exit"]
