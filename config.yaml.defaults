@@ -142,7 +142,8 @@ services:
 
 zygote:
   # Services (directory names, or '*') whose Python processes are forked from
-  # the zygote, which imports `preload` once so they share those modules
+  # the zygote, which imports `preload` once so they share those modules.
+  # Ignored on macOS, where services are always started on their own.
   services: []
   # Services to leave out, e.g. when `services` is '*'
   exclude: []

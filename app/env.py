@@ -3,9 +3,13 @@ Parse environment flags, and load the app configuration.
 """
 
 import argparse
+import sys
 import textwrap
 
+from ..log import make_log
 from .config import load_config
+
+log = make_log("baselayer")
 
 # Cache loading of environment
 _cache = {}
@@ -41,6 +45,10 @@ def load_env(load_services_configs=True):
         cfg = load_config(
             config_files=env.config or [], load_services_configs=load_services_configs
         )
+        # macOS system libraries crash in a child forked without exec
+        if sys.platform == "darwin" and cfg["zygote.services"]:
+            cfg["zygote"]["services"] = []
+            log("Not forking services from the zygote on macOS")
 
         _cache.update({"file": env.config, "env": env, "cfg": cfg})
 
