@@ -102,7 +102,7 @@ def migration_status():
         log("Database not stamped: assuming migrations not in use; continuing")
         return True
 
-    if status[0].endswith("(head)"):
+    if "(head)" in status[0].split():
         log("Database is up to date")
         return True
 
