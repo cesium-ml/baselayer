@@ -1955,7 +1955,17 @@ class Token(Base):
         "id",
         creator=lambda acl: DBSession().scalar(sa.select(ACL).where(ACL.id == acl)),
     )
-    permissions = acl_ids
+
+    @property
+    def permissions(self):
+        owner_permissions = self.created_by.permissions
+        if "System admin" in owner_permissions:
+            return list(self.acl_ids)
+        return [acl_id for acl_id in self.acl_ids if acl_id in owner_permissions]
+
+    @permissions.setter
+    def permissions(self, acl_ids):
+        self.acl_ids = acl_ids
 
     name = sa.Column(
         sa.String,
