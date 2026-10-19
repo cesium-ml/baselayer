@@ -121,6 +121,13 @@ def serve():
 
     selector = selectors.DefaultSelector()
     selector.register(server, selectors.EVENT_READ)
+    wakeup, wakeup_write = os.pipe()
+    os.set_blocking(wakeup, False)
+    os.set_blocking(wakeup_write, False)
+    signal.set_wakeup_fd(wakeup_write, warn_on_full_buffer=False)
+    # Without a handler, SIGCHLD is not written to the wakeup fd
+    signal.signal(signal.SIGCHLD, lambda signum, frame: None)
+    selector.register(wakeup, selectors.EVENT_READ)
     children = {}  # pid -> launcher connection
     zygote = os.getpid()
 
@@ -138,7 +145,12 @@ def serve():
 
     while True:
         for key, _ in selector.select(timeout=0.5):
-            if key.fileobj is server:
+            if key.fileobj == wakeup:
+                try:
+                    os.read(wakeup, 4096)
+                except BlockingIOError:
+                    pass
+            elif key.fileobj is server:
                 conn, _ = server.accept()
                 try:
                     request, fds = receive_request(conn)
@@ -150,6 +162,9 @@ def serve():
                 sys.stderr.flush()
                 pid = os.fork()
                 if pid == 0:
+                    signal.set_wakeup_fd(-1)
+                    os.close(wakeup)
+                    os.close(wakeup_write)
                     selector.close()
                     server.close()
                     for other in children.values():
