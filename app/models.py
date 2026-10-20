@@ -1958,6 +1958,8 @@ class Token(Base):
 
     @property
     def permissions(self):
+        if self.created_by is None:
+            return []
         owner_permissions = self.created_by.permissions
         if "System admin" in owner_permissions:
             return list(self.acl_ids)
