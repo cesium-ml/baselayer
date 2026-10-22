@@ -24,12 +24,34 @@ Tests are run in headless mode by default. To run visibly, use `pytest --headed`
 
 We run tests in Firefox by default. Edit `pytest.ini` if you want to try another.
 
-## Debugging
+## Make targets
 
-- Run `make log` to watch log output
-- Run `make stop` to stop any running web services.
-- Run `make attach` to attach to output of webserver, e.g. for use with `pdb.set_trace()`
-- Run `make check-js-updates` to see which Javascript packages are eligible for an upgrade.
+Run `make help` to list the targets that have a description.
+
+Run the app:
+
+- `make run`: start the web application in debug mode. Python and JavaScript files reload when they change.
+- `make run_production`: start the web application in production mode, without dependency checks.
+- `make stop`: stop all services and supervisord.
+
+Monitor and debug:
+
+- `make log`: watch the log files of all services.
+- `make status`: show the status of each service.
+- `make monitor`: open the supervisor control panel, e.g. to restart a service.
+- `make memory`: show the memory used by each service, including its child processes.
+- `make memory-watch`: refresh the memory table until you press Ctrl-C.
+- `make attach`: print the command that attaches to a web server process, e.g. for use with `pdb.set_trace()`.
+
+Database:
+
+- `make db_init`: initialize the database and models.
+- `make db_clear`: delete all data from the database.
+
+Test:
+
+- `make test`: run the tests.
+- `make test_report`: print a report of the failed tests.
 
 ## Database
 
