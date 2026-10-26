@@ -51,7 +51,7 @@ class TimeCache:
                 return False
 
         if key not in self.ts:
-            self.reset(key)
+            return True
 
         return (time.time() - self.ts[key]) > interval * 60
 
