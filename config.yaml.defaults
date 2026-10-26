@@ -27,6 +27,8 @@ database:
 
 paths:
   downloads_folder: "/tmp"
+  # Last run of each cron job; keep it on a persistent volume in containers.
+  cron_timestamps_file: ".jobs_timestamps.yaml"
 
 server:
   # Set this to true if the URL of your server is expected to be secure, i.e.
