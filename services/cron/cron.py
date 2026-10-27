@@ -18,7 +18,7 @@ jobs = cfg.get("cron") or []
 
 init_db(**cfg["database"])
 
-timestamp_file = ".jobs_timestamps.yaml"
+timestamp_file = cfg["paths.cron_timestamps_file"]
 
 
 class TimeCache:
