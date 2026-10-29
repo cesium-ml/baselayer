@@ -183,6 +183,8 @@ hosts:
   # websocket server connect to it over TCP, so set this to a routable address
   # (e.g. a k8s Service name) when running the bus on a separate host/pod.
   message_bus: 127.0.0.1
+  # Interface the bus listens on; "*" only when other hosts connect to it.
+  message_bus_bind: 127.0.0.1
 
 external_logging:
   papertrail:
