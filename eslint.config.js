@@ -65,11 +65,6 @@ export default defineConfig([
   },
   {
     settings: {
-      "import/resolver": {
-        webpack: {
-          config: "rspack.config.js",
-        },
-      },
       react: {
         version: "detect",
       },

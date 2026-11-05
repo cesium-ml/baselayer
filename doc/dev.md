@@ -24,6 +24,15 @@ Tests are run in headless mode by default. To run visibly, use `pytest --headed`
 
 We run tests in Firefox by default. Edit `pytest.ini` if you want to try another.
 
+## Linting
+
+Baselayer lints its own code with [pre-commit](https://pre-commit.com). To set it up:
+
+1. `npm ci` to install ESLint and its plugins
+2. `pre-commit install`
+
+Apps built on baselayer set up their own linting.
+
 ## Debugging
 
 - Run `make log` to watch log output
