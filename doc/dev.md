@@ -189,13 +189,6 @@ default of `None` and every call in the process returns one single shared sessio
 one caller's `rollback()` discards another caller's pending work. Use `new_session()`
 there.
 
-## Standards
-
-We use ESLint to ensure that our JavaScript & JSX code is consistent and conforms with recommended standards.
-
-- Install ESLint using `make lint-install`. This will also install a git pre-commit hook so that any commit is linted before it is checked in.
-- Run `make lint` to perform a style check
-
 ## Upgrading Javascript dependencies
 
 The `./tools/check_js_updates.sh` script uses

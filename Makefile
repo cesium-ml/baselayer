@@ -1,5 +1,4 @@
 SHELL=/bin/bash
-ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
 
@@ -31,8 +30,8 @@ rspack = npx rspack
 
 .PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
-.PHONY: stop status test_headless test test_report check-js-updates lint-install
-.PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
+.PHONY: stop status test_headless test test_report check-js-updates
+.PHONY: baselayer_doc_reqs html
 .PHONY: system_setup service_setup
 .PHONY: bundle bundle-watch
 
@@ -145,32 +144,6 @@ test_report:
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
 	uv run ./baselayer/tools/check_js_updates.sh
-
-# Lint targets
-lint-install: ## Install ESLint and a git pre-commit hook.
-lint-install: cp-lint-yaml lint-githook
-	@echo "Installing latest version of ESLint and AirBNB style rules"
-	@./baselayer/tools/update_eslint.sh
-
-cp-lint-yaml: ## Copy eslint config file to parent app if not present
-	@if ! [ -e .eslintrc.yaml ]; then \
-	  echo "No ESLint configuration found; copying baselayer's version of .eslintrc.yaml"; \
-	  cp baselayer/.eslintrc.yaml .eslintrc.yaml; \
-	fi
-
-$(ESLINT): lint-install
-
-lint: ## Check JavaScript code style.
-	$(ESLINT) --ext .jsx,.js -c .eslintrc.yaml static/js
-
-lint-unix:
-	$(ESLINT) --ext .jsx,.js -c .eslintrc.yaml --format=unix static/js
-
-lint-githook:
-	@if ! [ -e .git/hooks/pre-commit ]; then \
-	  echo "Installing ESLint pre-commit hook into \`.git/hooks/pre-commit\`"; \
-	  cp baselayer/.git-pre-commit .git/hooks/pre-commit; \
-	fi
 
 # baselayer-specific targets
 # All other targets are run from the parent app.  The following are related to
