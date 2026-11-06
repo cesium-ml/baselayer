@@ -14,11 +14,7 @@
 
 import os
 import pathlib
-
-try:
-    import tomllib
-except ImportError:  # Python < 3.11
-    import tomli as tomllib
+import tomllib
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the

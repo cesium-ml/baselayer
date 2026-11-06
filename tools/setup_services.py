@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import tomllib as tl
 from collections import Counter
 from importlib import import_module
 from os.path import join as pjoin
@@ -11,21 +12,6 @@ from packaging.specifiers import SpecifierSet
 
 from baselayer.app.env import load_env
 from baselayer.log import make_log
-
-# let's try to use tomllib for Python 3.11+, and otherwise fall back to tomli
-# (the standalone tomli package, or the one from setuptools)
-try:
-    import tomllib as tl
-except (ImportError, ModuleNotFoundError):
-    try:
-        import tomli as tl
-    except ImportError:
-        try:
-            import setuptools._vendor.tomli as tl
-        except ImportError:
-            raise ImportError(
-                "Could not find tomli or tomllib for reading pyproject.toml files"
-            )
 
 log = make_log("baselayer")
 
