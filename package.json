@@ -3,16 +3,16 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@babel/core": "7.28.6",
-    "@babel/eslint-parser": "7.28.4",
-    "@babel/preset-env": "7.28.3",
-    "@babel/preset-react": "7.28.5",
-    "@dr.pogodin/eslint-configs": "0.1.0",
-    "@eslint/js": "9.39.2",
-    "eslint": "9.35.0",
+    "@babel/core": "8.0.7",
+    "@babel/eslint-parser": "8.0.7",
+    "@babel/preset-env": "8.0.7",
+    "@babel/preset-react": "8.0.1",
+    "@dr.pogodin/eslint-configs": "0.3.8",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import": "2.32.0",
-    "globals": "17.4.0"
+    "globals": "17.13.0"
   },
   "peerDependencies": {
     "prop-types": "^15.8.1",
