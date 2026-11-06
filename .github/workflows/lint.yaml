@@ -20,7 +20,6 @@ jobs:
           node-version: 22
       - name: Install eslint deps
         run: |
-          curl -O https://raw.githubusercontent.com/cesium-ml/baselayer_template_app/refs/heads/main/package.json
-          npm install --only=dev
+          npm ci
           npm audit --audit-level critical
       - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
