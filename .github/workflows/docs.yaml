@@ -17,10 +17,10 @@ jobs:
     if: github.repository_owner == 'cesium-ml'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -42,7 +42,7 @@ jobs:
 
       - name: Install SSH Client 🔑
         if: github.ref == 'refs/heads/main'
-        uses: webfactory/ssh-agent@v0.4.1
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.CI_DEPLOY_KEY }}
 
