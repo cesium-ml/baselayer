@@ -1,7 +1,7 @@
 [project]
 name = 'baselayer'
 version = '0.1'
-requires-python = '>=3.10'
+requires-python = '>=3.12'
 dependencies = [
     "arrow>=0.15.4",
     "jinja2>=2.11.2",
@@ -20,7 +20,6 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.38,<3",
     "sqlalchemy-utils>=0.36.8",
     "supervisor>=4.3",
-    "tomli >= 2.1.0; python_full_version < '3.11'",
     "tornado>=6.5.7",
 ]
 
@@ -28,7 +27,7 @@ dependencies = [
 package = false
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 
 [dependency-groups]
 test = [
@@ -37,8 +36,8 @@ test = [
     "pytest-playwright>=0.7.1",
 ]
 docs = [
-    "numpydoc>=1.10.0; python_version >= '3.12'",  # Can remove these tags once Sphinx supports all baselayer supported Python versions
+    "numpydoc>=1.10.0",
     "recommonmark>=0.7.1",
-    "sphinx>=9.1.0; python_version >= '3.12'",
+    "sphinx>=9.1.0",
     "sphinx-rtd-theme>=3.1.0",
 ]
