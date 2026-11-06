@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@babel/core": "7.28.6",
+    "@babel/core": "7.29.13",
     "@babel/eslint-parser": "7.28.4",
     "@babel/preset-env": "7.28.3",
     "@babel/preset-react": "7.28.5",
