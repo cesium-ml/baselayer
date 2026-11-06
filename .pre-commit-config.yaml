@@ -36,9 +36,11 @@ repos:
       - id: prettier
         pass_filenames: true
 
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: a60120d4f10a6367afaec0723c5bd6024a749d0e # v9.35.0
+  - repo: local
     hooks:
       - id: eslint
-        files: \.[j]sx?$
+        name: eslint
+        entry: npx eslint
+        language: system
+        files: \.jsx?$
         types: [file]

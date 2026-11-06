@@ -1,12 +1,12 @@
 import os
 import shutil
 import subprocess
-import time
 
 import tornado.ioloop
 import tornado.web
 
 from baselayer.app.env import load_env
+from baselayer.app.models import init_db
 from baselayer.log import make_log
 
 env, cfg = load_env()
@@ -16,41 +16,7 @@ log = make_log("migration_manager")
 conf_files = env.config
 conf_flags = ["-x", f"config={':'.join(conf_files)}"] if conf_files else []
 
-
-class timeout_cache:
-    def __init__(self, timeout):
-        self.timeout = timeout
-        self.lastrun = 0
-        self.cache = None
-        self.func = None
-
-    def __call__(self, f):
-        self.func = f
-        return self.wrapped
-
-    def wrapped(self, *args, **kwargs):
-        tic = self.lastrun
-        toc = time.time()
-        if (toc - tic) > self.timeout or self.cache is None:
-            self.cache = self.func(*args, **kwargs)
-            self.lastrun = time.time()
-
-        return self.cache
-
-
-def _alembic(*options):
-    path_env = os.environ.copy()
-    path_env["PYTHONPATH"] = "."
-
-    p = subprocess.Popen(
-        ["alembic"] + conf_flags + list(options),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=path_env,
-    )
-
-    output, error = p.communicate()
-    return p, output, error
+migrated = False
 
 
 def migrations_exist():
@@ -83,31 +49,44 @@ def migrate():
         log("Migration succeeded")
 
 
-@timeout_cache(timeout=10)
-def migration_status():
+def check_migration_status():
     if not migrations_exist():
         # No migrations present, continue as usual
         return True
 
-    p, output, error = _alembic("current", "--verbose")
+    from alembic.config import Config
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
 
-    if p.returncode != 0:
-        log("Alembic returned an error; aborting")
-        log(output.decode("utf-8"))
+    try:
+        heads = set(ScriptDirectory.from_config(Config("alembic.ini")).get_heads())
+        engine = init_db(**{**cfg["database"], "pooler": None})
+        try:
+            with engine.connect() as conn:
+                current = set(MigrationContext.configure(conn).get_current_heads())
+        finally:
+            engine.dispose()
+    except Exception as e:
+        log(f"Could not read the migration status; aborting: {e}")
         return False
 
-    status = output.decode("utf-8").strip().split("\n")
-    status = [line for line in status if line.startswith("Rev: ")]
-    if not status:
+    if not current:
         log("Database not stamped: assuming migrations not in use; continuing")
         return True
 
-    if status[0].endswith("(head)"):
+    if current == heads:
         log("Database is up to date")
         return True
 
     log("Database is not migrated")
     return False
+
+
+def migration_status():
+    global migrated
+    if not migrated:
+        migrated = check_migration_status()
+    return migrated
 
 
 class MainHandler(tornado.web.RequestHandler):

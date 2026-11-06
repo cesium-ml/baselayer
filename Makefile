@@ -1,5 +1,4 @@
 SHELL=/bin/bash
-ESLINT=npx eslint
 
 .DEFAULT_GOAL := help
 
@@ -31,8 +30,8 @@ rspack = npx rspack
 
 .PHONY: clean dependencies db_init db_clear bundle bundle-watch paths
 .PHONY: fill_conf_values log run run_production run_testing monitor attach
-.PHONY: stop status memory memory-watch test_headless test test_report check-js-updates lint-install
-.PHONY: lint lint-unix lint-githook baselayer_doc_reqs html
+.PHONY: stop status memory memory-watch test_headless test test_report check-js-updates
+.PHONY: baselayer_doc_reqs html
 .PHONY: system_setup service_setup
 .PHONY: bundle bundle-watch
 
@@ -84,6 +83,7 @@ run: system_setup
 	@echo
 	@echo " - Run \`make log\` in another terminal to view logs"
 	@echo " - Run \`make monitor\` in another terminal to restart services"
+	@echo " - If the app does not come up, check \`log/app*.log\`"
 	@echo
 	@echo "The server is in debug mode:"
 	@echo
@@ -98,12 +98,13 @@ run: system_setup
 run_production: ## Run the web application in production mode (no dependency checking).
 run_production:
 	@echo "[!] Production run: not automatically installing dependencies."
+	@echo "    If the app does not come up, check \`log/app*.log\`"
 	@echo
 	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-run_testing: FLAGS=--config=test_config.yaml --debug  # both this and the next FLAGS definition are needed
+run_testing: FLAGS=--config=test_config.yaml --debug --testing  # both this and the next FLAGS definition are needed
 run_testing: system_setup
 	@echo -e "\n$(B)[baselayer] Launch app for testing$(N)"
 	@export FLAGS="$(FLAGS)" && \
@@ -149,32 +150,6 @@ test_report:
 # Call this target to see which Javascript dependencies are not up to date
 check-js-updates:
 	uv run ./baselayer/tools/check_js_updates.sh
-
-# Lint targets
-lint-install: ## Install ESLint and a git pre-commit hook.
-lint-install: cp-lint-yaml lint-githook
-	@echo "Installing latest version of ESLint and AirBNB style rules"
-	@./baselayer/tools/update_eslint.sh
-
-cp-lint-yaml: ## Copy eslint config file to parent app if not present
-	@if ! [ -e .eslintrc.yaml ]; then \
-	  echo "No ESLint configuration found; copying baselayer's version of .eslintrc.yaml"; \
-	  cp baselayer/.eslintrc.yaml .eslintrc.yaml; \
-	fi
-
-$(ESLINT): lint-install
-
-lint: ## Check JavaScript code style.
-	$(ESLINT) --ext .jsx,.js -c .eslintrc.yaml static/js
-
-lint-unix:
-	$(ESLINT) --ext .jsx,.js -c .eslintrc.yaml --format=unix static/js
-
-lint-githook:
-	@if ! [ -e .git/hooks/pre-commit ]; then \
-	  echo "Installing ESLint pre-commit hook into \`.git/hooks/pre-commit\`"; \
-	  cp baselayer/.git-pre-commit .git/hooks/pre-commit; \
-	fi
 
 # baselayer-specific targets
 # All other targets are run from the parent app.  The following are related to

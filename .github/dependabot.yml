@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: cron
+      cronjob: "0 9 1 */2 *" # every two months
+    cooldown:
+      default-days: 15
+    groups:
+      npm:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: cron
+      cronjob: "0 9 1 */2 *"
+    cooldown:
+      default-days: 15
+    groups:
+      actions:
+        patterns: ["*"]

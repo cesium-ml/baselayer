@@ -1,7 +1,7 @@
 [project]
 name = 'baselayer'
 version = '0.1'
-requires-python = '>=3.10'
+requires-python = '>=3.12'
 dependencies = [
     "arrow>=0.15.4",
     "jinja2>=2.11.2",
@@ -17,11 +17,10 @@ dependencies = [
     "pyzmq>=20.0.0",
     "requests>=2.25.1",
     "simplejson>=3.17.2",
-    "social-auth-core==4.2.0",
+    "social-auth-core==5.0.2",
     "sqlalchemy[asyncio]>=2.0.38,<3",
     "sqlalchemy-utils>=0.36.8",
     "supervisor>=4.3",
-    "tomli >= 2.1.0; python_full_version < '3.11'",
     "tornado>=6.5.7",
 ]
 
@@ -29,7 +28,11 @@ dependencies = [
 package = false
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["UP"]
+ignore = ["UP038"]  # deprecated in Ruff; keep using tuples in isinstance()
 
 [dependency-groups]
 test = [
@@ -38,8 +41,8 @@ test = [
     "pytest-playwright>=0.7.1",
 ]
 docs = [
-    "numpydoc>=1.10.0; python_version >= '3.12'",  # Can remove these tags once Sphinx supports all baselayer supported Python versions
-    "recommonmark>=0.7.1",
-    "sphinx>=9.1.0; python_version >= '3.12'",
+    "numpydoc>=1.10.0",
+    "myst-parser>=5.1.0",
+    "sphinx>=9.1.0",
     "sphinx-rtd-theme>=3.1.0",
 ]

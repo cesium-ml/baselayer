@@ -9,9 +9,9 @@ env, cfg = load_env()
 
 log = make_log("message_proxy")
 
-# Bind on all interfaces so producers/consumers on other hosts can connect
-IN = f"tcp://*:{cfg['ports.message_bus_receive']}"
-OUT = f"tcp://*:{cfg['ports.message_bus_publish']}"
+BIND = cfg["hosts.message_bus_bind"]
+IN = f"tcp://{BIND}:{cfg['ports.message_bus_receive']}"
+OUT = f"tcp://{BIND}:{cfg['ports.message_bus_publish']}"
 
 context = zmq.Context()
 

@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: "baselayer"
 
@@ -43,7 +43,7 @@ jobs:
           mv baselayer baselayer_template_app/
 
       - name: "Set up Python"
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version-file: "baselayer_template_app/pyproject.toml"
 
@@ -54,11 +54,11 @@ jobs:
           cache-dependency-glob: "baselayer_template_app/uv.lock"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
-          version: "latest"
+          package_json_file: baselayer_template_app/package.json
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22.x"
           cache: "pnpm"
@@ -75,7 +75,7 @@ jobs:
           PV=$(uv run playwright --version | awk '{print $2}')
           echo "PLAYWRIGHT_VERSION=$PV" >> "$GITHUB_ENV"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cache/ms-playwright
@@ -138,7 +138,7 @@ jobs:
           make test
 
       - name: Upload logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: logs

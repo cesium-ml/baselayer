@@ -18,7 +18,7 @@ jobs = cfg.get("cron") or []
 
 init_db(**cfg["database"])
 
-timestamp_file = ".jobs_timestamps.yaml"
+timestamp_file = cfg["paths.cron_timestamps_file"]
 
 
 class TimeCache:
@@ -51,7 +51,7 @@ class TimeCache:
                 return False
 
         if key not in self.ts:
-            self.reset(key)
+            return True
 
         return (time.time() - self.ts[key]) > interval * 60
 

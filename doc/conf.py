@@ -13,6 +13,8 @@
 # serve to show the default.
 
 import os
+import pathlib
+import tomllib
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -28,7 +30,7 @@ import os
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "recommonmark",
+    "myst_parser",
     "sphinx.ext.mathjax",
     #    'sphinx.ext.autodoc',
     "sphinx.ext.autosummary",
@@ -42,6 +44,8 @@ extensions = [
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
+
+myst_heading_anchors = 4
 
 source_suffix = {
     ".rst": "restructuredtext",
@@ -64,12 +68,8 @@ author = "The baselayer Team"
 # built documents.
 #
 
-# setup_lines = open('../baselayer/__init__.py').readlines()
-version = "vUndefined"
-# for l in setup_lines:
-#    if l.startswith('__version__'):
-#        version = l.split("'")[1]
-#        break
+with open(pathlib.Path(__file__).parent.parent / "pyproject.toml", "rb") as f:
+    version = tomllib.load(f)["project"]["version"]
 
 # The full version, including alpha/beta/rc tags.
 release = version
@@ -79,7 +79,7 @@ release = version
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -156,7 +156,7 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = []
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

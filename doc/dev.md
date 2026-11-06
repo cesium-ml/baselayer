@@ -24,6 +24,15 @@ Tests are run in headless mode by default. To run visibly, use `pytest --headed`
 
 We run tests in Firefox by default. Edit `pytest.ini` if you want to try another.
 
+## Linting
+
+Baselayer lints its own code with [pre-commit](https://pre-commit.com). To set it up:
+
+1. `npm ci` to install ESLint and its plugins
+2. `pre-commit install`
+
+Apps built on baselayer set up their own linting.
+
 ## Make targets
 
 Run `make help` to list the targets that have a description.
@@ -210,13 +219,6 @@ every call returns that request's one session. Outside a request the variable ke
 default of `None` and every call in the process returns one single shared session, where
 one caller's `rollback()` discards another caller's pending work. Use `new_session()`
 there.
-
-## Standards
-
-We use ESLint to ensure that our JavaScript & JSX code is consistent and conforms with recommended standards.
-
-- Install ESLint using `make lint-install`. This will also install a git pre-commit hook so that any commit is linted before it is checked in.
-- Run `make lint` to perform a style check
 
 ## Upgrading Javascript dependencies
 

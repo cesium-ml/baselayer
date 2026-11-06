@@ -1,0 +1,22 @@
+{
+  "name": "baselayer",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@babel/core": "8.0.7",
+    "@babel/eslint-parser": "8.0.7",
+    "@babel/preset-env": "8.0.7",
+    "@babel/preset-react": "8.0.1",
+    "@dr.pogodin/eslint-configs": "0.1.0",
+    "@eslint/js": "9.39.2",
+    "eslint": "9.35.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-import": "2.32.0",
+    "globals": "17.13.0"
+  },
+  "peerDependencies": {
+    "prop-types": "^15.8.1",
+    "react": "^19.1.1",
+    "react-redux": "^9.2.0"
+  }
+}

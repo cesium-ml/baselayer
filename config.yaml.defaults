@@ -27,6 +27,8 @@ database:
 
 paths:
   downloads_folder: "/tmp"
+  # Last run of each cron job; keep it on a persistent volume in containers.
+  cron_timestamps_file: ".jobs_timestamps.yaml"
 
 server:
   # Set this to true if the URL of your server is expected to be secure, i.e.
@@ -60,7 +62,7 @@ server:
   # nginx parameter which sets both the time in seconds before which
   # the server is considered unavailable and the subsequent period of
   # time the server will be unavailable
-  fail_timeout: 20
+  fail_timeout: 5
 
   # Rate limit: number of requests per second (see https://www.nginx.com/blog/rate-limiting-nginx/)
   rate_limit: 5
@@ -140,6 +142,17 @@ services:
   #     params: {}
   external: {}
 
+zygote:
+  # Services (directory names, or '*') whose Python processes are forked from
+  # the zygote, which imports `preload` once so they share those modules.
+  # Ignored on macOS, where services are always started on their own.
+  services: []
+  # Services to leave out, e.g. when `services` is '*'
+  exclude: []
+  # Modules the zygote imports; empty means the module of `app.factory`.
+  # Restart the zygote to pick up changes to them.
+  preload: []
+
 log:
   # if true, log all API calls, including successful ones, if false,
   # log only those that trigger a warning / error
@@ -170,6 +183,8 @@ hosts:
   # websocket server connect to it over TCP, so set this to a routable address
   # (e.g. a k8s Service name) when running the bus on a separate host/pod.
   message_bus: 127.0.0.1
+  # Interface the bus listens on; "*" only when other hosts connect to it.
+  message_bus_bind: 127.0.0.1
 
 external_logging:
   papertrail:
