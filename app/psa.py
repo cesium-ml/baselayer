@@ -70,7 +70,9 @@ class UserMixin:
         backend = self.get_backend_instance(strategy)
         if token and backend and hasattr(backend, "refresh_token"):
             response = backend.refresh_token(token, *args, **kwargs)
-            extra_data = backend.extra_data(self, self.uid, response, self.extra_data)
+            extra_data = backend.extra_data(
+                self.user, self.uid, response, self.extra_data or {}, {}
+            )
             if self.set_extra_data(extra_data):
                 self.save()
 
