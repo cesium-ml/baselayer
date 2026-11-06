@@ -58,6 +58,7 @@ admin_cmd = f"{psql_cmd} {flags.replace(f'-U {user}', f'-U {admin_user}')}"
 sudo_admin_cmd = f"sudo -n -u {admin_user} psql -X --no-password" + (
     f" -p {port}" if port else ""
 )
+local = host in (None, "", "localhost", "127.0.0.1", "::1")
 
 test_cmd = f"{psql_cmd} {flags} -c 'SELECT 0;' "
 
@@ -70,6 +71,17 @@ def stderr(p):
     return p.stderr.decode("utf-8").strip()
 
 
+def auth_failed(error):
+    return any(
+        s in error
+        for s in ("authentication failed", "pg_hba.conf", "no password supplied")
+    )
+
+
+def server_down(error):
+    return "Connection refused" in error or "No such file or directory" in error
+
+
 def test_db(database):
     return run(test_cmd + database)
 
@@ -77,15 +89,17 @@ def test_db(database):
 def manual_commands():
     """Commands that do the superuser part of this script by hand."""
     errors = {d: stderr(test_db(d)) for d in dbs}
-    no_role = any(f'role "{user}" does not exist' in e for e in errors.values())
+    maybe_no_role = any(
+        f'role "{user}" does not exist' in e or auth_failed(e) for e in errors.values()
+    )
     to_create = [
         d
         for d, e in errors.items()
-        if args.force or no_role or f'database "{d}" does not exist' in e
+        if args.force or maybe_no_role or f'database "{d}" does not exist' in e
     ]
     return [
         *(f"sudo -u {admin_user} dropdb --if-exists {d}" for d in dbs if args.force),
-        *([f"sudo -u {admin_user} createuser {user}"] if no_role else []),
+        *([f"sudo -u {admin_user} createuser {user}"] if maybe_no_role else []),
         *(f"sudo -u {admin_user} createdb -O {user} {d}" for d in to_create),
     ]
 
@@ -103,9 +117,14 @@ def find_admin_cmd():
     p = run(f"{admin_cmd} -c 'SELECT 0;' postgres")
     if p.returncode == 0:
         return admin_cmd
-    if "authentication failed" not in stderr(p) and "pg_hba.conf" not in stderr(p):
-        return None
-    if not (sys.stdin.isatty() and shutil.which("sudo")):
+    if not (
+        auth_failed(stderr(p)) and local and sys.stdin.isatty() and shutil.which("sudo")
+    ):
+        print(
+            f"\nCannot connect as the superuser [{admin_user}]. "
+            "Run these commands yourself, then run this script again:\n"
+        )
+        print("\n".join(f"  {cmd}" for cmd in manual_commands()) + "\n")
         return None
 
     print(
@@ -118,7 +137,7 @@ def find_admin_cmd():
     print("\n".join(f"       {cmd}" for cmd in manual_commands()) + "\n")
     if not ask("Use sudo?"):
         print("\nRun the commands above, then run this script again.\n")
-        sys.exit(1)
+        return None
     if subprocess.run(["sudo", "-v"]).returncode != 0:
         return None
     if run(f"{sudo_admin_cmd} -c 'SELECT 0;' postgres").returncode != 0:
@@ -147,7 +166,7 @@ def advice(error, admin):
             "and put the same password in `database.password` in your config.",
         ]
 
-    if "authentication failed" in error or "no pg_hba.conf entry" in error:
+    if auth_failed(error):
         method = "scram-sha-256" if password else "trust"
         all_dbs = ",".join(dbs)
         if host:
@@ -189,7 +208,7 @@ def advice(error, admin):
             *(f"  {cmd}" for cmd in manual_commands()),
         ]
 
-    if "Connection refused" in error or "No such file or directory" in error:
+    if server_down(error):
         return [
             "The PostgreSQL server is not running. Start it with:",
             "",
@@ -209,16 +228,10 @@ log("Initializing databases")
 # since the test database may not exist in production
 db_to_check = db_test if args.test_only else db
 
-# Other connection errors, such as auth failures, are diagnosed below.
-missing = any("does not exist" in stderr(test_db(d)) for d in dbs)
-needs_admin = args.force or missing
+errors = [stderr(p) for p in map(test_db, dbs) if p.returncode != 0]
+needs_admin = args.force or any(not server_down(e) for e in errors)
 admin = find_admin_cmd() if needs_admin else None
-if needs_admin and admin is None:
-    print(
-        f"\nCannot connect as the superuser [{admin_user}]. "
-        "Run these commands yourself, then run this script again:\n"
-    )
-    print("\n".join(f"  {cmd}" for cmd in manual_commands()) + "\n")
+if args.force and admin is None:
     sys.exit(1)
 
 if admin is not None:
