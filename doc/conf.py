@@ -13,6 +13,12 @@
 # serve to show the default.
 
 import os
+import pathlib
+
+try:
+    import tomllib
+except ImportError:  # Python < 3.11
+    import tomli as tomllib
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -64,12 +70,8 @@ author = "The baselayer Team"
 # built documents.
 #
 
-# setup_lines = open('../baselayer/__init__.py').readlines()
-version = "vUndefined"
-# for l in setup_lines:
-#    if l.startswith('__version__'):
-#        version = l.split("'")[1]
-#        break
+with open(pathlib.Path(__file__).parent.parent / "pyproject.toml", "rb") as f:
+    version = tomllib.load(f)["project"]["version"]
 
 # The full version, including alpha/beta/rc tags.
 release = version
