@@ -29,6 +29,10 @@ package = false
 [tool.ruff]
 target-version = "py312"
 
+[tool.ruff.lint]
+extend-select = ["UP"]
+ignore = ["UP038"]  # deprecated in Ruff; keep using tuples in isinstance()
+
 [dependency-groups]
 test = [
     "playwright>=1.55",
