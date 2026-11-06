@@ -30,7 +30,7 @@ import tomllib
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "recommonmark",
+    "myst_parser",
     "sphinx.ext.mathjax",
     #    'sphinx.ext.autodoc',
     "sphinx.ext.autosummary",
@@ -44,6 +44,8 @@ extensions = [
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
+
+myst_heading_anchors = 4
 
 source_suffix = {
     ".rst": "restructuredtext",
