@@ -33,7 +33,7 @@ def service_pids(config=SUPERVISORD_CFG):
 def tree_memory(pid, recursive=True):
     """Return (process count, RSS, PSS) in bytes for `pid` and its descendants.
 
-    PSS is None where the platform does not report it (e.g., macOS).
+    PSS is None where it cannot be read (e.g., macOS).
     """
     try:
         root = psutil.Process(pid)
@@ -44,7 +44,10 @@ def tree_memory(pid, recursive=True):
     count, rss, pss = 0, 0, 0
     for proc in procs:
         try:
-            mem = proc.memory_full_info()
+            try:
+                mem = proc.memory_full_info()
+            except psutil.AccessDenied:
+                mem = proc.memory_info()
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
         count += 1
