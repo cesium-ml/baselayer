@@ -10,32 +10,35 @@ certain setup procedures before the application is run.
 The function should have the following argument signature:
 
 ```
-def make_app(config, baselayer_handlers, baselayer_settings)
+def make_app(config, baselayer_handlers, baselayer_settings, process=None, env=None)
 ```
 
-The configuration is passed in as the first parameter, followed by
-baselayer-handlers (those should be appended to your Tornado handlers,
-to put in place system endpoints such as logging in). The last
-argument contains baselayer-specific Tornado configuration.
+- `config`: the loaded configuration.
+- `baselayer_handlers`: the baselayer Tornado handlers, for system endpoints
+  such as logging in. Add your own handlers to this list.
+- `baselayer_settings`: the baselayer Tornado settings.
+- `process`: the number of this app server process, starting at 0. Do
+  one-time setup, such as creating tables, only in process 0.
+- `env`: the parsed command line flags, for example `env.debug`.
 
 A typical `make_app` could be:
 
 ```
+import tornado.web
+
 from baselayer.app.app_server import MainPageHandler
 
-def make_app(config, baselayer_handlers, baselayer_settings):
-       handlers = baselayer_handlers + [
-           (r'/my_page', MyPageHandler),
-           (r'/.*', MainPageHandler)
-       ]
 
-       settings = baselayer_settings
-       settings.update({
-           'tornado_config_key': 'tornado_config_value'
-       })  # Specify any additional settings here
+def make_app(config, baselayer_handlers, baselayer_settings, process=None, env=None):
+    handlers = baselayer_handlers + [
+        (r"/my_page", MyPageHandler),
+        (r"/.*", MainPageHandler),
+    ]
 
-       app = tornado.web.Application(handlers, **settings)
-       return app
+    settings = baselayer_settings
+    settings.update({"tornado_config_key": "tornado_config_value"})
+
+    return tornado.web.Application(handlers, **settings)
 ```
 
 ## Templating
