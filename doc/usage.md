@@ -85,6 +85,69 @@ services:
 External services are imported in the last location mentioned in `services.paths`.
 To learn more about external services, please refer to the [External Services documentation](extending.md#adding-external-services).
 
+## Sharing memory between services (zygote)
+
+Each Python service usually imports the application by itself, so each
+process holds its own copy of the same modules. The zygote prevents
+this. The zygote is a service that imports the modules one time. It then
+starts the other Python services as forks of itself. A forked service
+shares the memory pages of the zygote until it writes to them
+(copy-on-write).
+
+The zygote is off by default. To fork all Python services from it:
+
+```
+zygote:
+  services: '*'
+```
+
+The configuration keys are:
+
+- `zygote.services`: the services to fork from the zygote, as a list of
+  service names (directory names), or `'*'` for all services.
+- `zygote.exclude`: the services to start by themselves, for example when
+  `zygote.services` is `'*'`.
+- `zygote.preload`: the modules that the zygote imports. If the list is
+  empty, the zygote imports the module of `app.factory`.
+
+### How the zygote starts a service
+
+supervisord keeps one program for each service. For a forked service,
+`baselayer/tools/setup_services.py` changes the supervisor command from
+`/usr/bin/env python SCRIPT ARGS` to
+`/usr/bin/env python baselayer/tools/zygote_launch.py SCRIPT ARGS`.
+Commands that do not start with `/usr/bin/env python`, such as the nginx
+command, do not change.
+
+The launcher is a small process that imports only the standard library.
+It sends its standard input and output, arguments, working directory, and
+environment to the zygote over `run/zygote.sock`. The zygote forks, and
+the fork runs `SCRIPT` as `python SCRIPT ARGS` would. The launcher then:
+
+- sends the signals that it receives to the service;
+- writes the process ID of the service to `run/zygote/<launcher PID>.pid`,
+  because supervisord shows the process ID of the launcher;
+- stops with the exit status of the service.
+
+A forked service has the name of its supervisor program, so `top` and
+`ps -o comm` show that name. If the zygote stops, its services also stop.
+
+### Rules for preloaded modules
+
+- Do not start threads, open database connections, or open sockets when
+  a preloaded module is imported. A fork does not copy threads, and
+  forked services must not share connections.
+- The zygote uses one thread for OpenBLAS, MKL, and OpenMP, and Arrow's
+  jemalloc does not start a background thread.
+- The zygote does not see changes to the preloaded modules. Restart the
+  app to load them.
+- In debug mode, Tornado restarts a service when one of its files changes.
+  The restarted service imports its modules again, and no longer shares
+  memory with the zygote.
+
+On macOS, baselayer ignores `zygote.services` and starts each service by
+itself, because macOS system libraries can crash in a forked process.
+
 ## Web Application
 
 Baselayer comes with a microservice capable of bundling a web application. A great example of this is given in the [template application](https://github.com/cesium-ml/baselayer_template_app). When building your own application on top of baselayer, you'll need to add your own `static` directory at the root of your project, as well as a `rspack.config.js` file to bundle your application. The `rspack.config.js` from the template application is a good starting point, and will be sufficient for most use cases. Instead of using the very popular [webpack](https://webpack.js.org/), we use [rspack](https://rspack.dev/) as a 1:1 replacement. It covers all the features needed by baselayer, but offers much faster build times in development and production modes. We've noticed a x2 speedup on average when building a complex & heavy web app such as [SkyPortal](https://github.com/skyportal/skyportal), and at least a x5 speedup when re-building the app in watch mode, which we use to update the web app in real-time when developing.
