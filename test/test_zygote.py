@@ -162,6 +162,22 @@ def test_the_launcher_records_the_pid_of_its_service(zygote):
     assert not pidfile.exists()
 
 
+def test_memory_is_counted_for_the_service_not_the_zygote(zygote, monkeypatch):
+    from baselayer.tools.memory_usage import service_memory
+
+    process, tmp_path, _ = zygote
+    launcher = launch(zygote, SLEEPER)
+    wait_for_file(tmp_path / f"run/zygote/{launcher.pid}.pid")
+    monkeypatch.chdir(tmp_path)
+
+    # The launcher and its fork
+    assert service_memory("sleeper", launcher.pid)[0] == 2
+    assert service_memory("zygote", process.pid)[0] == 1
+
+    launcher.send_signal(signal.SIGTERM)
+    launcher.wait(timeout=30)
+
+
 def test_the_service_stops_when_its_launcher_is_killed(zygote):
     _, tmp_path, _ = zygote
     launcher = launch(zygote, SLEEPER)
