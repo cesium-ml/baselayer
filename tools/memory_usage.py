@@ -14,6 +14,8 @@ from supervisor.options import ClientOptions
 
 base_dir = os.path.abspath(pjoin(os.path.dirname(__file__), "../.."))
 SUPERVISORD_CFG = "baselayer/conf/supervisor/supervisor.conf"
+# tools/zygote_launch.py writes the pid of its service to <launcher pid>.pid
+ZYGOTE_PIDS = "run/zygote"
 
 
 def service_pids(config=SUPERVISORD_CFG):
@@ -28,6 +30,34 @@ def service_pids(config=SUPERVISORD_CFG):
             name = p["name"] if p["group"] == p["name"] else f"{p['group']}:{p['name']}"
             pids[name] = p["pid"]
     return pids
+
+
+def forked_pid(launcher_pid):
+    """Return the pid of the service that a zygote launcher stands in for, or None."""
+    try:
+        with open(pjoin(ZYGOTE_PIDS, f"{launcher_pid}.pid")) as f:
+            return int(f.read())
+    except (OSError, ValueError):
+        return None
+
+
+def service_memory(name, pid):
+    """Return (process count, RSS, PSS) in bytes for a supervisor service.
+
+    A service forked from the zygote counts its launcher and its fork. The
+    zygote counts only itself: its children are the forked services.
+    """
+    if name in ("supervisord", "zygote"):
+        # supervisord's children are the services, which have their own rows
+        return tree_memory(pid, recursive=False)
+
+    count, rss, pss = tree_memory(pid)
+    service = forked_pid(pid)
+    fork_count, fork_rss, fork_pss = tree_memory(service) if service else (0, 0, 0)
+    if fork_count:
+        count, rss = count + fork_count, rss + fork_rss
+        pss = pss + fork_pss if pss is not None and fork_pss is not None else None
+    return count, rss, pss
 
 
 def tree_memory(pid, recursive=True):
@@ -65,8 +95,7 @@ def memory_table(pids):
     """Format the memory used by each service as a table, largest first."""
     rows = []
     for name, pid in pids.items():
-        # supervisord's children are the services, which have their own rows
-        count, rss, pss = tree_memory(pid, recursive=(name != "supervisord"))
+        count, rss, pss = service_memory(name, pid)
         if count:
             rows.append((name, count, rss, pss))
     if not rows:
