@@ -17,7 +17,7 @@ _print_lock = threading.Lock()
 def tail_f(filename, interval=1.0):
     while True:
         try:
-            with open(filename) as f:
+            with open(filename, errors="replace") as f:
                 f.seek(0, os.SEEK_END)
                 while True:
                     line = f.readline()
