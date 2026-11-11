@@ -79,7 +79,7 @@ system_setup: | paths dependencies fill_conf_values service_setup
 service_setup:
 	@$(PYTHON) ./baselayer/tools/setup_services.py $(FLAGS)
 
-log: ## Monitor log files for all services.
+log: ## Follow the logs of all services.
 log: paths
 	@PYTHONPATH=. PYTHONUNBUFFERED=1 uv run python ./baselayer/tools/watch_logs.py
 
@@ -89,10 +89,12 @@ run: system_setup
 	@echo
 	$(call LOG, Starting micro-services)
 	@echo
-	@echo " - Run \`make log\` in another terminal to view logs"
-	@echo " - Run \`make status\` to see the state of each service"
-	@echo " - Run \`make monitor\` in another terminal to view or restart services"
-	@echo " - If the app does not come up, check \`log/app*.log\`"
+	@echo "In another terminal:"
+	@echo "  make log       follow the logs of all services"
+	@echo "  make status    list the services and their state"
+	@echo "  make monitor   start, stop, or restart services"
+	@echo
+	@echo "If the app does not come up, check \`log/app*.log\`."
 	@echo
 	@echo "The server is in debug mode: JavaScript and Python files reload when they change."
 	@echo
@@ -118,7 +120,7 @@ run_testing: system_setup
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-monitor: ## Monitor microservice status.
+monitor: ## Start, stop, or restart services.
 	@echo "Entering supervisor control panel."
 	@echo
 	@echo " - Type \`status\` to see microservice status"
@@ -137,7 +139,7 @@ clean:
 stop: ## Stop all running services and the supervisor itself.
 	@$(SUPERVISORCTL) shutdown
 
-status: ## Show the state of each service.
+status: ## List the services and their state.
 	@$(PYTHON) ./baselayer/tools/supervisor_status.py
 
 memory: ## Show memory used by each service.
