@@ -90,6 +90,7 @@ run: system_setup
 	$(call LOG, Starting micro-services)
 	@echo
 	@echo " - Run \`make log\` in another terminal to view logs"
+	@echo " - Run \`make status\` to see the state of each service"
 	@echo " - Run \`make monitor\` in another terminal to view or restart services"
 	@echo " - If the app does not come up, check \`log/app*.log\`"
 	@echo
@@ -136,7 +137,7 @@ clean:
 stop: ## Stop all running services and the supervisor itself.
 	@$(SUPERVISORCTL) shutdown
 
-status:
+status: ## Show the state of each service.
 	@$(PYTHON) ./baselayer/tools/supervisor_status.py
 
 memory: ## Show memory used by each service.
