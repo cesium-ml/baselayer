@@ -8,9 +8,6 @@ from status import status
 
 from baselayer.app.auth_backends import configured_backends
 from baselayer.app.env import load_env
-from baselayer.log import make_log
-
-log = make_log("baselayer")
 
 
 def md5sum(fn):

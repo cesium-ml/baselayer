@@ -20,7 +20,7 @@ config_print(
 )
 config_files = [os.path.relpath(f) for f in cfg["config_files"]]
 config_print("Config", ", ".join(config_files))
-if "config.yaml" not in config_files:
+if all(f.endswith(".defaults") for f in config_files):
     print("        (no config.yaml: copy config.yaml.defaults to change the defaults)")
 config_print("Fake OAuth", "enabled" if cfg["server.auth.debug_login"] else "disabled")
 config_print("Debug mode", "enabled" if env.debug else "disabled")

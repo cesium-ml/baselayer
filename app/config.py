@@ -99,7 +99,7 @@ def load_config(config_files=[], load_services_configs=True):
     missing = [
         cfg
         for cfg in config_files
-        if not os.path.isfile(cfg) and os.path.basename(cfg) != "config.yaml"
+        if not os.path.isfile(cfg) and os.path.normpath(cfg) != "config.yaml"
     ]
     if missing:
         log(f"Missing config files: {', '.join(map(str, missing))}; continuing.")
