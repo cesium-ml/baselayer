@@ -43,7 +43,7 @@ help:
 
 dependencies: README.md
 # --inexact keeps packages that the user installed; show the sync only when it installs
-	@uv sync --inexact --check --quiet 2>/dev/null || { echo "Installing Python packages:"; uv sync --inexact; }
+	@uv sync --inexact --check --quiet 2>/dev/null || { echo -e "$(B)Installing Python packages:$(N)"; uv sync --inexact; }
 	@$(PYTHON) ./baselayer/tools/check_app_environment.py
 	@baselayer/tools/check_js_deps.sh
 
