@@ -486,9 +486,7 @@ def copy_supervisor_configs(external_services=[]):
 
     services_to_run = services_to_run.difference(incompatible)
 
-    print(
-        f"[✓] Services ({len(services_to_run)}): {', '.join(sorted(services_to_run))}"
-    )
+    print(f"[✓] Services ({len(services_to_run)})")
 
     forked = zygote_services(cfg, services_to_run)
 
