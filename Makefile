@@ -1,5 +1,8 @@
 SHELL=/bin/bash
 
+# uv uses the project's .venv; another active environment only makes it warn
+unexport VIRTUAL_ENV
+
 .DEFAULT_GOAL := help
 
 # Use `config.yaml` by default, unless overridden by user
@@ -39,8 +42,7 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@echo "$$ uv sync --inexact"
-	@uv sync --inexact  # don't remove additional dependencies installed by the user
+	@uv sync --inexact --quiet  # don't remove additional dependencies installed by the user
 	@$(PYTHON) ./baselayer/tools/check_app_environment.py
 	@baselayer/tools/check_js_deps.sh
 
@@ -85,9 +87,7 @@ run: system_setup
 	@echo " - Run \`make monitor\` in another terminal to restart services"
 	@echo " - If the app does not come up, check \`log/app*.log\`"
 	@echo
-	@echo "The server is in debug mode:"
-	@echo
-	@echo "  JavaScript and Python files will be reloaded upon change."
+	@echo "The server is in debug mode: JavaScript and Python files reload when they change."
 	@echo
 	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && echo && \

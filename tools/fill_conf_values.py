@@ -4,7 +4,6 @@ import os
 import subprocess
 
 import jinja2
-from status import status
 
 from baselayer.app.auth_backends import configured_backends
 from baselayer.app.env import load_env
@@ -111,7 +110,6 @@ custom_filters = {"md5sum": md5sum, "version": version, "hash": hash_filter}
 
 
 def fill_config_file_values(template_paths):
-    log("Compiling configuration templates")
     env, cfg = load_env()
     installed, dynamic, modules_path = nginx_brotli_installed()
     cfg["fill_config_feature"] = {
@@ -123,23 +121,22 @@ def fill_config_file_values(template_paths):
     }
 
     for template_path in template_paths:
-        with status(template_path):
-            tpath, tfile = os.path.split(template_path)
-            jenv = jinja2.Environment(
-                loader=jinja2.FileSystemLoader(tpath),
-            )
-            jenv.filters.update(custom_filters)
+        tpath, tfile = os.path.split(template_path)
+        jenv = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(tpath),
+        )
+        jenv.filters.update(custom_filters)
 
-            template = jenv.get_template(tfile)
-            cfg["env"] = env
-            # Resolved sign-in providers, so login templates can render one
-            # button each without repeating the default-to-Google fallback.
-            cfg["auth_backends"] = configured_backends()
-            rendered = template.render(cfg)
+        template = jenv.get_template(tfile)
+        cfg["env"] = env
+        # Resolved sign-in providers, so login templates can render one
+        # button each without repeating the default-to-Google fallback.
+        cfg["auth_backends"] = configured_backends()
+        rendered = template.render(cfg)
 
-            with open(os.path.splitext(template_path)[0], "w") as f:
-                f.write(rendered)
-                f.write("\n")
+        with open(os.path.splitext(template_path)[0], "w") as f:
+            f.write(rendered)
+            f.write("\n")
 
 
 if __name__ == "__main__":

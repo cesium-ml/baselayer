@@ -5,7 +5,6 @@ import sys
 import textwrap
 
 from packaging.version import Version
-from status import status
 from get_js_installer import get_js_installer
 
 
@@ -41,23 +40,18 @@ deps = {
     "python": (["python", "--version"], lambda v: v.split()[1], "3.8"),
 }
 
-print("Checking system dependencies:")
-
 fail = []
 
 for dep, (cmd, get_version, min_version) in deps.items():
     try:
-        query = f"{dep} >= {min_version}"
-        with status(query):
-            success, out = output(cmd)
-            try:
-                version = get_version(out.decode("utf-8").strip())
-                print(f"[{version.rjust(8)}]".rjust(40 - len(query)), end="")
-            except:  # noqa: E722
-                raise ValueError("Could not parse version")
+        success, out = output(cmd)
+        try:
+            version = get_version(out.decode("utf-8").strip())
+        except:  # noqa: E722
+            raise ValueError("Could not parse version")
 
-            if not (Version(version) >= Version(min_version)):
-                raise RuntimeError(f"Required {min_version}, found {version}")
+        if not (Version(version) >= Version(min_version)):
+            raise RuntimeError(f"Required {min_version}, found {version}")
     except ValueError:
         print(
             f"\n[!] Sorry, but our script could not parse the output of "
@@ -86,14 +80,7 @@ if fail:
     print()
     sys.exit(-1)
 
-print()
-try:
-    with status("Baselayer installed inside of app"):
-        if not (
-            os.path.exists("config.yaml") or os.path.exists("config.yaml.defaults")
-        ):
-            raise RuntimeError()
-except RuntimeError:
+if not (os.path.exists("config.yaml") or os.path.exists("config.yaml.defaults")):
     print(
         textwrap.dedent(
             """
@@ -109,5 +96,3 @@ except RuntimeError:
         )
     )
     sys.exit(-1)
-
-print("-" * 20)

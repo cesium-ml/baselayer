@@ -95,14 +95,14 @@ class Config(dict):
 
 def load_config(config_files=[], load_services_configs=True):
     basedir = Path(os.path.dirname(__file__)) / ".."
-    missing = [cfg for cfg in config_files if not os.path.isfile(cfg)]
+    # A missing config.yaml means the defaults; tools/env_summary.py says so
+    missing = [
+        cfg
+        for cfg in config_files
+        if not os.path.isfile(cfg) and os.path.basename(cfg) != "config.yaml"
+    ]
     if missing:
-        log(f"Missing config files: {', '.join(missing)}; continuing.")
-    if "config.yaml" in missing:
-        log(
-            "Warning: You are running on the default configuration. To configure your system, "
-            "please copy `config.yaml.defaults` to `config.yaml` and modify it as you see fit."
-        )
+        log(f"Missing config files: {', '.join(map(str, missing))}; continuing.")
 
     # Always load the default configuration values first, and override
     # with values in user configuration files
@@ -140,6 +140,6 @@ def load_config(config_files=[], load_services_configs=True):
     all_configs = [cfg for cfg in all_configs if os.path.exists(os.path.normpath(cfg))]
     all_configs = [os.path.abspath(Path(c).absolute()) for c in all_configs]
 
-    cfg = Config(all_configs, verbose=True)
+    cfg = Config(all_configs, verbose=False)
 
     return cfg

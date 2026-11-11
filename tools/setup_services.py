@@ -460,8 +460,6 @@ def copy_supervisor_configs(external_services=[]):
     if duplicates:
         raise RuntimeError(f"Duplicate service definitions found for {duplicates}")
 
-    log(f"Discovered {len(services)} services ({len(external_services)} external)")
-
     disabled = cfg["services.disabled"] or []
     enabled = cfg["services.enabled"] or []
 
@@ -487,8 +485,6 @@ def copy_supervisor_configs(external_services=[]):
     ]
 
     services_to_run = services_to_run.difference(incompatible)
-
-    log(f"Enabling {len(services_to_run)} services")
 
     forked = zygote_services(cfg, services_to_run)
 
@@ -517,6 +513,5 @@ def copy_supervisor_configs(external_services=[]):
 
 
 if __name__ == "__main__":
-    print()
     external_services = initialize_external_services()
     copy_supervisor_configs(external_services)
