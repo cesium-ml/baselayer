@@ -42,7 +42,8 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@uv sync --inexact --quiet  # don't remove additional dependencies installed by the user
+# --inexact keeps packages that the user installed; show the sync only when it installs
+	@uv sync --inexact --check --quiet 2>/dev/null || { echo "Installing Python packages:"; uv sync --inexact; }
 	@$(PYTHON) ./baselayer/tools/check_app_environment.py
 	@baselayer/tools/check_js_deps.sh
 
