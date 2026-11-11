@@ -106,7 +106,9 @@ The configuration keys are:
 - `zygote.services`: the services to fork from the zygote, as a list of
   service names (directory names), or `'*'` for all services.
 - `zygote.exclude`: the services to start by themselves, for example when
-  `zygote.services` is `'*'`.
+  `zygote.services` is `'*'`. The default is `[rspack]`: rspack runs in
+  Node.js, so forking its Python starter shares nothing. If you set this
+  list, include `rspack` in it.
 - `zygote.preload`: the modules that the zygote imports. If the list is
   empty, the zygote imports the module of `app.factory`.
 

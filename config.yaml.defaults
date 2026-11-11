@@ -147,8 +147,9 @@ zygote:
   # the zygote, which imports `preload` once so they share those modules.
   # Ignored on macOS, where services are always started on their own.
   services: []
-  # Services to leave out, e.g. when `services` is '*'
-  exclude: []
+  # Services to leave out, e.g. when `services` is '*'. rspack runs in
+  # Node.js; its Python starter has nothing to share.
+  exclude: [rspack]
   # Modules the zygote imports; empty means the module of `app.factory`.
   # Restart the zygote to pick up changes to them.
   preload: []
