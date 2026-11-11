@@ -42,7 +42,7 @@ def forked_pid(launcher_pid):
 
 
 def service_memory(name, pid):
-    """Return (process count, RSS, PSS) in bytes for a supervisor service.
+    """Return (process count, RSS, PSS, USS) in bytes for a supervisor service.
 
     A service forked from the zygote counts its launcher and its fork. The
     zygote counts only itself: its children are the forked services.
@@ -51,27 +51,32 @@ def service_memory(name, pid):
         # supervisord's children are the services, which have their own rows
         return tree_memory(pid, recursive=False)
 
-    count, rss, pss = tree_memory(pid)
+    total = tree_memory(pid)
     service = forked_pid(pid)
-    fork_count, fork_rss, fork_pss = tree_memory(service) if service else (0, 0, 0)
-    if fork_count:
-        count, rss = count + fork_count, rss + fork_rss
-        pss = pss + fork_pss if pss is not None and fork_pss is not None else None
-    return count, rss, pss
+    fork = tree_memory(service) if service else (0, 0, 0, 0)
+    if fork[0]:
+        total = tuple(_add(a, b) for a, b in zip(total, fork))
+    return total
+
+
+def _add(a, b):
+    return a + b if a is not None and b is not None else None
 
 
 def tree_memory(pid, recursive=True):
-    """Return (process count, RSS, PSS) in bytes for `pid` and its descendants.
+    """Return (process count, RSS, PSS, USS) in bytes for `pid` and its descendants.
 
-    PSS is None where it cannot be read (e.g., macOS).
+    RSS counts shared pages in each process, PSS divides them among the
+    processes that share them, and USS leaves them out. PSS and USS are None
+    where they cannot be read (e.g., PSS on macOS).
     """
     try:
         root = psutil.Process(pid)
         procs = [root] + (root.children(recursive=True) if recursive else [])
     except psutil.NoSuchProcess:
-        return 0, 0, None
+        return 0, 0, None, None
 
-    count, rss, pss = 0, 0, 0
+    count, rss, pss, uss = 0, 0, 0, 0
     for proc in procs:
         try:
             try:
@@ -82,9 +87,9 @@ def tree_memory(pid, recursive=True):
             continue
         count += 1
         rss += mem.rss
-        if pss is not None:
-            pss = pss + mem.pss if hasattr(mem, "pss") else None
-    return count, rss, pss
+        pss = _add(pss, getattr(mem, "pss", None))
+        uss = _add(uss, getattr(mem, "uss", None))
+    return count, rss, pss, uss
 
 
 def _mb(n):
@@ -95,34 +100,41 @@ def memory_table(pids):
     """Format the memory used by each service as a table, largest first."""
     rows = []
     for name, pid in pids.items():
-        count, rss, pss = service_memory(name, pid)
+        count, rss, pss, uss = service_memory(name, pid)
         if count:
-            rows.append((name, count, rss, pss))
+            rows.append((name, count, rss, pss, uss))
     if not rows:
         # e.g., supervisord runs in a container or other PID namespace
         return "supervisord is running, but none of its processes are visible here"
 
-    has_pss = all(pss is not None for *_, pss in rows)
+    has_pss = all(r[3] is not None for r in rows)
     rows.sort(key=lambda r: r[3] if has_pss else r[2], reverse=True)
-    rows.append(
-        (
-            "TOTAL",
-            sum(r[1] for r in rows),
-            sum(r[2] for r in rows),
-            sum(r[3] for r in rows) if has_pss else None,
-        )
-    )
+    totals = [sum(r[i] for r in rows) for i in (1, 2)]
+    for i in (3, 4):
+        values = [r[i] for r in rows]
+        totals.append(None if None in values else sum(values))
+    rows.append(("TOTAL", *totals))
 
     width = max(len(r[0]) for r in rows)
-    lines = [f"{'SERVICE':<{width}}  {'PROCS':>5}  {'RSS (MB)':>10}  {'PSS (MB)':>10}"]
-    for i, (name, count, rss, pss) in enumerate(rows):
-        if i == len(rows) - 1:
-            lines.append("-" * len(lines[0]))
-        lines.append(f"{name:<{width}}  {count:>5}  {_mb(rss)}  {_mb(pss)}")
-    lines.append("")
-    lines.append(
-        "RSS counts shared pages once per process; PSS divides them among the sharers."
+    header = f"{'SERVICE':<{width}}  {'PROCS':>5}" + "".join(
+        f"  {c + ' (MB)':>10}" for c in ("RSS", "PSS", "USS")
     )
+    lines = [header]
+    for i, (name, count, *mem) in enumerate(rows):
+        if i == len(rows) - 1:
+            lines.append("-" * len(header))
+        lines.append(
+            f"{name:<{width}}  {count:>5}" + "".join(f"  {_mb(m)}" for m in mem)
+        )
+    lines += [
+        "",
+        "RSS counts shared pages once per process; PSS divides them among the sharers;",
+        "USS counts only the pages that no other process uses.",
+    ]
+    if "zygote" in (r[0] for r in rows):
+        lines.append(
+            "Forked services share the zygote's RSS; their USS is what each one adds."
+        )
     return "\n".join(lines)
 
 
