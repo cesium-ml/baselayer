@@ -171,7 +171,9 @@ def test_memory_is_counted_for_the_service_not_the_zygote(zygote, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     # The launcher and its fork
-    assert service_memory("sleeper", launcher.pid)[0] == 2
+    count, rss, pss, uss = service_memory("sleeper", launcher.pid)
+    assert count == 2
+    assert 0 < uss <= pss <= rss
     assert service_memory("zygote", process.pid)[0] == 1
 
     launcher.send_signal(signal.SIGTERM)
