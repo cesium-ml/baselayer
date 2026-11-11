@@ -42,8 +42,13 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-# --inexact keeps packages that the user installed; show the sync only when it installs
-	@uv sync --inexact --check --quiet 2>/dev/null || { echo -e "$(B)Installing Python packages:$(N)"; uv sync --inexact; }
+# --inexact keeps packages that the user installed; show uv's output only when it installs
+	@if uv sync --inexact --check --quiet 2>/dev/null; then \
+		echo "[✓] Python packages"; \
+	else \
+		echo -e "$(B)[·] Installing Python packages$(N)"; \
+		uv sync --inexact && echo "[✓] Python packages"; \
+	fi
 	@$(PYTHON) ./baselayer/tools/check_app_environment.py
 	@baselayer/tools/check_js_deps.sh
 
@@ -85,7 +90,7 @@ run: system_setup
 	$(call LOG, Starting micro-services)
 	@echo
 	@echo " - Run \`make log\` in another terminal to view logs"
-	@echo " - Run \`make monitor\` in another terminal to restart services"
+	@echo " - Run \`make monitor\` in another terminal to view or restart services"
 	@echo " - If the app does not come up, check \`log/app*.log\`"
 	@echo
 	@echo "The server is in debug mode: JavaScript and Python files reload when they change."

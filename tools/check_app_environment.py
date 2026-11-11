@@ -5,6 +5,7 @@ import sys
 import textwrap
 
 from packaging.version import Version
+from status import status
 from get_js_installer import get_js_installer
 
 
@@ -41,28 +42,35 @@ deps = {
 }
 
 fail = []
+unparsed = None
 
-for dep, (cmd, get_version, min_version) in deps.items():
-    try:
-        success, out = output(cmd)
-        try:
-            version = get_version(out.decode("utf-8").strip())
-        except:  # noqa: E722
-            raise ValueError("Could not parse version")
+try:
+    with status(f"System dependencies: {', '.join(deps)}"):
+        for dep, (cmd, get_version, min_version) in deps.items():
+            try:
+                success, out = output(cmd)
+                try:
+                    version = get_version(out.decode("utf-8").strip())
+                except:  # noqa: E722
+                    unparsed = cmd
+                    raise ValueError("Could not parse version")
 
-        if not (Version(version) >= Version(min_version)):
-            raise RuntimeError(f"Required {min_version}, found {version}")
-    except ValueError:
-        print(
-            f"\n[!] Sorry, but our script could not parse the output of "
-            f"`{' '.join(cmd)}`; please file a bug, or see "
-            f"`check_app_environment.py`\n"
-        )
-        raise
-    except Exception as e:
-        fail.append((dep, e))
-
-if fail:
+                if not (Version(version) >= Version(min_version)):
+                    raise RuntimeError(f"Required {min_version}, found {version}")
+            except ValueError:
+                raise
+            except Exception as e:
+                fail.append((dep, e))
+        if fail:
+            raise RuntimeError("unsatisfied dependencies")
+except ValueError:
+    print(
+        f"\n[!] Sorry, but our script could not parse the output of "
+        f"`{' '.join(unparsed)}`; please file a bug, or see "
+        f"`check_app_environment.py`\n"
+    )
+    raise
+except RuntimeError:
     print()
     print("[!] Some system dependencies seem to be unsatisfied")
     print()

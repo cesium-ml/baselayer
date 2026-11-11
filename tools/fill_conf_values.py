@@ -4,6 +4,7 @@ import os
 import subprocess
 
 import jinja2
+from status import status
 
 from baselayer.app.auth_backends import configured_backends
 from baselayer.app.env import load_env
@@ -120,23 +121,24 @@ def fill_config_file_values(template_paths):
         }
     }
 
-    for template_path in template_paths:
-        tpath, tfile = os.path.split(template_path)
-        jenv = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(tpath),
-        )
-        jenv.filters.update(custom_filters)
+    with status(f"Configuration templates ({len(template_paths)})"):
+        for template_path in template_paths:
+            tpath, tfile = os.path.split(template_path)
+            jenv = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(tpath),
+            )
+            jenv.filters.update(custom_filters)
 
-        template = jenv.get_template(tfile)
-        cfg["env"] = env
-        # Resolved sign-in providers, so login templates can render one
-        # button each without repeating the default-to-Google fallback.
-        cfg["auth_backends"] = configured_backends()
-        rendered = template.render(cfg)
+            template = jenv.get_template(tfile)
+            cfg["env"] = env
+            # Resolved sign-in providers, so login templates can render one
+            # button each without repeating the default-to-Google fallback.
+            cfg["auth_backends"] = configured_backends()
+            rendered = template.render(cfg)
 
-        with open(os.path.splitext(template_path)[0], "w") as f:
-            f.write(rendered)
-            f.write("\n")
+            with open(os.path.splitext(template_path)[0], "w") as f:
+                f.write(rendered)
+                f.write("\n")
 
 
 if __name__ == "__main__":
