@@ -134,9 +134,23 @@ A forked service has the name of its supervisor program, so `top` and
 
 ### Rules for preloaded modules
 
-- Do not start threads, open database connections, or open sockets when
-  a preloaded module is imported. A fork does not copy threads, and
-  forked services must not share connections.
+The zygote imports the preloaded modules before it forks. Each service
+gets a copy of everything that these modules create at import time.
+Functions, classes, and data can be shared in this way, but threads and
+connections cannot:
+
+- **Threads.** A forked process has only the thread that called `fork()`.
+  A thread started at import time does not run in the services. If that
+  thread held a lock during the fork, the lock stays held in each
+  service, and code that waits for it hangs.
+- **Connections and sockets.** A database connection or socket opened at
+  import time becomes one connection that all services share. One service
+  can then receive a reply meant for another.
+
+Start threads and open connections in the service, after the fork.
+
+Also:
+
 - The zygote uses one thread for OpenBLAS, MKL, and OpenMP, and Arrow's
   jemalloc does not start a background thread.
 - The zygote does not see changes to the preloaded modules. Restart the
