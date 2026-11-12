@@ -1,5 +1,8 @@
 SHELL=/bin/bash
 
+# uv uses the project's .venv; another active environment only makes it warn
+unexport VIRTUAL_ENV
+
 .DEFAULT_GOAL := help
 
 # Use `config.yaml` by default, unless overridden by user
@@ -39,8 +42,13 @@ help:
 	@python ./baselayer/tools/makefile_to_help.py $(MAKEFILE_LIST)
 
 dependencies: README.md
-	@echo "$$ uv sync --inexact"
-	@uv sync --inexact  # don't remove additional dependencies installed by the user
+# --inexact keeps packages that the user installed; show uv's output only when it installs
+	@if uv sync --inexact --check --quiet 2>/dev/null; then \
+		echo "[✓] Python packages"; \
+	else \
+		echo -e "$(B)[·] Installing Python packages$(N)"; \
+		uv sync --inexact && echo "[✓] Python packages"; \
+	fi
 	@$(PYTHON) ./baselayer/tools/check_app_environment.py
 	@baselayer/tools/check_js_deps.sh
 
@@ -71,7 +79,7 @@ system_setup: | paths dependencies fill_conf_values service_setup
 service_setup:
 	@$(PYTHON) ./baselayer/tools/setup_services.py $(FLAGS)
 
-log: ## Monitor log files for all services.
+log: ## Follow the logs of all services.
 log: paths
 	@PYTHONPATH=. PYTHONUNBUFFERED=1 uv run python ./baselayer/tools/watch_logs.py
 
@@ -81,13 +89,14 @@ run: system_setup
 	@echo
 	$(call LOG, Starting micro-services)
 	@echo
-	@echo " - Run \`make log\` in another terminal to view logs"
-	@echo " - Run \`make monitor\` in another terminal to restart services"
-	@echo " - If the app does not come up, check \`log/app*.log\`"
+	@echo "In another terminal:"
+	@echo "  make log       follow the logs of all services"
+	@echo "  make status    list the services and their state"
+	@echo "  make monitor   start, stop, or restart services"
 	@echo
-	@echo "The server is in debug mode:"
+	@echo "If the app does not come up, check \`log/app*.log\`."
 	@echo
-	@echo "  JavaScript and Python files will be reloaded upon change."
+	@echo "The server is in debug mode: JavaScript and Python files reload when they change."
 	@echo
 	@export FLAGS="$(FLAGS)" && \
 	$(ENV_SUMMARY) && echo && \
@@ -111,7 +120,7 @@ run_testing: system_setup
 	$(ENV_SUMMARY) && \
 	$(SUPERVISORD)
 
-monitor: ## Monitor microservice status.
+monitor: ## Start, stop, or restart services.
 	@echo "Entering supervisor control panel."
 	@echo
 	@echo " - Type \`status\` to see microservice status"
@@ -130,7 +139,7 @@ clean:
 stop: ## Stop all running services and the supervisor itself.
 	@$(SUPERVISORCTL) shutdown
 
-status:
+status: ## List the services and their state.
 	@$(PYTHON) ./baselayer/tools/supervisor_status.py
 
 memory: ## Show memory used by each service.

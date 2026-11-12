@@ -8,9 +8,6 @@ from status import status
 
 from baselayer.app.auth_backends import configured_backends
 from baselayer.app.env import load_env
-from baselayer.log import make_log
-
-log = make_log("baselayer")
 
 
 def md5sum(fn):
@@ -111,7 +108,6 @@ custom_filters = {"md5sum": md5sum, "version": version, "hash": hash_filter}
 
 
 def fill_config_file_values(template_paths):
-    log("Compiling configuration templates")
     env, cfg = load_env()
     installed, dynamic, modules_path = nginx_brotli_installed()
     cfg["fill_config_feature"] = {
@@ -122,8 +118,8 @@ def fill_config_file_values(template_paths):
         }
     }
 
-    for template_path in template_paths:
-        with status(template_path):
+    with status(f"Configuration templates ({len(template_paths)})"):
+        for template_path in template_paths:
             tpath, tfile = os.path.split(template_path)
             jenv = jinja2.Environment(
                 loader=jinja2.FileSystemLoader(tpath),

@@ -41,34 +41,36 @@ deps = {
     "python": (["python", "--version"], lambda v: v.split()[1], "3.8"),
 }
 
-print("Checking system dependencies:")
-
 fail = []
+unparsed = None
 
-for dep, (cmd, get_version, min_version) in deps.items():
-    try:
-        query = f"{dep} >= {min_version}"
-        with status(query):
-            success, out = output(cmd)
+try:
+    with status(f"System dependencies: {', '.join(deps)}"):
+        for dep, (cmd, get_version, min_version) in deps.items():
             try:
-                version = get_version(out.decode("utf-8").strip())
-                print(f"[{version.rjust(8)}]".rjust(40 - len(query)), end="")
-            except:  # noqa: E722
-                raise ValueError("Could not parse version")
+                success, out = output(cmd)
+                try:
+                    version = get_version(out.decode("utf-8").strip())
+                except:  # noqa: E722
+                    unparsed = cmd
+                    raise ValueError("Could not parse version")
 
-            if not (Version(version) >= Version(min_version)):
-                raise RuntimeError(f"Required {min_version}, found {version}")
-    except ValueError:
-        print(
-            f"\n[!] Sorry, but our script could not parse the output of "
-            f"`{' '.join(cmd)}`; please file a bug, or see "
-            f"`check_app_environment.py`\n"
-        )
-        raise
-    except Exception as e:
-        fail.append((dep, e))
-
-if fail:
+                if not (Version(version) >= Version(min_version)):
+                    raise RuntimeError(f"Required {min_version}, found {version}")
+            except ValueError:
+                raise
+            except Exception as e:
+                fail.append((dep, e))
+        if fail:
+            raise RuntimeError("unsatisfied dependencies")
+except ValueError:
+    print(
+        f"\n[!] Sorry, but our script could not parse the output of "
+        f"`{' '.join(unparsed)}`; please file a bug, or see "
+        f"`check_app_environment.py`\n"
+    )
+    raise
+except RuntimeError:
     print()
     print("[!] Some system dependencies seem to be unsatisfied")
     print()
@@ -86,14 +88,7 @@ if fail:
     print()
     sys.exit(-1)
 
-print()
-try:
-    with status("Baselayer installed inside of app"):
-        if not (
-            os.path.exists("config.yaml") or os.path.exists("config.yaml.defaults")
-        ):
-            raise RuntimeError()
-except RuntimeError:
+if not (os.path.exists("config.yaml") or os.path.exists("config.yaml.defaults")):
     print(
         textwrap.dedent(
             """
@@ -109,5 +104,3 @@ except RuntimeError:
         )
     )
     sys.exit(-1)
-
-print("-" * 20)
