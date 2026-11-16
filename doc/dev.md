@@ -116,16 +116,7 @@ with VerifiedSession(user_or_token) as session:
 
 Inside a handler, `self.Session()` does the same, taking the user from `self.current_user`.
 
----
-
-**TODO:** Update write access enforcement documentation.
-
-We have fairly sophisticated access control, but this requires further documentation.
-For now, refer to the [SkyPortal Access Controldocumentation](https://skyportal.io/docs/permissions.html).
-Look at `CustomUserAccessControl` and all derivative classes of [`UserAccessControl`](https://github.com/cesium-ml/baselayer/blob/main/app/models.py#L298).
-Also see examples of how it is used in [SkyPortal models](https://github.com/skyportal/skyportal/tree/main/skyportal/models).
-
----
+The permissions it checks are described in [Access control](access_control.md).
 
 Each handler class can also call `self.Session()` as a stand-in for `VerifiedSession(self.current_user)`:
 
