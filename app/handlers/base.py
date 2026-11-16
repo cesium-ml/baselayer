@@ -83,13 +83,13 @@ class PSABaseHandler(RequestHandler):
                 ).first()
                 if user is None:
                     return None
-                sa = session.scalars(
-                    sqlalchemy.select(psa.TornadoStorage.user).where(
+                uids = session.scalars(
+                    sqlalchemy.select(psa.TornadoStorage.user.uid).where(
                         psa.TornadoStorage.user.user_id == user.id
                     )
-                ).first()
+                ).all()
                 # No SocialAuth entry; probably machine generated user
-                if sa is None or sa.uid.encode("utf-8") == oauth_uid:
+                if not uids or oauth_uid.decode("utf-8") in uids:
                     return user
                 return None
             except sqlalchemy.exc.SQLAlchemyError:
