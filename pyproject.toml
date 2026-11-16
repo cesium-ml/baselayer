@@ -36,7 +36,7 @@ ignore = ["UP038"]  # deprecated in Ruff; keep using tuples in isinstance()
 
 [dependency-groups]
 test = [
-    "playwright>=1.55",
+    "playwright>=1.63",
     "pytest>=8.0.0",
     "pytest-playwright>=0.7.1",
 ]
