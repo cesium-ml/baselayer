@@ -37,6 +37,13 @@ EXPECTED_EXCEPTIONS = [
 ]
 
 
+def is_expected_error(value):
+    # 4xx is the client's fault; only 5xx and uncaught exceptions are ours.
+    if isinstance(value, HTTPError) and 400 <= value.status_code < 500:
+        return True
+    return any(exception in str(value) for exception in EXPECTED_EXCEPTIONS)
+
+
 class NoValue:
     pass
 
@@ -125,18 +132,13 @@ class PSABaseHandler(RequestHandler):
 
     def write_error(self, status_code, exc_info=None):
         err = exc_info[1] if exc_info is not None else "An unknown error occurred"
+        if status_code == 500 and is_expected_error(err):
+            self.set_status(403)
         self.render("loginerror.html", app=cfg["app"], error_message=str(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
-        v_str = str(value)
-        # 4xx is the client's fault; only 5xx and uncaught exceptions are ours.
-        is_client_error = (
-            isinstance(value, HTTPError) and 400 <= value.status_code < 500
-        )
-        if is_client_error or any(
-            exception in v_str for exception in EXPECTED_EXCEPTIONS
-        ):
-            log(f"Error response returned by [{self.request.path}]: [{v_str}]")
+        if is_expected_error(value):
+            log(f"Error response returned by [{self.request.path}]: [{value}]")
         else:
             app_log.error(
                 "Uncaught exception %s\n%r",

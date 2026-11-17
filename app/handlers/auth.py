@@ -6,7 +6,7 @@ from social_core.backends.utils import get_backend
 from social_core.exceptions import AuthException, MissingBackend
 from social_core.utils import get_strategy, setting_name
 
-from baselayer.app.handlers.base import BaseHandler
+from baselayer.app.handlers.base import BaseHandler, PSABaseHandler
 from baselayer.log import make_log
 
 log = make_log("auth")
@@ -61,6 +61,8 @@ def _failed(handler, backend, exc):
 
 
 class AuthHandler(BaseHandler):
+    write_error = PSABaseHandler.write_error
+
     def get(self, backend):
         self._auth(backend)
 
@@ -76,6 +78,8 @@ class AuthHandler(BaseHandler):
 
 
 class CompleteHandler(BaseHandler):
+    write_error = PSABaseHandler.write_error
+
     def get(self, backend):
         self._complete(backend)
 
