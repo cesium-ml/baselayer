@@ -44,6 +44,12 @@ def is_expected_error(value):
     return any(exception in str(value) for exception in EXPECTED_EXCEPTIONS)
 
 
+def error_message(err):
+    if isinstance(err, HTTPError) and err.log_message:
+        return err.log_message % err.args if err.args else err.log_message
+    return str(err)
+
+
 class NoValue:
     pass
 
@@ -134,7 +140,7 @@ class PSABaseHandler(RequestHandler):
         err = exc_info[1] if exc_info is not None else "An unknown error occurred"
         if status_code == 500 and is_expected_error(err):
             self.set_status(403)
-        self.render("loginerror.html", app=cfg["app"], error_message=str(err))
+        self.render("loginerror.html", app=cfg["app"], error_message=error_message(err))
 
     def log_exception(self, typ=None, value=None, tb=None):
         if is_expected_error(value):
@@ -345,7 +351,7 @@ class BaseHandler(PSABaseHandler):
 
     def write_error(self, status_code, exc_info=None):
         err = exc_info[1] if exc_info is not None else "An unknown error occurred"
-        self.error(str(err), status=status_code)
+        self.error(error_message(err), status=status_code)
 
     def push_notification(self, note, notification_type="info"):
         self.push(

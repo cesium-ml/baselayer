@@ -83,8 +83,11 @@ def _authorize_user(handler):
 
 def _authorize_acls(handler, acl_list):
     granted = handler.current_user.permissions
-    if not (set(acl_list).issubset(granted) or "System admin" in granted):
-        raise tornado.web.HTTPError(403)
+    missing = set(acl_list) - set(granted)
+    if missing and "System admin" not in granted:
+        raise tornado.web.HTTPError(
+            403, "Missing permission: %s", ", ".join(sorted(missing))
+        )
 
 
 def auth_or_token(method):
